@@ -49,6 +49,13 @@ registerRoute('POST', '/api/pedidos/iniciar', pedidosController.iniciarPedido);
 registerRoute('POST', '/api/pedidos/finalizar', pedidosController.finalizarPedido);
 registerRoute('GET', '/api/pedidos/motoboy', pedidosController.listarPedidosMotoboy);
 
+const posicaoController = require('./src/controllers/posicaoController');
+
+// Posição GPS em Tempo Real
+registerRoute('POST', '/api/motoboy/posicao', posicaoController.atualizarPosicaoMotoboy);
+registerRoute('GET', '/api/traccar/location', posicaoController.webhookTraccarClient);
+registerRoute('POST', '/api/traccar/location', posicaoController.webhookTraccarClient);
+
 // Admin / Mapa
 registerRoute('GET', '/api/admin/posicoes-mapa', adminController.getPosicoesMapa);
 

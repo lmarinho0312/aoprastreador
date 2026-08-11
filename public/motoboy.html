@@ -401,6 +401,7 @@
           <div>
             <div class="user-name" id="userName">João Silva</div>
             <div class="user-phone" id="userPhone">11999998888</div>
+            <div id="gpsStatusBadge" style="font-size: 11px; color: #10b981; font-weight: 700; margin-top: 4px;">🟢 Ativando GPS ao vivo...</div>
           </div>
         </div>
         <button onclick="handleLogout()" class="btn-danger-sm">Sair</button>
@@ -481,7 +482,68 @@
       }
     }
 
+    let gpsInterval = null;
+
+    function iniciarRastreamentoGps() {
+      if (!currentMotoboy) return;
+      const badge = document.getElementById('gpsStatusBadge');
+
+      if (!('geolocation' in navigator)) {
+        if (badge) {
+          badge.textContent = '⚠️ GPS não suportado';
+          badge.style.color = '#f59e0b';
+        }
+        return;
+      }
+
+      const enviarPosicao = (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const speed = Math.round((pos.coords.speed || 0) * 3.6);
+
+        fetch('/api/motoboy/posicao', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            motoboy_id: currentMotoboy.id,
+            latitude: lat,
+            longitude: lng,
+            speed: speed
+          })
+        }).then(r => r.json()).then(data => {
+          if (data.success && badge) {
+            badge.innerHTML = '🟢 GPS Transmitindo (' + new Date().toLocaleTimeString('pt-BR') + ')';
+            badge.style.color = '#10b981';
+          }
+        }).catch(err => console.error('Erro ao enviar GPS:', err));
+      };
+
+      navigator.geolocation.getCurrentPosition(enviarPosicao, (err) => {
+        if (badge) {
+          badge.textContent = '⚠️ Permissão de GPS pendente/negada';
+          badge.style.color = '#ef4444';
+        }
+      }, { enableHighAccuracy: true });
+
+      if (gpsInterval) clearInterval(gpsInterval);
+      gpsInterval = setInterval(() => {
+        navigator.geolocation.getCurrentPosition(enviarPosicao, () => {}, {
+          enableHighAccuracy: true,
+          maximumAge: 3000,
+          timeout: 5000
+        });
+      }, 5000);
+    }
+
+    function pararRastreamentoGps() {
+      if (gpsInterval) {
+        clearInterval(gpsInterval);
+        gpsInterval = null;
+      }
+    }
+
     function showAuthView() {
+      pararRastreamentoGps();
       document.getElementById('authView').classList.remove('hidden');
       document.getElementById('dashboardView').classList.add('hidden');
     }
@@ -495,6 +557,7 @@
       document.getElementById('userInitial').textContent = currentMotoboy.nome.charAt(0).toUpperCase();
 
       carregarPedidosAtivos();
+      iniciarRastreamentoGps();
     }
 
     async function handleLogin(event) {
