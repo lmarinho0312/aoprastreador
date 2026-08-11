@@ -64,41 +64,44 @@ async function requestHandler(req, res) {
     return res.end();
   }
 
-  // Helper res.json (funciona tanto no Node http nativo quanto no Vercel)
-  if (!res.json) {
-    res.json = (statusCodeOrData, data) => {
-      let status = 200;
-      let payload = statusCodeOrData;
-      if (typeof statusCodeOrData === 'number') {
-        status = statusCodeOrData;
-        payload = data;
-      }
-      if (!res.headersSent) {
-        res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
-      }
-      res.end(JSON.stringify(payload));
-    };
-  }
+  // Helper res.json (funciona tanto no Node http nativo quanto na Vercel Serverless)
+  const originalJson = typeof res.json === 'function' ? res.json.bind(res) : null;
+  res.json = (statusCodeOrData, data) => {
+    let status = 200;
+    let payload = statusCodeOrData;
+    if (typeof statusCodeOrData === 'number') {
+      status = statusCodeOrData;
+      payload = data;
+    }
+    if (typeof res.status === 'function') {
+      return res.status(status).json(payload);
+    }
+    if (!res.headersSent) {
+      res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+    }
+    res.end(JSON.stringify(payload));
+  };
 
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
   req.query = Object.fromEntries(parsedUrl.searchParams);
 
-  // Parsear body
-  await new Promise((resolve) => {
-    let bodyData = '';
-    req.on('data', chunk => { bodyData += chunk; });
-    req.on('end', () => {
-      try { req.body = bodyData ? JSON.parse(bodyData) : {}; }
-      catch { req.body = {}; }
-      resolve();
+  // Parsear body se não existir ou se não tiver sido parseado pela Vercel
+  if (!req.body || (typeof req.body === 'object' && Object.keys(req.body).length === 0)) {
+    await new Promise((resolve) => {
+      let bodyData = '';
+      req.on('data', chunk => { bodyData += chunk; });
+      req.on('end', () => {
+        try { 
+          if (bodyData) req.body = JSON.parse(bodyData); 
+        } catch (e) {}
+        resolve();
+      });
+      if (req.readableEnded || req.complete) {
+        resolve();
+      }
     });
-    // Se o body já foi consumido (Vercel às vezes faz isso)
-    if (req.readableEnded) {
-      req.body = {};
-      resolve();
-    }
-  });
+  }
 
   // Roteamento
   const routeHandler = routes[req.method] && routes[req.method][pathname];
