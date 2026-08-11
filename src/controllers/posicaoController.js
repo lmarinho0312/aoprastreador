@@ -1,6 +1,29 @@
 const { getDb } = require('../database/db');
 
 /**
+ * Função auxiliar para salvar o ponto GPS no histórico das entregas ativas do motoboy
+ */
+async function gravarHistoricoRota(db, motoboyId, lat, lng, spd) {
+  try {
+    const pedidosAtivos = await db.query(
+      `SELECT id FROM pedidos WHERE motoboy_id = ? AND status = 'em_rota'`,
+      [motoboyId]
+    );
+
+    if (pedidosAtivos && pedidosAtivos.length > 0) {
+      for (const p of pedidosAtivos) {
+        await db.execute(
+          `INSERT INTO pedido_rotas (pedido_id, motoboy_id, latitude, longitude, velocidade) VALUES (?, ?, ?, ?, ?)`,
+          [p.id, motoboyId, lat, lng, spd]
+        );
+      }
+    }
+  } catch (err) {
+    console.error('⚠️ Erro ao gravar ponto de histórico da rota:', err.message);
+  }
+}
+
+/**
  * Endpoint para o Web App do Motoboy enviar sua localização GPS em tempo real (HTML5 Geolocation)
  * POST /api/motoboy/posicao
  * Body: { motoboy_id, latitude, longitude, speed }
@@ -22,18 +45,22 @@ async function atualizarPosicaoMotoboy(req, res) {
     }
 
     const db = getDb();
+    const motoboyIdNum = Number(motoboy_id);
     
-    // Atualizar no banco de dados
+    // 1. Atualizar última posição do motoboy
     const result = await db.execute(
       `UPDATE motoboys 
        SET latitude = ?, longitude = ?, velocidade = ?, ultima_atualizacao = CURRENT_TIMESTAMP 
        WHERE id = ?`,
-      [lat, lng, spd, Number(motoboy_id)]
+      [lat, lng, spd, motoboyIdNum]
     );
 
     if (result.changes === 0) {
       return res.json(404, { success: false, message: 'Motoboy não encontrado.' });
     }
+
+    // 2. Gravar ponto GPS no histórico de rotas das entregas ativas
+    await gravarHistoricoRota(db, motoboyIdNum, lat, lng, spd);
 
     return res.json(200, {
       success: true,
@@ -67,16 +94,25 @@ async function webhookTraccarClient(req, res) {
     const db = getDb();
     const deviceId = String(id).trim();
 
-    const result = await db.execute(
-      `UPDATE motoboys 
-       SET latitude = ?, longitude = ?, velocidade = ?, ultima_atualizacao = CURRENT_TIMESTAMP 
-       WHERE telefone = ? OR traccar_device_id = ?`,
-      [lat, lng, spd, deviceId, deviceId]
+    const motoboy = await db.queryOne(
+      `SELECT id FROM motoboys WHERE telefone = ? OR traccar_device_id = ?`,
+      [deviceId, deviceId]
     );
 
-    if (result.changes === 0) {
+    if (!motoboy) {
       return res.json(404, { success: false, message: `Nenhum motoboy encontrado com o ID/telefone ${deviceId}` });
     }
+
+    // 1. Atualizar última posição
+    await db.execute(
+      `UPDATE motoboys 
+       SET latitude = ?, longitude = ?, velocidade = ?, ultima_atualizacao = CURRENT_TIMESTAMP 
+       WHERE id = ?`,
+      [lat, lng, spd, motoboy.id]
+    );
+
+    // 2. Gravar ponto GPS no histórico de rotas das entregas ativas
+    await gravarHistoricoRota(db, motoboy.id, lat, lng, spd);
 
     return res.json(200, { success: true, message: 'GPS Traccar Client recebido com sucesso!' });
   } catch (error) {

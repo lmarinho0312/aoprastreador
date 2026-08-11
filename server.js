@@ -56,8 +56,11 @@ registerRoute('POST', '/api/motoboy/posicao', posicaoController.atualizarPosicao
 registerRoute('GET', '/api/traccar/location', posicaoController.webhookTraccarClient);
 registerRoute('POST', '/api/traccar/location', posicaoController.webhookTraccarClient);
 
-// Admin / Mapa
+// Admin / Mapa e Histórico
+const historicoController = require('./src/controllers/historicoController');
 registerRoute('GET', '/api/admin/posicoes-mapa', adminController.getPosicoesMapa);
+registerRoute('GET', '/api/admin/historico', historicoController.listarHistoricoEntregas);
+registerRoute('GET', '/api/admin/historico/rota', historicoController.obterRotaPedido);
 
 // ── Handler principal (usado pela Vercel e pelo servidor local) ────────────────
 async function requestHandler(req, res) {

@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS motoboys (
     telefone TEXT UNIQUE NOT NULL,
     senha TEXT NOT NULL,
     traccar_device_id TEXT UNIQUE NOT NULL,
+    latitude REAL,
+    longitude REAL,
+    velocidade REAL DEFAULT 0,
+    ultima_atualizacao DATETIME,
     criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -25,12 +29,24 @@ CREATE TABLE IF NOT EXISTS pedidos (
     FOREIGN KEY (motoboy_id) REFERENCES motoboys(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS pedido_rotas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pedido_id INTEGER NOT NULL,
+    motoboy_id INTEGER NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    velocidade REAL DEFAULT 0,
+    criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (pedido_id) REFERENCES pedidos(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_pedidos_motoboy_status ON pedidos(motoboy_id, status);
 CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status);
+CREATE INDEX IF NOT EXISTS idx_pedido_rotas_pedido ON pedido_rotas(pedido_id);
     `.trim();
 
     await db.exec(schema);
-    console.log('✅ Banco de dados e tabelas (motoboys, pedidos) criados com sucesso!');
+    console.log('✅ Tabelas (motoboys, pedidos, pedido_rotas) verificadas e criadas!');
   } catch (error) {
     console.error('❌ Erro ao inicializar o banco de dados:', error);
     process.exit(1);

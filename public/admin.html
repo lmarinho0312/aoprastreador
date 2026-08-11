@@ -45,7 +45,7 @@
 
     /* DASHBOARD LAYOUT */
     .app-sidebar {
-      width: 420px;
+      width: 440px;
       height: 100vh;
       background: var(--panel-bg);
       border-right: 1px solid var(--card-border);
@@ -69,7 +69,7 @@
 
     /* SIDEBAR HEADER */
     .sidebar-header {
-      padding: 20px;
+      padding: 18px 20px;
       border-bottom: 1px solid var(--card-border);
     }
 
@@ -77,18 +77,18 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .brand-logo {
-      width: 44px;
-      height: 44px;
+      width: 42px;
+      height: 42px;
       background: linear-gradient(135deg, #3b82f6, #10b981);
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 22px;
       box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
     }
 
@@ -115,12 +115,12 @@
       background: rgba(30, 41, 59, 0.5);
       border: 1px solid var(--card-border);
       border-radius: 10px;
-      padding: 10px;
+      padding: 8px;
       text-align: center;
     }
 
     .stat-val {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 800;
       color: #ffffff;
     }
@@ -133,9 +133,37 @@
       margin-top: 2px;
     }
 
+    /* TABS NAV */
+    .tab-nav-admin {
+      display: flex;
+      background: rgba(15, 23, 42, 0.9);
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--card-border);
+      gap: 8px;
+    }
+
+    .tab-btn-admin {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn-admin.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    }
+
     /* SEARCH BAR */
     .search-box {
-      padding: 16px 20px;
+      padding: 12px 20px;
       border-bottom: 1px solid var(--card-border);
     }
 
@@ -144,8 +172,8 @@
       background: rgba(15, 23, 42, 0.7);
       border: 1px solid rgba(255, 255, 255, 0.15);
       border-radius: 10px;
-      padding: 12px 14px 12px 38px;
-      font-size: 14px;
+      padding: 10px 14px 10px 38px;
+      font-size: 13px;
       color: #ffffff;
       outline: none;
       transition: all 0.2s;
@@ -169,42 +197,35 @@
       opacity: 0.6;
     }
 
-    /* MOTOBOY LIST */
-    .motoboy-list {
+    /* MOTOBOY & HISTÓRICO LIST */
+    .content-list {
       flex: 1;
       overflow-y: auto;
       padding: 16px 20px;
     }
 
-    .motoboy-card {
+    .card-item {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 14px;
-      padding: 16px;
+      padding: 14px 16px;
       margin-bottom: 12px;
-      cursor: pointer;
       transition: all 0.2s ease;
     }
 
-    .motoboy-card:hover {
-      transform: translateX(4px);
+    .card-item:hover {
       border-color: rgba(59, 130, 246, 0.4);
       background: rgba(30, 41, 59, 0.9);
     }
 
-    .motoboy-card.active {
-      border-color: var(--primary);
-      box-shadow: 0 0 15px rgba(59, 130, 246, 0.25);
-    }
-
-    .motoboy-header {
+    .card-item-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
 
-    .motoboy-name {
+    .card-title {
       font-size: 15px;
       font-weight: 700;
       color: #ffffff;
@@ -222,12 +243,14 @@
 
     .status-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
     .status-dot.idle { background: var(--warning); }
+    .status-dot.done { background: var(--primary); }
 
-    .motoboy-meta {
+    .card-meta {
       font-size: 12px;
       color: var(--text-muted);
       display: flex;
-      gap: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
       margin-bottom: 10px;
     }
 
@@ -245,6 +268,29 @@
       font-weight: 700;
       padding: 4px 8px;
       border-radius: 6px;
+    }
+
+    .btn-rota {
+      width: 100%;
+      padding: 8px 12px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      border: none;
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 8px;
+      transition: all 0.2s;
+    }
+
+    .btn-rota:hover {
+      opacity: 0.9;
+      transform: scale(1.01);
     }
 
     /* FOOTER STATUS BAR */
@@ -287,6 +333,30 @@
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
     }
 
+    .route-marker-start {
+      background: #10b981;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .route-marker-end {
+      background: #ef4444;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
     .leaflet-popup-content-wrapper {
       background: var(--panel-bg) !important;
       color: #ffffff !important;
@@ -296,42 +366,13 @@
       box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
     }
 
-    .leaflet-popup-tip {
-      background: var(--panel-bg) !important;
-    }
+    .leaflet-popup-tip { background: var(--panel-bg) !important; }
 
-    .popup-box {
-      padding: 12px;
-      min-width: 220px;
-    }
+    .popup-box { padding: 12px; min-width: 200px; }
+    .popup-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; color: #ffffff; }
+    .popup-phone { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
 
-    .popup-title {
-      font-size: 16px;
-      font-weight: 800;
-      margin-bottom: 4px;
-      color: #ffffff;
-    }
-
-    .popup-phone {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-bottom: 10px;
-    }
-
-    .popup-pedidos-title {
-      font-size: 11px;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--text-muted);
-      margin-bottom: 6px;
-    }
-
-    /* MEDIA QUERIES FOR MOBILE FLEXIBILITY */
-    @media (max-width: 768px) {
-      body { flex-direction: column; }
-      .app-sidebar { width: 100%; height: 50vh; }
-      .app-main { height: 50vh; }
-    }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -343,7 +384,7 @@
         <div class="brand-logo">🍽️</div>
         <div>
           <h1 class="brand-title">Painel da Cozinha</h1>
-          <p class="brand-subtitle">Monitoramento de Entregas em Tempo Real</p>
+          <p class="brand-subtitle">Monitoramento e Histórico de Entregas</p>
         </div>
       </div>
 
@@ -363,24 +404,35 @@
       </div>
     </div>
 
-    <!-- BUSCA DE PEDIDOS -->
+    <!-- TABS NAVEGAÇÃO -->
+    <div class="tab-nav-admin">
+      <button class="tab-btn-admin active" id="tabAoVivoBtn" onclick="trocarAbaAdmin('aovivo')">📡 Ao Vivo</button>
+      <button class="tab-btn-admin" id="tabHistoricoBtn" onclick="trocarAbaAdmin('historico')">📜 Histórico</button>
+    </div>
+
+    <!-- BUSCA DE PEDIDOS OU MOTOBOYS -->
     <div class="search-box">
       <div class="search-wrapper">
         <span class="search-icon">🔍</span>
-        <input type="text" id="searchInput" class="search-input" placeholder="Buscar por pedido (ex: 1049) ou motoboy..." oninput="filtrarMotoboys()">
+        <input type="text" id="searchInput" class="search-input" placeholder="Buscar por pedido ou motoboy..." oninput="filtrarConteudo()">
       </div>
     </div>
 
-    <!-- LISTA DE MOTOBOYS -->
-    <div class="motoboy-list" id="motoboyList">
-      <!-- Renderizado via JavaScript -->
+    <!-- VIEW 1: LISTA MOTOBOYS AO VIVO -->
+    <div class="content-list" id="motoboyList">
+      <!-- Renderizado via JS -->
+    </div>
+
+    <!-- VIEW 2: HISTÓRICO DE ENTREGAS -->
+    <div class="content-list hidden" id="historicoList">
+      <!-- Renderizado via JS -->
     </div>
 
     <!-- FOOTER DA BARRA LATERAL -->
     <div class="sidebar-footer">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span class="live-pulse"></span>
-        <span>ATUALIZANDO A CADA 5s</span>
+        <span id="footerStatusText">ATUALIZANDO A CADA 5s</span>
       </div>
       <span id="lastUpdateText">--:--:--</span>
     </div>
@@ -397,33 +449,61 @@
   <script>
     let map;
     let markers = {};
+    let activeRoutePolyline = null;
+    let routeMarkers = [];
     let motoboysData = [];
+    let historicoData = [];
+    let abaAtual = 'aovivo';
     let pollingInterval = null;
 
     // INICIALIZAÇÃO
     document.addEventListener('DOMContentLoaded', () => {
       initMap();
-      carregarDadosMapa();
-      pollingInterval = setInterval(carregarDadosMapa, 5000);
+      carregarDadosAoVivo();
+      pollingInterval = setInterval(() => {
+        if (abaAtual === 'aovivo') carregarDadosAoVivo();
+      }, 5000);
     });
 
     // INICIALIZAR LEAFLET MAP
     function initMap() {
-      // Ponto Inicial Padrão (Centro SP / Restaurante)
       map = L.map('map', { zoomControl: false }).setView([-23.5615, -46.6560], 13);
-
-      // Adicionar Controles de Zoom no Canto Superior Direito
       L.control.zoom({ position: 'topright' }).addTo(map);
-
-      // Tiles do OpenStreetMap
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap'
       }).addTo(map);
     }
 
-    // BUSCAR DADOS DA API /api/admin/posicoes-mapa
-    async function carregarDadosMapa() {
+    // ALTERNAR ABAS (AO VIVO / HISTÓRICO)
+    function trocarAbaAdmin(aba) {
+      abaAtual = aba;
+      const tabAoVivoBtn = document.getElementById('tabAoVivoBtn');
+      const tabHistoricoBtn = document.getElementById('tabHistoricoBtn');
+      const motoboyList = document.getElementById('motoboyList');
+      const historicoList = document.getElementById('historicoList');
+
+      limparRotaNoMapa();
+
+      if (aba === 'aovivo') {
+        tabAoVivoBtn.classList.add('active');
+        tabHistoricoBtn.classList.remove('active');
+        motoboyList.classList.remove('hidden');
+        historicoList.classList.add('hidden');
+        document.getElementById('footerStatusText').textContent = 'ATUALIZANDO A CADA 5s';
+        carregarDadosAoVivo();
+      } else {
+        tabHistoricoBtn.classList.add('active');
+        tabAoVivoBtn.classList.remove('active');
+        historicoList.classList.remove('hidden');
+        motoboyList.classList.add('hidden');
+        document.getElementById('footerStatusText').textContent = 'HISTÓRICO DE ENTREGAS';
+        carregarHistorico();
+      }
+    }
+
+    // BUSCAR DADOS DA API AO VIVO /api/admin/posicoes-mapa
+    async function carregarDadosAoVivo() {
       try {
         const response = await fetch('/api/admin/posicoes-mapa');
         const result = await response.json();
@@ -431,7 +511,6 @@
         if (response.ok && result.success) {
           motoboysData = result.data || [];
           
-          // Atualizar Métricas Globais
           document.getElementById('statMotoboys').textContent = result.total_motoboys || 0;
           document.getElementById('statPedidos').textContent = result.total_pedidos_em_rota || 0;
           
@@ -446,33 +525,33 @@
 
           document.getElementById('lastUpdateText').textContent = new Date().toLocaleTimeString('pt-BR');
 
-          // Renderizar Lista Lateral e Atualizar Marcadores no Mapa
-          renderizarListaSidebar();
-          atualizarMarcadoresMapa();
+          if (abaAtual === 'aovivo') {
+            renderizarListaMotoboys();
+            atualizarMarcadoresAoVivo();
+          }
         }
       } catch (err) {
         console.error('❌ Erro ao consultar posições do mapa:', err);
       }
     }
 
-    // RENDERIZAR LISTA LATERAL DE MOTOBOYS
-    function renderizarListaSidebar() {
+    // RENDERIZAR LISTA LATERAL DE MOTOBOYS (AO VIVO)
+    function renderizarListaMotoboys() {
       const container = document.getElementById('motoboyList');
       const termoBusca = document.getElementById('searchInput').value.toLowerCase().trim();
 
       const motoboysFiltrados = motoboysData.filter(m => {
         if (!termoBusca) return true;
-        const matchNome = m.nome.toLowerCase().includes(termoBusca);
-        const matchTelefone = m.telefone.toLowerCase().includes(termoBusca);
-        const matchPedido = m.pedidos_numeros.some(p => p.toLowerCase().includes(termoBusca));
-        return matchNome || matchTelefone || matchPedido;
+        return m.nome.toLowerCase().includes(termoBusca) ||
+               m.telefone.toLowerCase().includes(termoBusca) ||
+               m.pedidos_numeros.some(p => p.toLowerCase().includes(termoBusca));
       });
 
       if (motoboysFiltrados.length === 0) {
         container.innerHTML = `
           <div style="text-align: center; color: var(--text-muted); padding: 40px 10px;">
             <div style="font-size: 32px; margin-bottom: 8px;">🔍</div>
-            <p>Nenhum entregador ou pedido encontrado.</p>
+            <p>Nenhum entregador encontrado.</p>
           </div>
         `;
         return;
@@ -481,9 +560,9 @@
       container.innerHTML = motoboysFiltrados.map(m => {
         const temPedidos = m.pedidos_numeros.length > 0;
         return `
-          <div class="motoboy-card" onclick="focarMotoboyNoMapa(${m.motoboy_id})">
-            <div class="motoboy-header">
-              <div class="motoboy-name">
+          <div class="card-item" onclick="focarMotoboyNoMapa(${m.motoboy_id})" style="cursor: pointer;">
+            <div class="card-item-header">
+              <div class="card-title">
                 <span class="status-dot ${temPedidos ? 'active' : 'idle'}"></span>
                 ${m.nome}
               </div>
@@ -492,9 +571,12 @@
               </span>
             </div>
 
-            <div class="motoboy-meta">
+            <div class="card-meta">
               <span>📞 ${m.telefone}</span>
               <span>⚡ ${Math.round(m.speed || 0)} km/h</span>
+              <span style="color: ${m.origem_gps === 'gps_real' ? 'var(--accent)' : 'var(--text-muted)'}; font-weight: 700;">
+                ${m.origem_gps === 'gps_real' ? '📡 GPS Real' : '⚙️ Simulado'}
+              </span>
             </div>
 
             ${temPedidos ? `
@@ -509,18 +591,16 @@
       }).join('');
     }
 
-    // ATUALIZAR MARCADORES NO LEAFLET
-    function atualizarMarcadoresMapa() {
+    // ATUALIZAR MARCADORES DA VISTA AO VIVO
+    function atualizarMarcadoresAoVivo() {
       const bounds = [];
 
       motoboysData.forEach(m => {
         const lat = m.latitude;
         const lng = m.longitude;
-
         if (!lat || !lng) return;
 
         bounds.push([lat, lng]);
-
         const temPedidos = m.pedidos_numeros.length > 0;
         const pedidosHtml = temPedidos 
           ? m.pedidos_detalhes.map(p => `<span class="tag-pedido">#${p.numero_pedido}</span>`).join(' ')
@@ -530,17 +610,15 @@
           <div class="popup-box">
             <div class="popup-title">🛵 ${m.nome}</div>
             <div class="popup-phone">📞 ${m.telefone} | ⚡ ${Math.round(m.speed || 0)} km/h</div>
-            <div class="popup-pedidos-title">Pedidos Carregados:</div>
+            <div class="popup-pedidos-title">Pedidos em Rota:</div>
             <div class="pedidos-tags">${pedidosHtml}</div>
           </div>
         `;
 
         if (markers[m.motoboy_id]) {
-          // Atualizar posição suavemente
           markers[m.motoboy_id].setLatLng([lat, lng]);
           markers[m.motoboy_id].getPopup().setContent(popupContent);
         } else {
-          // Criar novo Marcador Customizado
           const customIcon = L.divIcon({
             className: 'custom-marker',
             html: '🛵',
@@ -556,14 +634,12 @@
         }
       });
 
-      // Ajustar o zoom inicial para enquadrar os motoboys na primeira leitura
       if (bounds.length > 0 && !window.mapBoundsAdjusted) {
         map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
         window.mapBoundsAdjusted = true;
       }
     }
 
-    // FOCAR NO MOTOBOY CLICADO
     function focarMotoboyNoMapa(motoboy_id) {
       const m = motoboysData.find(item => item.motoboy_id === motoboy_id);
       if (m && markers[motoboy_id]) {
@@ -572,9 +648,153 @@
       }
     }
 
-    // FILTRO DE BUSCA INSTANTÂNEO
-    function filtrarMotoboys() {
-      renderizarListaSidebar();
+    // --- CARREGAR HISTÓRICO DE ENTREGAS E ROTAS ---
+
+    async function carregarHistorico() {
+      const container = document.getElementById('historicoList');
+      container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 30px;">Carregando histórico...</div>`;
+
+      try {
+        const res = await fetch('/api/admin/historico');
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          historicoData = data.entregas || [];
+          renderizarListaHistorico();
+        } else {
+          container.innerHTML = `<div style="text-align: center; color: var(--danger); padding: 20px;">Falha ao carregar histórico.</div>`;
+        }
+      } catch (err) {
+        console.error('Erro no histórico:', err);
+      }
+    }
+
+    function renderizarListaHistorico() {
+      const container = document.getElementById('historicoList');
+      const termo = document.getElementById('searchInput').value.toLowerCase().trim();
+
+      const entregasFiltradas = historicoData.filter(e => {
+        if (!termo) return true;
+        return e.numero_pedido.toLowerCase().includes(termo) ||
+               e.motoboy.nome.toLowerCase().includes(termo) ||
+               e.motoboy.telefone.toLowerCase().includes(termo);
+      });
+
+      if (entregasFiltradas.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; color: var(--text-muted); padding: 40px 10px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">📦</div>
+            <p>Nenhuma entrega registrada no histórico.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = entregasFiltradas.map(e => {
+        const isEntregue = e.status === 'entregue';
+        const dataInicioFmt = e.data_inicio ? new Date(e.data_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+        const dataFimFmt = e.data_fim ? new Date(e.data_fim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Em andamento';
+
+        return `
+          <div class="card-item">
+            <div class="card-item-header">
+              <div class="card-title">
+                <span class="status-dot ${isEntregue ? 'done' : 'active'}"></span>
+                Pedido #${e.numero_pedido}
+              </div>
+              <span class="tag-pedido" style="background: ${isEntregue ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}; color: ${isEntregue ? '#6ee7b7' : '#fcd34d'}; border-color: ${isEntregue ? '#10b981' : '#f59e0b'};">
+                ${isEntregue ? 'ENTREGUE' : 'EM ROTA'}
+              </span>
+            </div>
+
+            <div class="card-meta">
+              <span>🛵 ${e.motoboy.nome}</span>
+              <span>⏱️ <strong>${e.duracao_minutos} min</strong></span>
+            </div>
+
+            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; display: flex; justify-content: space-between;">
+              <span>Início: ${dataInicioFmt}</span>
+              <span>Fim: ${dataFimFmt}</span>
+              <span>📍 ${e.total_pontos_gps} pontos GPS</span>
+            </div>
+
+            <button class="btn-rota" onclick="desenharRotaDoPedido(${e.pedido_id})">
+              🗺️ VER ROTA PERCORRIDA NO MAPA
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // DESENHAR ROTA NO LEAFLET MAP
+    async function desenharRotaDoPedido(pedido_id) {
+      limparRotaNoMapa();
+
+      try {
+        const res = await fetch(`/api/admin/historico/rota?pedido_id=${pedido_id}`);
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          alert('Não foi possível obter os pontos da rota deste pedido.');
+          return;
+        }
+
+        const pontos = data.pontos || [];
+        const pedido = data.pedido;
+
+        if (pontos.length === 0) {
+          alert(`O pedido #${pedido.numero_pedido} não possui pontos de GPS gravados durante a entrega.`);
+          return;
+        }
+
+        const latLngs = pontos.map(p => [p.latitude, p.longitude]);
+
+        // 1. Desenhar a Polyline (linha azul brilhante no mapa)
+        activeRoutePolyline = L.polyline(latLngs, {
+          color: '#3b82f6',
+          weight: 5,
+          opacity: 0.85,
+          smoothFactor: 1
+        }).addTo(map);
+
+        // 2. Marcador de Início (Verde 🏁)
+        const startPoint = latLngs[0];
+        const startIcon = L.divIcon({ className: 'route-marker-start', html: '🟢', iconSize: [28, 28] });
+        const startMarker = L.marker(startPoint, { icon: startIcon })
+          .bindPopup(`<b>🟢 Início da Entrega #${pedido.numero_pedido}</b><br>Horário: ${new Date(pontos[0].criado_em).toLocaleTimeString('pt-BR')}`)
+          .addTo(map);
+        routeMarkers.push(startMarker);
+
+        // 3. Marcador de Fim (Vermelho 🏁)
+        const endPoint = latLngs[latLngs.length - 1];
+        const endIcon = L.divIcon({ className: 'route-marker-end', html: '🏁', iconSize: [28, 28] });
+        const endMarker = L.marker(endPoint, { icon: endIcon })
+          .bindPopup(`<b>🏁 Fim da Entrega #${pedido.numero_pedido}</b><br>Entregador: ${pedido.motoboy.nome}<br>Duração Total: <strong>${pedido.duracao_minutos} min</strong>`)
+          .addTo(map);
+        routeMarkers.push(endMarker);
+
+        // 4. Enquadrar o mapa no percurso
+        map.fitBounds(activeRoutePolyline.getBounds(), { padding: [60, 60] });
+        endMarker.openPopup();
+
+      } catch (err) {
+        console.error('Erro ao desenhar rota:', err);
+        alert('Erro ao carregar mapa da rota.');
+      }
+    }
+
+    function limparRotaNoMapa() {
+      if (activeRoutePolyline) {
+        map.removeLayer(activeRoutePolyline);
+        activeRoutePolyline = null;
+      }
+      routeMarkers.forEach(m => map.removeLayer(m));
+      routeMarkers = [];
+    }
+
+    function filtrarConteudo() {
+      if (abaAtual === 'aovivo') renderizarListaMotoboys();
+      else renderizarListaHistorico();
     }
   </script>
 </body>
