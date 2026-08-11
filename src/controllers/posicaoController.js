@@ -75,7 +75,7 @@ async function atualizarPosicaoMotoboy(req, res) {
 }
 
 /**
- * Protocolo Traccar Client HTTP Webhook
+ * Protocolo Traccar Client / OsmAnd HTTP Webhook (PRIORIDADE NÚMERO 1 PARA SEGUNDO PLANO)
  * GET ou POST /api/traccar/location?id=TELEFONE&lat=LAT&lon=LON&speed=SPEED
  */
 async function webhookTraccarClient(req, res) {
@@ -83,42 +83,68 @@ async function webhookTraccarClient(req, res) {
     const query = req.query || {};
     const body = req.body || {};
 
-    const id = query.id || body.id || query.deviceid || body.deviceid;
-    const lat = Number(query.lat || query.latitude || body.lat || body.latitude);
-    const lng = Number(query.lon || query.longitude || body.lon || body.longitude);
-    const spd = Number(query.speed || body.speed || 0);
+    // Suporte amplo aos nomes de parâmetros do Traccar Client / OsmAnd / GPS Hardware
+    const rawId = query.id || body.id || query.deviceId || body.deviceId || query.device_id || body.device_id || query.uniqueId || body.uniqueId;
+    const rawLat = query.lat ?? query.latitude ?? body.lat ?? body.latitude;
+    const rawLng = query.lon ?? query.lng ?? query.longitude ?? body.lon ?? body.lng ?? body.longitude;
+    
+    let rawSpeed = query.speed ?? body.speed ?? query.velocidade ?? body.velocidade ?? 0;
+    let speedKmH = Number(rawSpeed || 0);
 
-    if (!id || isNaN(lat) || isNaN(lng)) {
+    // Se a velocidade for enviada em nós (padrão OsmAnd), converte para km/h se apropriado
+    if (query.speed && !query.speed_unit) {
+      const parsedSpd = Number(query.speed);
+      if (!isNaN(parsedSpd) && parsedSpd < 100) {
+        speedKmH = Math.round(parsedSpd * 1.852);
+      }
+    }
+
+    if (!rawId || rawLat === undefined || rawLng === undefined) {
       return res.json(400, { success: false, message: 'Parâmetros id, lat e lon são obrigatórios.' });
     }
 
-    const db = getDb();
-    const deviceId = String(id).trim();
+    const deviceId = String(rawId).trim();
+    const lat = Number(rawLat);
+    const lng = Number(rawLng);
 
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.json(400, { success: false, message: 'Latitude ou longitude inválidas.' });
+    }
+
+    const db = getDb();
+
+    // Buscar motoboy por telefone ou traccar_device_id
     const motoboy = await db.queryOne(
       `SELECT id FROM motoboys WHERE telefone = ? OR traccar_device_id = ?`,
       [deviceId, deviceId]
     );
 
     if (!motoboy) {
-      return res.json(404, { success: false, message: `Nenhum motoboy encontrado com o ID/telefone ${deviceId}` });
+      console.warn(`⚠️ Webhook Traccar: Nenhum motoboy encontrado para ID/telefone "${deviceId}"`);
+      if (!res.headersSent) res.writeHead(404, { 'Content-Type': 'text/plain' });
+      return res.end('MOTOBOY_NOT_FOUND');
     }
 
-    // 1. Atualizar última posição (Horário de Brasília)
+    // 1. Atualizar última posição do motoboy no banco (Horário de Brasília)
     await db.execute(
       `UPDATE motoboys 
        SET latitude = ?, longitude = ?, velocidade = ?, ultima_atualizacao = DATETIME('now', '-3 hours') 
        WHERE id = ?`,
-      [lat, lng, spd, motoboy.id]
+      [lat, lng, speedKmH, motoboy.id]
     );
 
-    // 2. Gravar ponto GPS no histórico de rotas das entregas ativas
-    await gravarHistoricoRota(db, motoboy.id, lat, lng, spd);
+    // 2. Gravar ponto GPS no histórico de rotas de TODAS as entregas ativas do motoboy
+    await gravarHistoricoRota(db, motoboy.id, lat, lng, speedKmH);
 
-    return res.json(200, { success: true, message: 'GPS Traccar Client recebido com sucesso!' });
+    // Traccar Client / OsmAnd espera HTTP status 200 com texto "OK"
+    if (!res.headersSent) {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    }
+    return res.end('OK');
   } catch (error) {
     console.error('❌ Erro no webhook Traccar Client:', error);
-    return res.json(500, { success: false, message: 'Erro interno no webhook Traccar.', error: error.message });
+    if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain' });
+    return res.end('SERVER_ERROR');
   }
 }
 
