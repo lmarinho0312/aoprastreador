@@ -64,8 +64,7 @@ async function requestHandler(req, res) {
     return res.end();
   }
 
-  // Helper res.json (funciona tanto no Node http nativo quanto na Vercel Serverless)
-  const originalJson = typeof res.json === 'function' ? res.json.bind(res) : null;
+  // Helper res.json (compatível com Node http nativo e Vercel Serverless)
   res.json = (statusCodeOrData, data) => {
     let status = 200;
     let payload = statusCodeOrData;
@@ -73,11 +72,9 @@ async function requestHandler(req, res) {
       status = statusCodeOrData;
       payload = data;
     }
-    if (typeof res.status === 'function') {
-      return res.status(status).json(payload);
-    }
     if (!res.headersSent) {
-      res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.statusCode = status;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
     }
     res.end(JSON.stringify(payload));
   };
