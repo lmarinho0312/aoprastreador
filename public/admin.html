@@ -889,7 +889,34 @@
       }).join('');
     }
 
-    // DESENHAR ROTA PERCORRIDA COM TRAÇADO NEON E PONTOS GPS
+    // Tentar Snap-to-Roads via OSRM Match API para encaixar o trajeto perfeitamente nas vias reais
+    async function obterGeometriaViasOsrm(pontos) {
+      if (!pontos || pontos.length < 2) return null;
+      try {
+        const amostragem = pontos.length > 80 
+          ? pontos.filter((_, idx) => idx % Math.ceil(pontos.length / 80) === 0 || idx === pontos.length - 1)
+          : pontos;
+
+        const coordsStr = amostragem.map(p => `${p.longitude},${p.latitude}`).join(';');
+        const url = `https://router.project-osrm.org/match/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 4500);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(tid);
+
+        const data = await res.json();
+        if (res.ok && data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
+          const coordsGeoJson = data.matchings[0].geometry.coordinates;
+          return coordsGeoJson.map(c => [c[1], c[0]]);
+        }
+      } catch (err) {
+        console.warn('⚠️ OSRM Snap-to-Roads indisponível. Exibindo linha de GPS purificada:', err.message);
+      }
+      return null;
+    }
+
+    // DESENHAR ROTA PERCORRIDA COM TRAÇADO ENCAIXADO NAS VIAS E PONTOS GPS
     async function desenharRotaDoPedido(pedido_id) {
       limparRotaNoMapa();
 
@@ -910,7 +937,14 @@
           return;
         }
 
-        const latLngs = pontos.map(p => [p.latitude, p.longitude]);
+        const rawLatLngs = pontos.map(p => [p.latitude, p.longitude]);
+
+        // Tentar buscar o traçado encaixado nas vias (Snap-to-Roads)
+        let latLngsFinal = rawLatLngs;
+        const snappedVias = await obterGeometriaViasOsrm(pontos);
+        if (snappedVias && snappedVias.length > 0) {
+          latLngsFinal = snappedVias;
+        }
 
         // Alternar para o Mapa no Mobile
         alternarTelaMobile('map');
@@ -918,22 +952,22 @@
         setTimeout(() => {
           map.invalidateSize();
 
-          // 1. Linha de Fundo (Escura/Glow)
-          activeRoutePolylineBg = L.polyline(latLngs, {
-            color: '#003366',
+          // 1. Linha de Fundo (Sombra Escura)
+          activeRoutePolylineBg = L.polyline(latLngsFinal, {
+            color: '#00264d',
             weight: 10,
-            opacity: 0.7
+            opacity: 0.8
           }).addTo(map);
 
           // 2. Linha Principal (Azul Neon Brilhante #00ffff)
-          activeRoutePolylineFg = L.polyline(latLngs, {
+          activeRoutePolylineFg = L.polyline(latLngsFinal, {
             color: '#00ffff',
-            weight: 6,
+            weight: 5,
             opacity: 0.95,
             smoothFactor: 1
           }).addTo(map);
 
-          // 3. Desenhar PONTOS INTERMEDIÁRIOS de GPS ao longo da rota
+          // 3. Desenhar PONTOS INTERMEDIÁRIOS de GPS capturados ao longo da rota
           pontos.forEach((p, idx) => {
             const isStart = idx === 0;
             const isEnd = idx === pontos.length - 1;
@@ -952,25 +986,25 @@
               routeMarkers.push(endMarker);
             } else {
               const circle = L.circleMarker([p.latitude, p.longitude], {
-                radius: 6,
+                radius: 5,
                 color: '#00ffff',
                 fillColor: '#3b82f6',
                 fillOpacity: 0.9,
                 weight: 2
-              }).bindPopup(`<b>📍 Ponto GPS #${idx + 1}</b><br>Horário: ${formatarHoraBrasilia(p.criado_em)}<br>Velocidade: ${Math.round(p.velocidade)} km/h`)
+              }).bindPopup(`<b>📍 Ping GPS #${idx + 1}</b><br>Horário: ${formatarHoraBrasilia(p.criado_em)}<br>Velocidade: ${Math.round(p.velocidade)} km/h`)
                 .addTo(map);
               routeMarkers.push(circle);
             }
           });
 
           // 4. Enquadrar o mapa para exibir todo o percurso
-          if (latLngs.length > 1) {
+          if (latLngsFinal.length > 1) {
             map.fitBounds(activeRoutePolylineFg.getBounds(), { padding: [60, 60] });
           } else {
-            map.setView(latLngs[0], 16);
+            map.setView(latLngsFinal[0], 16);
           }
 
-          exibirToastMapa(`📍 Exibindo rota do pedido #${pedido.numero_pedido} (${pontos.length} pings, ${pedido.duracao_minutos} min)`);
+          exibirToastMapa(`📍 Rota #${pedido.numero_pedido} ajustada às vias (${pontos.length} pings, ${pedido.duracao_minutos} min)`);
         }, 300);
 
       } catch (err) {
