@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Motoboy App - Sistema de Entregas</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.75);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --danger: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.15) 0px, transparent 50%);
+      background-attachment: fixed;
+      padding: 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    /* GLASSMORPHISM CARD */
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      margin-bottom: 20px;
+    }
+
+    /* TABS NAV */
+    .tab-nav {
+      display: flex;
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 20px;
+      border: 1px solid var(--card-border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    }
+
+    /* HEADER */
+    .brand-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .brand-icon {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, #3b82f6, #10b981);
+      border-radius: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      margin-bottom: 12px;
+      box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+    }
+
+    .brand-title {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(to right, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* FORM INPUTS */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 15px;
+      color: var(--text-main);
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .form-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+      background: rgba(15, 23, 42, 0.85);
+    }
+
+    /* BUTTONS */
+    .btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: #ffffff;
+    }
+
+    .btn-primary:active { transform: scale(0.98); }
+
+    .btn-accent {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #ffffff;
+    }
+
+    .btn-accent:active { transform: scale(0.98); }
+
+    .btn-danger-sm {
+      padding: 8px 14px;
+      font-size: 13px;
+      border-radius: 10px;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+
+    /* DASHBOARD TOP BAR */
+    .user-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 14px 18px;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #10b981, #3b82f6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .user-name { font-size: 15px; font-weight: 700; }
+    .user-phone { font-size: 12px; color: var(--text-muted); }
+
+    /* PEDIDO ITEMS */
+    .pedidos-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .section-title { font-size: 16px; font-weight: 700; }
+
+    .badge-count {
+      background: var(--primary);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    .pedido-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .pedido-num {
+      font-size: 18px;
+      font-weight: 800;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pedido-time {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .status-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text-muted);
+    }
+
+    .empty-icon { font-size: 40px; margin-bottom: 8px; opacity: 0.6; }
+
+    /* TOAST NOTIFICATION */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--card-border);
+      color: #ffffff;
+      padding: 14px 24px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast.success { border-color: var(--accent); }
+    #toast.error { border-color: var(--danger); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- TELA DE AUTH (LOGIN / CADASTRO) -->
+    <div id="authView">
+      <div class="glass-card">
+        <div class="brand-header">
+          <div class="brand-icon">🛵</div>
+          <h1 class="brand-title">Motoboy Entregas</h1>
+          <p class="brand-subtitle">Acesso para entregadores do restaurante</p>
+        </div>
+
+        <!-- TABS DE NAVEGAÇÃO ENTRAR / CADASTRAR -->
+        <div class="tab-nav">
+          <button class="tab-btn active" id="tabLoginBtn" onclick="switchAuthTab('login')">Entrar</button>
+          <button class="tab-btn" id="tabRegisterBtn" onclick="switchAuthTab('register')">Novo Cadastro</button>
+        </div>
+
+        <!-- FORMULÁRIO DE LOGIN -->
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label class="form-label" for="telefoneInput">Telefone (Login)</label>
+            <input type="tel" id="telefoneInput" class="form-input" placeholder="Ex: 11999998888" value="11999998888" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="senhaInput">Senha</label>
+            <input type="password" id="senhaInput" class="form-input" placeholder="••••••••" value="123456" required>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="loginBtn">
+            <span>ENTRAR NO SISTEMA</span>
+          </button>
+        </form>
+
+        <!-- FORMULÁRIO DE NOVO CADASTRO -->
+        <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
+          <div class="form-group">
+            <label class="form-label" for="regNomeInput">Nome Completo</label>
+            <input type="text" id="regNomeInput" class="form-input" placeholder="Ex: Carlos Andrade" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regTelefoneInput">Telefone com DDD</label>
+            <input type="tel" id="regTelefoneInput" class="form-input" placeholder="Ex: 11977776666" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regSenhaInput">Criar Senha</label>
+            <input type="password" id="regSenhaInput" class="form-input" placeholder="Digite uma senha segura" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regDeviceIdInput">ID Traccar Client (Número do celular no app)</label>
+            <input type="text" id="regDeviceIdInput" class="form-input" placeholder="Ex: 11977776666 (Deixe igual ao telefone)">
+          </div>
+
+          <button type="submit" class="btn btn-accent" id="registerBtn">
+            <span>CADASTRAR MOTOBOY</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- TELA DO DASHBOARD MOTOBOY -->
+    <div id="dashboardView" class="hidden">
+      <!-- BARRA SUPERIOR MOTOBOY -->
+      <div class="user-bar">
+        <div class="user-info">
+          <div class="avatar" id="userInitial">J</div>
+          <div>
+            <div class="user-name" id="userName">João Silva</div>
+            <div class="user-phone" id="userPhone">11999998888</div>
+          </div>
+        </div>
+        <button onclick="handleLogout()" class="btn-danger-sm">Sair</button>
+      </div>
+
+      <!-- PAINEL DE INICIAR NOVO PEDIDO -->
+      <div class="glass-card">
+        <h2 class="section-title" style="margin-bottom: 12px;">📦 Iniciar Nova Entrega</h2>
+        <form onsubmit="handleIniciarPedido(event)">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <input type="number" id="numeroPedidoInput" class="form-input" placeholder="Digite o número do pedido (ex: 1045)" inputmode="numeric" required>
+          </div>
+          <button type="submit" class="btn btn-accent" id="iniciarBtn">
+            <span>+ INICIAR ENTREGA</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- LISTA DE PEDIDOS EM ANDAMENTO -->
+      <div class="glass-card">
+        <div class="pedidos-header">
+          <h2 class="section-title">🚀 Entregas em Rota</h2>
+          <span class="badge-count" id="pedidosCount">0</span>
+        </div>
+
+        <div id="pedidosList">
+          <!-- Renderizado via JavaScript -->
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TOAST FEEDBACK -->
+  <div id="toast">
+    <span id="toastIcon">ℹ️</span>
+    <span id="toastMsg">Mensagem de alerta</span>
+  </div>
+
+  <script>
+    let currentMotoboy = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      checkStoredSession();
+    });
+
+    function checkStoredSession() {
+      const stored = localStorage.getItem('motoboySession');
+      if (stored) {
+        try {
+          currentMotoboy = JSON.parse(stored);
+          showDashboardView();
+        } catch (e) {
+          localStorage.removeItem('motoboySession');
+          showAuthView();
+        }
+      } else {
+        showAuthView();
+      }
+    }
+
+    function switchAuthTab(tab) {
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const tabLoginBtn = document.getElementById('tabLoginBtn');
+      const tabRegisterBtn = document.getElementById('tabRegisterBtn');
+
+      if (tab === 'login') {
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+        tabLoginBtn.classList.add('active');
+        tabRegisterBtn.classList.remove('active');
+      } else {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+        tabLoginBtn.classList.remove('active');
+        tabRegisterBtn.classList.add('active');
+      }
+    }
+
+    function showAuthView() {
+      document.getElementById('authView').classList.remove('hidden');
+      document.getElementById('dashboardView').classList.add('hidden');
+    }
+
+    function showDashboardView() {
+      document.getElementById('authView').classList.add('hidden');
+      document.getElementById('dashboardView').classList.remove('hidden');
+
+      document.getElementById('userName').textContent = currentMotoboy.nome;
+      document.getElementById('userPhone').textContent = currentMotoboy.telefone;
+      document.getElementById('userInitial').textContent = currentMotoboy.nome.charAt(0).toUpperCase();
+
+      carregarPedidosAtivos();
+    }
+
+    async function handleLogin(event) {
+      event.preventDefault();
+      const telefone = document.getElementById('telefoneInput').value;
+      const senha = document.getElementById('senhaInput').value;
+      const btn = document.getElementById('loginBtn');
+
+      btn.disabled = true;
+      btn.innerText = 'Autenticando...';
+
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefone, senha })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          currentMotoboy = data.motoboy;
+          localStorage.setItem('motoboySession', JSON.stringify(currentMotoboy));
+          showToast('👋 Bem-vindo, ' + currentMotoboy.nome + '!', 'success');
+          showDashboardView();
+        } else {
+          showToast(data.message || 'Falha no login', 'error');
+        }
+      } catch (err) {
+        showToast('Erro de conexão com o servidor', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'ENTRAR NO SISTEMA';
+      }
+    }
+
+    async function handleRegister(event) {
+      event.preventDefault();
+      const nome = document.getElementById('regNomeInput').value;
+      const telefone = document.getElementById('regTelefoneInput').value;
+      const senha = document.getElementById('regSenhaInput').value;
+      let traccar_device_id = document.getElementById('regDeviceIdInput').value;
+
+      if (!traccar_device_id) traccar_device_id = telefone;
+
+      const btn = document.getElementById('registerBtn');
+      btn.disabled = true;
+      btn.innerText = 'Cadastrando...';
+
+      try {
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome, telefone, senha, traccar_device_id })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          showToast('🎉 Motoboy cadastrado! Faça login.', 'success');
+          document.getElementById('telefoneInput').value = data.motoboy.telefone;
+          document.getElementById('senhaInput').value = senha;
+          switchAuthTab('login');
+        } else {
+          showToast(data.message || 'Erro ao cadastrar motoboy', 'error');
+        }
+      } catch (err) {
+        showToast('Erro ao comunicar com o servidor', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'CADASTRAR MOTOBOY';
+      }
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('motoboySession');
+      currentMotoboy = null;
+      showToast('Sessão encerrada com sucesso.', 'info');
+      showAuthView();
+    }
+
+    async function carregarPedidosAtivos() {
+      if (!currentMotoboy) return;
+      const listContainer = document.getElementById('pedidosList');
+
+      try {
+        const response = await fetch(`/api/pedidos/motoboy?motoboy_id=${currentMotoboy.id}`);
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          const pedidos = data.pedidos || [];
+          document.getElementById('pedidosCount').textContent = pedidos.length;
+
+          if (pedidos.length === 0) {
+            listContainer.innerHTML = `
+              <div class="empty-state">
+                <div class="empty-icon">🛵</div>
+                <p>Nenhuma entrega em rota no momento.</p>
+                <span style="font-size: 12px;">Digite o número acima para iniciar.</span>
+              </div>
+            `;
+            return;
+          }
+
+          listContainer.innerHTML = pedidos.map(p => `
+            <div class="pedido-card">
+              <div>
+                <div class="pedido-num">
+                  #${p.numero_pedido}
+                  <span class="status-badge">EM ROTA</span>
+                </div>
+                <div class="pedido-time">
+                  ⏱️ Há ${p.minutos_em_rota || 0} min
+                </div>
+              </div>
+              <button onclick="handleFinalizarPedido(${p.id}, '${p.numero_pedido}')" class="btn btn-accent" style="width: auto; padding: 10px 16px; font-size: 13px;">
+                ✓ CONCLUIR
+              </button>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        console.error('Erro ao carregar pedidos:', err);
+      }
+    }
+
+    async function handleIniciarPedido(event) {
+      event.preventDefault();
+      const input = document.getElementById('numeroPedidoInput');
+      const numero_pedido = input.value.trim();
+      if (!numero_pedido || !currentMotoboy) return;
+
+      const btn = document.getElementById('iniciarBtn');
+      btn.disabled = true;
+
+      try {
+        const response = await fetch('/api/pedidos/iniciar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            numero_pedido,
+            motoboy_id: currentMotoboy.id
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          showToast(`✅ Pedido #${numero_pedido} iniciado!`, 'success');
+          input.value = '';
+          carregarPedidosAtivos();
+        } else {
+          showToast(data.message || 'Erro ao iniciar pedido', 'error');
+        }
+      } catch (err) {
+        showToast('Erro ao comunicar com o servidor', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function handleFinalizarPedido(pedido_id, numero_pedido) {
+      if (!confirm(`Confirmar a entrega do pedido #${numero_pedido}?`)) return;
+
+      try {
+        const response = await fetch('/api/pedidos/finalizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pedido_id,
+            motoboy_id: currentMotoboy.id
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          showToast(`🎉 Pedido #${numero_pedido} entregue!`, 'success');
+          carregarPedidosAtivos();
+        } else {
+          showToast(data.message || 'Erro ao finalizar pedido', 'error');
+        }
+      } catch (err) {
+        showToast('Erro ao comunicar com o servidor', 'error');
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      const icon = document.getElementById('toastIcon');
+      const msg = document.getElementById('toastMsg');
+
+      toast.className = 'show ' + type;
+      msg.textContent = message;
+
+      if (type === 'success') icon.textContent = '✅';
+      else if (type === 'error') icon.textContent = '❌';
+      else icon.textContent = 'ℹ️';
+
+      setTimeout(() => {
+        toast.className = '';
+      }, 3500);
+    }
+  </script>
+</body>
+</html>

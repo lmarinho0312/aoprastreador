@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel da Cozinha - Monitoramento de Entregas</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <style>
+    :root {
+      --bg-dark: #0b0f19;
+      --panel-bg: rgba(15, 23, 42, 0.95);
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --primary: #3b82f6;
+      --accent: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* DASHBOARD LAYOUT */
+    .app-sidebar {
+      width: 420px;
+      height: 100vh;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--card-border);
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+      box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .app-main {
+      flex: 1;
+      height: 100vh;
+      position: relative;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #191a1a;
+    }
+
+    /* SIDEBAR HEADER */
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #3b82f6, #10b981);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* STATS BADGES */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .stat-card {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .stat-val {
+      font-size: 18px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .stat-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    /* SEARCH BAR */
+    .search-box {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .search-input {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 12px 14px 12px 38px;
+      font-size: 14px;
+      color: #ffffff;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    }
+
+    .search-wrapper {
+      position: relative;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      opacity: 0.6;
+    }
+
+    /* MOTOBOY LIST */
+    .motoboy-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+    }
+
+    .motoboy-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .motoboy-card:hover {
+      transform: translateX(4px);
+      border-color: rgba(59, 130, 246, 0.4);
+      background: rgba(30, 41, 59, 0.9);
+    }
+
+    .motoboy-card.active {
+      border-color: var(--primary);
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.25);
+    }
+
+    .motoboy-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .motoboy-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .status-dot.idle { background: var(--warning); }
+
+    .motoboy-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .pedidos-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag-pedido {
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #93c5fd;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    /* FOOTER STATUS BAR */
+    .sidebar-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--card-border);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .live-pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+
+    /* CUSTOM LEAFLET MARKERS & POPUPS */
+    .custom-marker {
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: var(--panel-bg) !important;
+      color: #ffffff !important;
+      border: 1px solid var(--card-border);
+      border-radius: 14px !important;
+      padding: 4px !important;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+    }
+
+    .leaflet-popup-tip {
+      background: var(--panel-bg) !important;
+    }
+
+    .popup-box {
+      padding: 12px;
+      min-width: 220px;
+    }
+
+    .popup-title {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 4px;
+      color: #ffffff;
+    }
+
+    .popup-phone {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .popup-pedidos-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    /* MEDIA QUERIES FOR MOBILE FLEXIBILITY */
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .app-sidebar { width: 100%; height: 50vh; }
+      .app-main { height: 50vh; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PAINEL LATERAL DA COZINHA -->
+  <aside class="app-sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <div class="brand-logo">🍽️</div>
+        <div>
+          <h1 class="brand-title">Painel da Cozinha</h1>
+          <p class="brand-subtitle">Monitoramento de Entregas em Tempo Real</p>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-val" id="statMotoboys">0</div>
+          <div class="stat-lbl">Entregadores</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statPedidos" style="color: var(--accent);">0</div>
+          <div class="stat-lbl">Em Rota</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="statGps">OFF</div>
+          <div class="stat-lbl">Sinal GPS</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUSCA DE PEDIDOS -->
+    <div class="search-box">
+      <div class="search-wrapper">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" class="search-input" placeholder="Buscar por pedido (ex: 1049) ou motoboy..." oninput="filtrarMotoboys()">
+      </div>
+    </div>
+
+    <!-- LISTA DE MOTOBOYS -->
+    <div class="motoboy-list" id="motoboyList">
+      <!-- Renderizado via JavaScript -->
+    </div>
+
+    <!-- FOOTER DA BARRA LATERAL -->
+    <div class="sidebar-footer">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="live-pulse"></span>
+        <span>ATUALIZANDO A CADA 5s</span>
+      </div>
+      <span id="lastUpdateText">--:--:--</span>
+    </div>
+  </aside>
+
+  <!-- ÁREA PRINCIPAL DO MAPA INTERATIVO -->
+  <main class="app-main">
+    <div id="map"></div>
+  </main>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script>
+    let map;
+    let markers = {};
+    let motoboysData = [];
+    let pollingInterval = null;
+
+    // INICIALIZAÇÃO
+    document.addEventListener('DOMContentLoaded', () => {
+      initMap();
+      carregarDadosMapa();
+      pollingInterval = setInterval(carregarDadosMapa, 5000);
+    });
+
+    // INICIALIZAR LEAFLET MAP
+    function initMap() {
+      // Ponto Inicial Padrão (Centro SP / Restaurante)
+      map = L.map('map', { zoomControl: false }).setView([-23.5615, -46.6560], 13);
+
+      // Adicionar Controles de Zoom no Canto Superior Direito
+      L.control.zoom({ position: 'topright' }).addTo(map);
+
+      // Tiles do OpenStreetMap
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
+    }
+
+    // BUSCAR DADOS DA API /api/admin/posicoes-mapa
+    async function carregarDadosMapa() {
+      try {
+        const response = await fetch('/api/admin/posicoes-mapa');
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          motoboysData = result.data || [];
+          
+          // Atualizar Métricas Globais
+          document.getElementById('statMotoboys').textContent = result.total_motoboys || 0;
+          document.getElementById('statPedidos').textContent = result.total_pedidos_em_rota || 0;
+          
+          const gpsElement = document.getElementById('statGps');
+          if (result.traccar_online) {
+            gpsElement.textContent = 'ONLINE';
+            gpsElement.style.color = 'var(--accent)';
+          } else {
+            gpsElement.textContent = 'DEV MOCK';
+            gpsElement.style.color = 'var(--warning)';
+          }
+
+          document.getElementById('lastUpdateText').textContent = new Date().toLocaleTimeString('pt-BR');
+
+          // Renderizar Lista Lateral e Atualizar Marcadores no Mapa
+          renderizarListaSidebar();
+          atualizarMarcadoresMapa();
+        }
+      } catch (err) {
+        console.error('❌ Erro ao consultar posições do mapa:', err);
+      }
+    }
+
+    // RENDERIZAR LISTA LATERAL DE MOTOBOYS
+    function renderizarListaSidebar() {
+      const container = document.getElementById('motoboyList');
+      const termoBusca = document.getElementById('searchInput').value.toLowerCase().trim();
+
+      const motoboysFiltrados = motoboysData.filter(m => {
+        if (!termoBusca) return true;
+        const matchNome = m.nome.toLowerCase().includes(termoBusca);
+        const matchTelefone = m.telefone.toLowerCase().includes(termoBusca);
+        const matchPedido = m.pedidos_numeros.some(p => p.toLowerCase().includes(termoBusca));
+        return matchNome || matchTelefone || matchPedido;
+      });
+
+      if (motoboysFiltrados.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; color: var(--text-muted); padding: 40px 10px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🔍</div>
+            <p>Nenhum entregador ou pedido encontrado.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = motoboysFiltrados.map(m => {
+        const temPedidos = m.pedidos_numeros.length > 0;
+        return `
+          <div class="motoboy-card" onclick="focarMotoboyNoMapa(${m.motoboy_id})">
+            <div class="motoboy-header">
+              <div class="motoboy-name">
+                <span class="status-dot ${temPedidos ? 'active' : 'idle'}"></span>
+                ${m.nome}
+              </div>
+              <span style="font-size: 11px; font-weight: 700; color: ${temPedidos ? '#93c5fd' : 'var(--text-muted)'}">
+                ${temPedidos ? m.pedidos_numeros.length + ' pedido(s)' : 'Disponível'}
+              </span>
+            </div>
+
+            <div class="motoboy-meta">
+              <span>📞 ${m.telefone}</span>
+              <span>⚡ ${Math.round(m.speed || 0)} km/h</span>
+            </div>
+
+            ${temPedidos ? `
+              <div class="pedidos-tags">
+                ${m.pedidos_detalhes.map(p => `
+                  <span class="tag-pedido">#${p.numero_pedido} (${p.minutos_em_rota}m)</span>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ATUALIZAR MARCADORES NO LEAFLET
+    function atualizarMarcadoresMapa() {
+      const bounds = [];
+
+      motoboysData.forEach(m => {
+        const lat = m.latitude;
+        const lng = m.longitude;
+
+        if (!lat || !lng) return;
+
+        bounds.push([lat, lng]);
+
+        const temPedidos = m.pedidos_numeros.length > 0;
+        const pedidosHtml = temPedidos 
+          ? m.pedidos_detalhes.map(p => `<span class="tag-pedido">#${p.numero_pedido}</span>`).join(' ')
+          : '<em style="color: var(--text-muted); font-size: 12px;">Sem pedidos no momento</em>';
+
+        const popupContent = `
+          <div class="popup-box">
+            <div class="popup-title">🛵 ${m.nome}</div>
+            <div class="popup-phone">📞 ${m.telefone} | ⚡ ${Math.round(m.speed || 0)} km/h</div>
+            <div class="popup-pedidos-title">Pedidos Carregados:</div>
+            <div class="pedidos-tags">${pedidosHtml}</div>
+          </div>
+        `;
+
+        if (markers[m.motoboy_id]) {
+          // Atualizar posição suavemente
+          markers[m.motoboy_id].setLatLng([lat, lng]);
+          markers[m.motoboy_id].getPopup().setContent(popupContent);
+        } else {
+          // Criar novo Marcador Customizado
+          const customIcon = L.divIcon({
+            className: 'custom-marker',
+            html: '🛵',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18]
+          });
+
+          const marker = L.marker([lat, lng], { icon: customIcon })
+            .bindPopup(popupContent)
+            .addTo(map);
+
+          markers[m.motoboy_id] = marker;
+        }
+      });
+
+      // Ajustar o zoom inicial para enquadrar os motoboys na primeira leitura
+      if (bounds.length > 0 && !window.mapBoundsAdjusted) {
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+        window.mapBoundsAdjusted = true;
+      }
+    }
+
+    // FOCAR NO MOTOBOY CLICADO
+    function focarMotoboyNoMapa(motoboy_id) {
+      const m = motoboysData.find(item => item.motoboy_id === motoboy_id);
+      if (m && markers[motoboy_id]) {
+        map.setView([m.latitude, m.longitude], 16, { animate: true });
+        markers[motoboy_id].openPopup();
+      }
+    }
+
+    // FILTRO DE BUSCA INSTANTÂNEO
+    function filtrarMotoboys() {
+      renderizarListaSidebar();
+    }
+  </script>
+</body>
+</html>
