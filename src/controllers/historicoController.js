@@ -19,7 +19,7 @@ async function listarHistoricoEntregas(req, res) {
              m.telefone as motoboy_telefone,
              CASE 
                WHEN p.data_fim IS NOT NULL THEN ROUND((julianday(p.data_fim) - julianday(p.data_inicio)) * 1440)
-               ELSE ROUND((julianday('now') - julianday(p.data_inicio)) * 1440)
+               ELSE ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(p.data_inicio)) * 1440)
              END as duracao_minutos,
              (SELECT COUNT(*) FROM pedido_rotas pr WHERE pr.pedido_id = p.id) as total_pontos_gps
       FROM pedidos p
@@ -71,7 +71,7 @@ async function obterRotaPedido(req, res) {
              m.nome as motoboy_nome, m.telefone as motoboy_telefone,
              CASE 
                WHEN p.data_fim IS NOT NULL THEN ROUND((julianday(p.data_fim) - julianday(p.data_inicio)) * 1440)
-               ELSE ROUND((julianday('now') - julianday(p.data_inicio)) * 1440)
+               ELSE ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(p.data_inicio)) * 1440)
              END as duracao_minutos
       FROM pedidos p
       LEFT JOIN motoboys m ON p.motoboy_id = m.id

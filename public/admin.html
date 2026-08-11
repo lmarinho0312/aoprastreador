@@ -39,7 +39,7 @@
       color: var(--text-main);
       height: 100vh;
       width: 100vw;
-      overflow: hidden;
+      overflow-x: hidden;
       display: flex;
     }
 
@@ -272,25 +272,30 @@
 
     .btn-rota {
       width: 100%;
-      padding: 8px 12px;
+      padding: 10px 14px;
       background: linear-gradient(135deg, #10b981, #059669);
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       color: #ffffff;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 700;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 8px;
       margin-top: 8px;
       transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
     }
 
     .btn-rota:hover {
-      opacity: 0.9;
-      transform: scale(1.01);
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    .btn-rota:active {
+      transform: scale(0.98);
     }
 
     /* FOOTER STATUS BAR */
@@ -320,6 +325,25 @@
       100% { transform: scale(0.95); opacity: 0.8; }
     }
 
+    /* FLOATING NOTIFICATION TOAST */
+    #mapToast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--accent);
+      color: #ffffff;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
     /* CUSTOM LEAFLET MARKERS & POPUPS */
     .custom-marker {
       background: linear-gradient(135deg, #3b82f6, #1d4ed8);
@@ -343,6 +367,7 @@
       justify-content: center;
       font-size: 14px;
       font-weight: 800;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
     }
 
     .route-marker-end {
@@ -355,6 +380,7 @@
       justify-content: center;
       font-size: 14px;
       font-weight: 800;
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
     }
 
     .leaflet-popup-content-wrapper {
@@ -372,10 +398,33 @@
     .popup-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; color: #ffffff; }
     .popup-phone { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
 
+    /* MOBILE FLEXIBILITY */
+    @media (max-width: 768px) {
+      body {
+        flex-direction: column;
+        height: auto;
+        overflow-y: auto;
+      }
+      .app-sidebar {
+        width: 100%;
+        height: 60vh;
+      }
+      .app-main {
+        width: 100%;
+        height: 70vh;
+      }
+    }
+
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
+
+  <!-- TOAST FLUTUANTE PARA MOBILE E DESKTOP -->
+  <div id="mapToast">
+    <span>📍</span>
+    <span id="mapToastMsg">Rota desenhada no mapa!</span>
+  </div>
 
   <!-- PAINEL LATERAL DA COZINHA -->
   <aside class="app-sidebar">
@@ -449,12 +498,32 @@
   <script>
     let map;
     let markers = {};
-    let activeRoutePolyline = null;
+    let activeRoutePolylineBg = null;
+    let activeRoutePolylineFg = null;
     let routeMarkers = [];
     let motoboysData = [];
     let historicoData = [];
     let abaAtual = 'aovivo';
     let pollingInterval = null;
+
+    // HELPER: HORÁRIO DE BRASÍLIA (UTC-3)
+    function formatarHoraBrasilia(dateStr) {
+      if (!dateStr) return '--:--';
+      // Se a string contiver a data completa (ex: "2026-08-11 17:52:51" ou ISO)
+      if (typeof dateStr === 'string' && dateStr.includes(' ')) {
+        const parts = dateStr.split(' ');
+        if (parts.length === 2) {
+          const timeParts = parts[1].split(':');
+          return `${timeParts[0]}:${timeParts[1]}`;
+        }
+      }
+      try {
+        const d = new Date(dateStr);
+        return d.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+      } catch (e) {
+        return dateStr;
+      }
+    }
 
     // INICIALIZAÇÃO
     document.addEventListener('DOMContentLoaded', () => {
@@ -523,7 +592,7 @@
             gpsElement.style.color = 'var(--warning)';
           }
 
-          document.getElementById('lastUpdateText').textContent = new Date().toLocaleTimeString('pt-BR');
+          document.getElementById('lastUpdateText').textContent = formatarHoraBrasilia(new Date().toISOString());
 
           if (abaAtual === 'aovivo') {
             renderizarListaMotoboys();
@@ -645,6 +714,7 @@
       if (m && markers[motoboy_id]) {
         map.setView([m.latitude, m.longitude], 16, { animate: true });
         markers[motoboy_id].openPopup();
+        focarElementoMapaMobile();
       }
     }
 
@@ -692,8 +762,8 @@
 
       container.innerHTML = entregasFiltradas.map(e => {
         const isEntregue = e.status === 'entregue';
-        const dataInicioFmt = e.data_inicio ? new Date(e.data_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-        const dataFimFmt = e.data_fim ? new Date(e.data_fim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Em andamento';
+        const dataInicioFmt = formatarHoraBrasilia(e.data_inicio);
+        const dataFimFmt = e.data_fim ? formatarHoraBrasilia(e.data_fim) : 'Em andamento';
 
         return `
           <div class="card-item">
@@ -713,9 +783,9 @@
             </div>
 
             <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; display: flex; justify-content: space-between;">
-              <span>Início: ${dataInicioFmt}</span>
-              <span>Fim: ${dataFimFmt}</span>
-              <span>📍 ${e.total_pontos_gps} pontos GPS</span>
+              <span>Saída: <strong>${dataInicioFmt}</strong></span>
+              <span>Chegada: <strong>${dataFimFmt}</strong></span>
+              <span>📍 ${e.total_pontos_gps} pings</span>
             </div>
 
             <button class="btn-rota" onclick="desenharRotaDoPedido(${e.pedido_id})">
@@ -726,7 +796,7 @@
       }).join('');
     }
 
-    // DESENHAR ROTA NO LEAFLET MAP
+    // DESENHAR ROTA PERCORRIDA COM TRAÇADO BRILHANTE E PONTOS GPS
     async function desenharRotaDoPedido(pedido_id) {
       limparRotaNoMapa();
 
@@ -749,33 +819,64 @@
 
         const latLngs = pontos.map(p => [p.latitude, p.longitude]);
 
-        // 1. Desenhar a Polyline (linha azul brilhante no mapa)
-        activeRoutePolyline = L.polyline(latLngs, {
-          color: '#3b82f6',
+        // 1. Linha de Fundo (Escura/Glow)
+        activeRoutePolylineBg = L.polyline(latLngs, {
+          color: '#004080',
+          weight: 9,
+          opacity: 0.6
+        }).addTo(map);
+
+        // 2. Linha Principal (Azul Neon Brilhante #00f0ff)
+        activeRoutePolylineFg = L.polyline(latLngs, {
+          color: '#00f0ff',
           weight: 5,
-          opacity: 0.85,
+          opacity: 0.9,
           smoothFactor: 1
         }).addTo(map);
 
-        // 2. Marcador de Início (Verde 🏁)
-        const startPoint = latLngs[0];
-        const startIcon = L.divIcon({ className: 'route-marker-start', html: '🟢', iconSize: [28, 28] });
-        const startMarker = L.marker(startPoint, { icon: startIcon })
-          .bindPopup(`<b>🟢 Início da Entrega #${pedido.numero_pedido}</b><br>Horário: ${new Date(pontos[0].criado_em).toLocaleTimeString('pt-BR')}`)
-          .addTo(map);
-        routeMarkers.push(startMarker);
+        // 3. Desenhar PONTOS INTERMEDIÁRIOS de GPS ao longo da rota
+        pontos.forEach((p, idx) => {
+          const isStart = idx === 0;
+          const isEnd = idx === pontos.length - 1;
 
-        // 3. Marcador de Fim (Vermelho 🏁)
-        const endPoint = latLngs[latLngs.length - 1];
-        const endIcon = L.divIcon({ className: 'route-marker-end', html: '🏁', iconSize: [28, 28] });
-        const endMarker = L.marker(endPoint, { icon: endIcon })
-          .bindPopup(`<b>🏁 Fim da Entrega #${pedido.numero_pedido}</b><br>Entregador: ${pedido.motoboy.nome}<br>Duração Total: <strong>${pedido.duracao_minutos} min</strong>`)
-          .addTo(map);
-        routeMarkers.push(endMarker);
+          if (isStart) {
+            // Marcador de Início 🟢
+            const startIcon = L.divIcon({ className: 'route-marker-start', html: '🟢', iconSize: [30, 30] });
+            const startMarker = L.marker([p.latitude, p.longitude], { icon: startIcon })
+              .bindPopup(`<b>🟢 Início da Entrega #${pedido.numero_pedido}</b><br>Entregador: ${pedido.motoboy.nome}<br>Horário: ${formatarHoraBrasilia(p.criado_em)}`)
+              .addTo(map);
+            routeMarkers.push(startMarker);
+          } else if (isEnd) {
+            // Marcador de Fim 🏁
+            const endIcon = L.divIcon({ className: 'route-marker-end', html: '🏁', iconSize: [30, 30] });
+            const endMarker = L.marker([p.latitude, p.longitude], { icon: endIcon })
+              .bindPopup(`<b>🏁 Chegada #${pedido.numero_pedido}</b><br>Entregador: ${pedido.motoboy.nome}<br>Duração: <strong>${pedido.duracao_minutos} min</strong><br>Horário: ${formatarHoraBrasilia(p.criado_em)}`)
+              .addTo(map);
+            routeMarkers.push(endMarker);
+          } else {
+            // Ponto Intermediário (Circulo azul interativo)
+            const circle = L.circleMarker([p.latitude, p.longitude], {
+              radius: 6,
+              color: '#00f0ff',
+              fillColor: '#3b82f6',
+              fillOpacity: 0.9,
+              weight: 2
+            }).bindPopup(`<b>📍 Ponto GPS #${idx + 1}</b><br>Horário: ${formatarHoraBrasilia(p.criado_em)}<br>Velocidade: ${Math.round(p.velocidade)} km/h`)
+              .addTo(map);
+            routeMarkers.push(circle);
+          }
+        });
 
-        // 4. Enquadrar o mapa no percurso
-        map.fitBounds(activeRoutePolyline.getBounds(), { padding: [60, 60] });
-        endMarker.openPopup();
+        // 4. Enquadrar o mapa para exibir todo o percurso
+        if (latLngs.length > 1) {
+          map.fitBounds(activeRoutePolylineFg.getBounds(), { padding: [60, 60] });
+        } else {
+          map.setView(latLngs[0], 16);
+        }
+
+        // 5. Rolar para o mapa no Mobile e exibir aviso
+        exibirToastMapa(`📍 Exibindo rota do pedido #${pedido.numero_pedido} (${pontos.length} pontos, ${pedido.duracao_minutos} min)`);
+        focarElementoMapaMobile();
 
       } catch (err) {
         console.error('Erro ao desenhar rota:', err);
@@ -784,12 +885,33 @@
     }
 
     function limparRotaNoMapa() {
-      if (activeRoutePolyline) {
-        map.removeLayer(activeRoutePolyline);
-        activeRoutePolyline = null;
+      if (activeRoutePolylineBg) {
+        map.removeLayer(activeRoutePolylineBg);
+        activeRoutePolylineBg = null;
+      }
+      if (activeRoutePolylineFg) {
+        map.removeLayer(activeRoutePolylineFg);
+        activeRoutePolylineFg = null;
       }
       routeMarkers.forEach(m => map.removeLayer(m));
       routeMarkers = [];
+    }
+
+    function focarElementoMapaMobile() {
+      const mapEl = document.getElementById('map');
+      if (mapEl && window.innerWidth <= 768) {
+        mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    function exibirToastMapa(msg) {
+      const toast = document.getElementById('mapToast');
+      const msgEl = document.getElementById('mapToastMsg');
+      if (toast && msgEl) {
+        msgEl.textContent = msg;
+        toast.style.display = 'flex';
+        setTimeout(() => { toast.style.display = 'none'; }, 4000);
+      }
     }
 
     function filtrarConteudo() {

@@ -525,7 +525,7 @@
           })
         }).then(r => r.json()).then(data => {
           if (data.success && badge) {
-            badge.innerHTML = '🟢 GPS Transmitindo (' + new Date().toLocaleTimeString('pt-BR') + ')';
+            badge.innerHTML = '🟢 GPS Transmitindo (' + new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' }) + ')';
             badge.style.color = '#10b981';
           }
         }).catch(err => console.error('Erro ao enviar GPS:', err));

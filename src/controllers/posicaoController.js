@@ -13,7 +13,8 @@ async function gravarHistoricoRota(db, motoboyId, lat, lng, spd) {
     if (pedidosAtivos && pedidosAtivos.length > 0) {
       for (const p of pedidosAtivos) {
         await db.execute(
-          `INSERT INTO pedido_rotas (pedido_id, motoboy_id, latitude, longitude, velocidade) VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO pedido_rotas (pedido_id, motoboy_id, latitude, longitude, velocidade, criado_em) 
+           VALUES (?, ?, ?, ?, ?, DATETIME('now', '-3 hours'))`,
           [p.id, motoboyId, lat, lng, spd]
         );
       }
@@ -47,10 +48,10 @@ async function atualizarPosicaoMotoboy(req, res) {
     const db = getDb();
     const motoboyIdNum = Number(motoboy_id);
     
-    // 1. Atualizar última posição do motoboy
+    // 1. Atualizar última posição do motoboy (Horário de Brasília)
     const result = await db.execute(
       `UPDATE motoboys 
-       SET latitude = ?, longitude = ?, velocidade = ?, ultima_atualizacao = CURRENT_TIMESTAMP 
+       SET latitude = ?, longitude = ?, velocidade = ?, ultima_atualizacao = DATETIME('now', '-3 hours') 
        WHERE id = ?`,
       [lat, lng, spd, motoboyIdNum]
     );
@@ -103,10 +104,10 @@ async function webhookTraccarClient(req, res) {
       return res.json(404, { success: false, message: `Nenhum motoboy encontrado com o ID/telefone ${deviceId}` });
     }
 
-    // 1. Atualizar última posição
+    // 1. Atualizar última posição (Horário de Brasília)
     await db.execute(
       `UPDATE motoboys 
-       SET latitude = ?, longitude = ?, velocidade = ?, ultima_atualizacao = CURRENT_TIMESTAMP 
+       SET latitude = ?, longitude = ?, velocidade = ?, ultima_atualizacao = DATETIME('now', '-3 hours') 
        WHERE id = ?`,
       [lat, lng, spd, motoboy.id]
     );

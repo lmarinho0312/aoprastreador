@@ -9,6 +9,7 @@ async function iniciarPedido(req, res) {
     }
 
     const numPedido = String(numero_pedido).trim();
+    const motoboyIdNum = Number(motoboy_id);
     const db = getDb();
 
     const pedidoExistente = await db.queryOne(
@@ -17,7 +18,7 @@ async function iniciarPedido(req, res) {
     );
 
     if (pedidoExistente) {
-      if (Number(pedidoExistente.motoboy_id) === Number(motoboy_id)) {
+      if (Number(pedidoExistente.motoboy_id) === motoboyIdNum) {
         return res.json(200, {
           success: true,
           message: `O pedido #${numPedido} já está em rota sob sua responsabilidade.`,
@@ -28,12 +29,28 @@ async function iniciarPedido(req, res) {
       }
     }
 
+    // Inserir pedido com horário de Brasília (UTC-3)
     const result = await db.execute(
-      `INSERT INTO pedidos (numero_pedido, motoboy_id, status, data_inicio) VALUES (?, ?, 'em_rota', CURRENT_TIMESTAMP)`,
-      [numPedido, Number(motoboy_id)]
+      `INSERT INTO pedidos (numero_pedido, motoboy_id, status, data_inicio) VALUES (?, ?, 'em_rota', DATETIME('now', '-3 hours'))`,
+      [numPedido, motoboyIdNum]
     );
 
-    const novoPedido = await db.queryOne(`SELECT * FROM pedidos WHERE id = ?`, [Number(result.lastInsertRowid)]);
+    const novoPedidoId = Number(result.lastInsertRowid);
+    const novoPedido = await db.queryOne(`SELECT * FROM pedidos WHERE id = ?`, [novoPedidoId]);
+
+    // Gravar o ponto de início da entrega se o motoboy já tiver localização conhecida
+    const motoboy = await db.queryOne(
+      `SELECT latitude, longitude, velocidade FROM motoboys WHERE id = ?`,
+      [motoboyIdNum]
+    );
+
+    if (motoboy && motoboy.latitude !== null && motoboy.longitude !== null) {
+      await db.execute(
+        `INSERT INTO pedido_rotas (pedido_id, motoboy_id, latitude, longitude, velocidade, criado_em) 
+         VALUES (?, ?, ?, ?, ?, DATETIME('now', '-3 hours'))`,
+        [novoPedidoId, motoboyIdNum, Number(motoboy.latitude), Number(motoboy.longitude), Number(motoboy.velocidade || 0)]
+      );
+    }
 
     return res.json(201, {
       success: true,
@@ -55,19 +72,40 @@ async function finalizarPedido(req, res) {
     }
 
     const db = getDb();
-    let result;
+    const motoboyIdNum = Number(motoboy_id);
+    let targetPedidoId = Number(pedido_id);
 
-    if (pedido_id) {
-      result = await db.execute(
-        `UPDATE pedidos SET status = 'entregue', data_fim = CURRENT_TIMESTAMP WHERE id = ? AND motoboy_id = ? AND status = 'em_rota'`,
-        [Number(pedido_id), Number(motoboy_id)]
+    if (!targetPedidoId && numero_pedido) {
+      const p = await db.queryOne(
+        `SELECT id FROM pedidos WHERE numero_pedido = ? AND motoboy_id = ? AND status = 'em_rota'`,
+        [String(numero_pedido).trim(), motoboyIdNum]
       );
-    } else {
-      result = await db.execute(
-        `UPDATE pedidos SET status = 'entregue', data_fim = CURRENT_TIMESTAMP WHERE numero_pedido = ? AND motoboy_id = ? AND status = 'em_rota'`,
-        [String(numero_pedido).trim(), Number(motoboy_id)]
+      if (p) targetPedidoId = p.id;
+    }
+
+    if (!targetPedidoId) {
+      return res.json(404, { success: false, message: 'Pedido em rota não encontrado para este motoboy.' });
+    }
+
+    // Gravar ponto final de entrega se houver localização do motoboy
+    const motoboy = await db.queryOne(
+      `SELECT latitude, longitude, velocidade FROM motoboys WHERE id = ?`,
+      [motoboyIdNum]
+    );
+
+    if (motoboy && motoboy.latitude !== null && motoboy.longitude !== null) {
+      await db.execute(
+        `INSERT INTO pedido_rotas (pedido_id, motoboy_id, latitude, longitude, velocidade, criado_em) 
+         VALUES (?, ?, ?, ?, ?, DATETIME('now', '-3 hours'))`,
+        [targetPedidoId, motoboyIdNum, Number(motoboy.latitude), Number(motoboy.longitude), Number(motoboy.velocidade || 0)]
       );
     }
+
+    // Atualizar status e data_fim (Horário de Brasília)
+    const result = await db.execute(
+      `UPDATE pedidos SET status = 'entregue', data_fim = DATETIME('now', '-3 hours') WHERE id = ? AND motoboy_id = ? AND status = 'em_rota'`,
+      [targetPedidoId, motoboyIdNum]
+    );
 
     if (result.changes === 0) {
       return res.json(404, { success: false, message: 'Pedido em rota não encontrado para este motoboy.' });
@@ -91,7 +129,7 @@ async function listarPedidosMotoboy(req, res) {
     const db = getDb();
     const pedidos = await db.query(
       `SELECT id, numero_pedido, status, data_inicio, 
-              ROUND((julianday('now') - julianday(data_inicio)) * 1440) as minutos_em_rota
+              ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(data_inicio)) * 1440) as minutos_em_rota
        FROM pedidos 
        WHERE motoboy_id = ? AND status = 'em_rota' 
        ORDER BY data_inicio DESC`,
