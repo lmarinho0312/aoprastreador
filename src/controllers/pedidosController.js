@@ -91,7 +91,9 @@ async function listarPedidosDisponiveis(req, res) {
       SELECT id, numero_pedido, status, origem, pedido_id_origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, criado_em,
              ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(criado_em, DATETIME('now', '-3 hours')))) * 1440) as minutos_aguardando
       FROM pedidos
-      WHERE status = 'disponivel'
+      WHERE (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL)
+        AND (motoboy_id IS NULL OR status != 'em_rota')
+        AND (status != 'entregue')
       ORDER BY id DESC
     `);
 
@@ -127,12 +129,12 @@ async function assumirPedido(req, res) {
     const motoboyIdNum = Number(motoboy_id);
     const db = getDb();
 
-    // Atualização atômica para evitar concorrência (somente se ainda estiver 'disponivel')
+    // Atualização atômica para evitar concorrência (qualquer status pré-saída sem motoboy atribuído)
     const result = await db.execute(
       `UPDATE pedidos 
        SET motoboy_id = ?, status = 'em_rota', data_inicio = DATETIME('now', '-3 hours') 
-       WHERE id = ? AND status = 'disponivel'`,
-      [motoboyIdNum, pedidoIdNum]
+       WHERE id = ? AND (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL) AND (motoboy_id IS NULL OR motoboy_id = ?)`,
+      [motoboyIdNum, pedidoIdNum, motoboyIdNum]
     );
 
     if (result.changes === 0) {

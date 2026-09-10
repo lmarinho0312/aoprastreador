@@ -117,9 +117,8 @@ async function getDashboardStats(req, res) {
   try {
     const db = getDb();
 
-    const [emPreparoRes, aguardandoRes, emRotaRes, entreguesRes, totalRes, faturamentoRes, motoboysCountRes] = await Promise.all([
-      db.queryOne(`SELECT COUNT(*) as count FROM pedidos WHERE status = 'em_preparo'`),
-      db.queryOne(`SELECT COUNT(*) as count FROM pedidos WHERE status IN ('disponivel', 'aguardando_retirada', 'pronto')`),
+    const [aguardandoRes, emRotaRes, entreguesRes, totalRes, faturamentoRes, motoboysCountRes] = await Promise.all([
+      db.queryOne(`SELECT COUNT(*) as count FROM pedidos WHERE (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL) AND motoboy_id IS NULL AND (status != 'entregue' OR status IS NULL)`),
       db.queryOne(`SELECT COUNT(*) as count FROM pedidos WHERE status = 'em_rota'`),
       db.queryOne(`SELECT COUNT(*) as count FROM pedidos WHERE status = 'entregue'`),
       db.queryOne(`SELECT COUNT(*) as count FROM pedidos`),
@@ -127,7 +126,6 @@ async function getDashboardStats(req, res) {
       db.queryOne(`SELECT COUNT(*) as count FROM motoboys`)
     ]);
 
-    const emPreparo = Number(emPreparoRes?.count || 0);
     const aguardando = Number(aguardandoRes?.count || 0);
     const emRota = Number(emRotaRes?.count || 0);
     const entregues = Number(entreguesRes?.count || 0);
@@ -144,8 +142,8 @@ async function getDashboardStats(req, res) {
       success: true,
       timestamp: new Date().toISOString(),
       stats: {
-        pedidos_em_preparo: emPreparo,
         pedidos_aguardando: aguardando,
+        pedidos_em_preparo: aguardando,
         pedidos_em_rota: emRota,
         pedidos_entregues: entregues,
         total_pedidos: total,
@@ -176,7 +174,7 @@ async function listarTodosPedidos(req, res) {
              CASE 
                WHEN p.status = 'em_rota' AND p.data_inicio IS NOT NULL THEN
                  ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(p.data_inicio)) * 1440)
-               WHEN p.status IN ('disponivel', 'aguardando_retirada', 'pronto') THEN
+               WHEN p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR p.status IS NULL THEN
                  ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(p.criado_em, DATETIME('now', '-3 hours')))) * 1440)
                WHEN p.status = 'entregue' AND p.data_fim IS NOT NULL AND p.data_inicio IS NOT NULL THEN
                  ROUND((julianday(p.data_fim) - julianday(p.data_inicio)) * 1440)
@@ -191,8 +189,8 @@ async function listarTodosPedidos(req, res) {
     const params = [];
 
     if (status && status !== 'todos' && status !== 'all') {
-      if (status === 'aguardando' || status === 'pronto') {
-        conditions.push(`p.status IN ('disponivel', 'aguardando_retirada', 'pronto')`);
+      if (status === 'aguardando' || status === 'disponivel' || status === 'balcao' || status === 'pronto') {
+        conditions.push(`(p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR p.status IS NULL) AND p.motoboy_id IS NULL AND (p.status != 'entregue' OR p.status IS NULL)`);
       } else {
         conditions.push(`p.status = ?`);
         params.push(status);

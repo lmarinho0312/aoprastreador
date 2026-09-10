@@ -416,11 +416,11 @@
       <section id="view-inicio">
         <!-- 4 KPI STATS CARDS -->
         <div class="stats-container">
-          <!-- 1. Pedidos em preparo -->
+          <!-- 1. Pedidos no balcao aguardando saida -->
           <div class="stat-box stat-preparo">
-            <div class="stat-icon-wrap">🛒</div>
+            <div class="stat-icon-wrap">📦</div>
             <div class="stat-info">
-              <span class="stat-label">Pedidos em preparo</span>
+              <span class="stat-label">No Balcão (Aguardando)</span>
               <div class="stat-value">
                 <span id="kpiPreparo">0</span>
                 <span class="stat-sub" id="kpiPreparoSub">de 0</span>
@@ -475,9 +475,9 @@
             <!-- Filtros rápidos -->
             <div class="filter-pills-bar">
               <button class="filter-pill active" onclick="filtrarStatusLista('todos', this)">Todos</button>
-              <button class="filter-pill" onclick="filtrarStatusLista('em_preparo', this)">Em preparo</button>
-              <button class="filter-pill" onclick="filtrarStatusLista('disponivel', this)">Aguardando saída</button>
+              <button class="filter-pill" onclick="filtrarStatusLista('disponivel', this)">No Balcão</button>
               <button class="filter-pill" onclick="filtrarStatusLista('em_rota', this)">Em rota</button>
+              <button class="filter-pill" onclick="filtrarStatusLista('entregue', this)">Entregues</button>
             </div>
 
             <div class="panel-body-scroll" id="containerPedidosLista">
@@ -537,26 +537,12 @@
         </div>
 
         <div class="kanban-board">
-          <!-- Coluna 1: Em Preparo -->
-          <div class="kanban-col">
-            <div class="kanban-col-header" style="border-top: 3px solid var(--brand-gold);">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span>🔥</span>
-                <span>Em Preparo</span>
-              </div>
-              <span class="status-badge badge-preparo" id="countKanbanPreparo">0</span>
-            </div>
-            <div class="kanban-col-body" id="colKanbanPreparo">
-              <!-- Renderizado via JS -->
-            </div>
-          </div>
-
-          <!-- Coluna 2: Aguardando Retirada (Balcão) -->
+          <!-- Coluna 1: No Balcão (Aguardando Retirada) -->
           <div class="kanban-col">
             <div class="kanban-col-header" style="border-top: 3px solid #3b82f6;">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span>📦</span>
-                <span>Aguardando Saída</span>
+                <span>No Balcão (Aguardando)</span>
               </div>
               <span class="status-badge badge-retirada" id="countKanbanAguardando">0</span>
             </div>
@@ -565,9 +551,9 @@
             </div>
           </div>
 
-          <!-- Coluna 3: Em Rota -->
+          <!-- Coluna 2: Em Rota de Entrega -->
           <div class="kanban-col">
-            <div class="kanban-col-header" style="border-top: 3px solid #10b981;">
+            <div class="kanban-col-header" style="border-top: 3px solid var(--brand-gold);">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span>🚀</span>
                 <span>Em Rota de Entrega</span>
@@ -575,6 +561,20 @@
               <span class="status-badge badge-rota" id="countKanbanRota">0</span>
             </div>
             <div class="kanban-col-body" id="colKanbanRota">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+
+          <!-- Coluna 3: Entregues Hoje -->
+          <div class="kanban-col">
+            <div class="kanban-col-header" style="border-top: 3px solid #10b981;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span>✅</span>
+                <span>Entregues Hoje</span>
+              </div>
+              <span class="status-badge badge-entregue" id="countKanbanEntregues">0</span>
+            </div>
+            <div class="kanban-col-body" id="colKanbanEntregues">
               <!-- Renderizado via JS -->
             </div>
           </div>
@@ -836,7 +836,8 @@
       const entreguesSubEl = document.getElementById('kpiEntreguesSub');
       const faturamentoEl = document.getElementById('kpiFaturamento');
 
-      if (preparoEl) preparoEl.textContent = s.pedidos_em_preparo || 0;
+      const countBalcao = s.pedidos_aguardando !== undefined ? s.pedidos_aguardando : (s.pedidos_em_preparo || 0);
+      if (preparoEl) preparoEl.textContent = countBalcao;
       if (preparoSubEl) preparoSubEl.textContent = `de ${s.total_pedidos || 0}`;
 
       if (rotaEl) rotaEl.textContent = s.pedidos_em_rota || 0;
@@ -858,7 +859,7 @@
       let lista = state.pedidos;
       if (state.filtroLista !== 'todos') {
         if (state.filtroLista === 'disponivel') {
-          lista = lista.filter(p => p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto');
+          lista = lista.filter(p => (p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto' || p.status === 'em_preparo') && !p.motoboy_id && p.status !== 'entregue');
         } else {
           lista = lista.filter(p => p.status === state.filtroLista);
         }
@@ -899,7 +900,7 @@
             <div class="order-meta">
               <span class="order-motoboy">
                 <span>🛵</span>
-                <span>${p.motoboy ? p.motoboy.nome : 'Sem motoboy'}</span>
+                <span>${p.motoboy ? p.motoboy.nome : 'Aguardando motoboy'}</span>
               </span>
               <span class="order-price">${taxaStr}</span>
             </div>
@@ -911,13 +912,13 @@
     // Helper de Badges Semânticos
     function obterBadgeStatus(status) {
       switch (status) {
-        case 'em_preparo': return { label: 'Em preparo', classe: 'badge-preparo' };
         case 'disponivel':
         case 'aguardando_retirada':
-        case 'pronto': return { label: 'Aguardando retirada', classe: 'badge-retirada' };
+        case 'pronto':
+        case 'em_preparo': return { label: 'Disponível no Balcão', classe: 'badge-retirada' };
         case 'em_rota': return { label: 'Em rota', classe: 'badge-rota' };
         case 'entregue': return { label: 'Entregue', classe: 'badge-entregue' };
-        default: return { label: status, classe: 'badge-preparo' };
+        default: return { label: status, classe: 'badge-retirada' };
       }
     }
 
@@ -1091,35 +1092,45 @@
 
     // RENDERIZAR KANBAN DE PEDIDOS
     function renderizarKanban() {
-      const colPreparo = document.getElementById('colKanbanPreparo');
       const colAguardando = document.getElementById('colKanbanAguardando');
       const colRota = document.getElementById('colKanbanRota');
+      const colEntregues = document.getElementById('colKanbanEntregues');
 
-      if (!colPreparo || !colAguardando || !colRota) return;
+      if (!colAguardando || !colRota || !colEntregues) return;
 
-      const preparo = state.pedidos.filter(p => p.status === 'em_preparo');
-      const aguardando = state.pedidos.filter(p => p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto');
+      const aguardando = state.pedidos.filter(p => (p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto' || p.status === 'em_preparo') && !p.motoboy_id && p.status !== 'entregue');
       const rota = state.pedidos.filter(p => p.status === 'em_rota');
+      const entregues = state.pedidos.filter(p => p.status === 'entregue');
 
-      document.getElementById('countKanbanPreparo').textContent = preparo.length;
       document.getElementById('countKanbanAguardando').textContent = aguardando.length;
       document.getElementById('countKanbanRota').textContent = rota.length;
+      document.getElementById('countKanbanEntregues').textContent = entregues.length;
 
-      colPreparo.innerHTML = preparo.map(p => cardKanbanHtml(p, 'preparo')).join('') || emptyKanbanHtml('Sem pedidos em preparo');
-      colAguardando.innerHTML = aguardando.map(p => cardKanbanHtml(p, 'aguardando')).join('') || emptyKanbanHtml('Sem pedidos no balcão');
+      colAguardando.innerHTML = aguardando.map(p => cardKanbanHtml(p, 'aguardando')).join('') || emptyKanbanHtml('Sem pedidos aguardando no balcão');
       colRota.innerHTML = rota.map(p => cardKanbanHtml(p, 'rota')).join('') || emptyKanbanHtml('Nenhuma entrega em rota');
+      colEntregues.innerHTML = entregues.map(p => cardKanbanHtml(p, 'entregue')).join('') || emptyKanbanHtml('Nenhuma entrega finalizada hoje');
     }
 
     function cardKanbanHtml(p, colTipo) {
       const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
       let botaoAcao = '';
 
-      if (colTipo === 'preparo') {
-        botaoAcao = `<button class="btn btn-gold btn-sm" style="width: 100%; margin-top: 8px;" onclick="alterarStatusPedido(${p.id}, 'disponivel')">✓ Marcar como Pronto</button>`;
-      } else if (colTipo === 'aguardando') {
-        botaoAcao = `<button class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 8px;" onclick="abrirDetalhesPedido(${p.id})">🚀 Despachar / Atribuir</button>`;
+      if (colTipo === 'aguardando') {
+        botaoAcao = `
+          <div style="margin-top: 8px; display: flex; gap: 6px;">
+            <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="abrirDetalhesPedido(${p.id})">📋 Detalhes</button>
+            <button class="btn btn-gold btn-sm" style="flex: 1;" onclick="abrirDetalhesPedido(${p.id})">🚀 Despachar</button>
+          </div>
+        `;
       } else if (colTipo === 'rota') {
-        botaoAcao = `<button class="btn btn-success btn-sm" style="width: 100%; margin-top: 8px;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Concluir Entrega</button>`;
+        botaoAcao = `
+          <div style="margin-top: 8px; display: flex; gap: 6px;">
+            <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="abrirDetalhesPedido(${p.id})">🗺️ Rota GPS</button>
+            <button class="btn btn-success btn-sm" style="flex: 1;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Concluir</button>
+          </div>
+        `;
+      } else if (colTipo === 'entregue') {
+        botaoAcao = `<button class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 8px;" onclick="abrirDetalhesPedido(${p.id})">📄 Ver Resumo</button>`;
       }
 
       return `
@@ -1285,16 +1296,14 @@
       const footer = document.getElementById('dtlFooterAcoes');
       if (!footer) return;
 
-      if (p.status === 'em_preparo') {
+      if (p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto' || p.status === 'em_preparo') {
         footer.innerHTML = `
-          <button class="btn btn-gold" style="flex: 1;" onclick="alterarStatusPedido(${p.id}, 'disponivel')">✓ Marcar como Pronto</button>
-        `;
-      } else if (p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto') {
-        footer.innerHTML = `
-          <button class="btn btn-gold" style="flex: 1;" onclick="alterarStatusPedido(${p.id}, 'em_rota')">🚀 Iniciar Entrega (Em Rota)</button>
+          <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
+          <button class="btn btn-gold" style="flex: 1;" onclick="alterarStatusPedido(${p.id}, 'em_rota')">🚀 Despachar (Em Rota)</button>
         `;
       } else if (p.status === 'em_rota') {
         footer.innerHTML = `
+          <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
           <button class="btn btn-success" style="flex: 1;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Concluir Entrega (Entregue)</button>
         `;
       } else {
