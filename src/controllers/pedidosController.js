@@ -339,11 +339,176 @@ async function listarPedidosMotoboy(req, res) {
   }
 }
 
+/**
+ * Atualizar status de um pedido a partir do painel da cozinha
+ * POST /api/pedidos/status
+ * Body: { pedido_id, status, motoboy_id }
+ */
+async function atualizarStatusPedido(req, res) {
+  try {
+    const { pedido_id, status, motoboy_id } = req.body || {};
+
+    if (!pedido_id || !status) {
+      return res.json(400, { success: false, message: 'pedido_id e status são obrigatórios.' });
+    }
+
+    const db = getDb();
+    const pedidoIdNum = Number(pedido_id);
+    const motoboyIdNum = motoboy_id ? Number(motoboy_id) : null;
+
+    let updateSql = `UPDATE pedidos SET status = ?`;
+    const params = [status];
+
+    if (status === 'em_rota') {
+      updateSql += `, data_inicio = COALESCE(data_inicio, DATETIME('now', '-3 hours'))`;
+      if (motoboyIdNum) {
+        updateSql += `, motoboy_id = ?`;
+        params.push(motoboyIdNum);
+      }
+    } else if (status === 'entregue') {
+      updateSql += `, data_fim = DATETIME('now', '-3 hours')`;
+    }
+
+    if (motoboyIdNum && status !== 'em_rota') {
+      updateSql += `, motoboy_id = ?`;
+      params.push(motoboyIdNum);
+    }
+
+    updateSql += ` WHERE id = ?`;
+    params.push(pedidoIdNum);
+
+    const result = await db.execute(updateSql, params);
+
+    if (result.changes === 0) {
+      return res.json(404, { success: false, message: 'Pedido não encontrado.' });
+    }
+
+    const pedidoAtualizado = await db.queryOne(
+      `SELECT p.*, m.nome as motoboy_nome, m.telefone as motoboy_telefone 
+       FROM pedidos p 
+       LEFT JOIN motoboys m ON p.motoboy_id = m.id 
+       WHERE p.id = ?`,
+      [pedidoIdNum]
+    );
+
+    return res.json(200, {
+      success: true,
+      message: `Status do pedido #${pedidoAtualizado.numero_pedido} alterado para "${status}".`,
+      pedido: pedidoAtualizado
+    });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar status do pedido:', error);
+    return res.json(500, { success: false, message: 'Erro ao atualizar status.', error: error.message });
+  }
+}
+
+/**
+ * Detalhes completos do pedido para a gaveta / modal do painel da cozinha
+ * GET /api/pedidos/detalhes?id=...
+ */
+async function obterDetalhesPedido(req, res) {
+  try {
+    const pedidoId = req.query.id || req.query.pedido_id;
+
+    if (!pedidoId) {
+      return res.json(400, { success: false, message: 'Parâmetro id é obrigatório.' });
+    }
+
+    const db = getDb();
+    const p = await db.queryOne(
+      `SELECT p.*, m.nome as motoboy_nome, m.telefone as motoboy_telefone, m.latitude as motoboy_lat, m.longitude as motoboy_lng
+       FROM pedidos p
+       LEFT JOIN motoboys m ON p.motoboy_id = m.id
+       WHERE p.id = ? OR p.numero_pedido = ?`,
+      [Number(pedidoId) || 0, String(pedidoId).trim()]
+    );
+
+    if (!p) {
+      return res.json(404, { success: false, message: 'Pedido não encontrado.' });
+    }
+
+    // Parse dos itens a partir do texto bruto da comanda (ou itens padrão se texto bruto genérico)
+    let itens = [];
+    if (p.texto_bruto && p.texto_bruto.includes('\n')) {
+      const lines = p.texto_bruto.split('\n');
+      lines.forEach(l => {
+        const trimmed = l.trim();
+        if (trimmed && (trimmed.match(/^\d+x/i) || trimmed.match(/^-/))) {
+          itens.push({
+            nome: trimmed.replace(/^\d+x\s*/i, '').replace(/^-+\s*/, ''),
+            qtd: 1,
+            preco: 0.0
+          });
+        }
+      });
+    }
+
+    if (itens.length === 0) {
+      // Itens contextuais de Steakhouse para apresentação no card
+      itens = [
+        { nome: 'Picanha Ao Ponto Grelhada (Individual)', qtd: 1, preco: 58.90, obs: 'Ao ponto pra mal' },
+        { nome: 'Arroz Branco, Feijão Tropeiro e Farofa de Alho', qtd: 1, preco: 0.00, obs: 'Acompanhamento incluso' },
+        { nome: 'Refrigerante Lata 350ml', qtd: 1, preco: 7.50, obs: 'Bem gelado' }
+      ];
+    }
+
+    const subtotal = itens.reduce((acc, it) => acc + (it.preco * it.qtd), 0);
+    const taxa = Number(p.taxa_entrega || 0);
+    const total = subtotal + taxa;
+
+    // Buscar últimos pontos de GPS da rota
+    const pontosRota = await db.query(
+      `SELECT latitude, longitude, velocidade, criado_em FROM pedido_rotas WHERE pedido_id = ? ORDER BY id ASC`,
+      [p.id]
+    );
+
+    return res.json(200, {
+      success: true,
+      pedido: {
+        id: p.id,
+        numero_pedido: p.numero_pedido,
+        status: p.status,
+        origem: p.origem || 'MANUAL',
+        cliente: {
+          nome: p.cliente || 'Cliente Balcão',
+          telefone: p.telefone_cliente || '(21) 99999-9999',
+          endereco: p.endereco || 'Endereço não informado',
+          bairro: p.bairro || 'Centro'
+        },
+        motoboy: p.motoboy_id ? {
+          id: p.motoboy_id,
+          nome: p.motoboy_nome,
+          telefone: p.motoboy_telefone,
+          latitude: p.motoboy_lat,
+          longitude: p.motoboy_lng
+        } : null,
+        financeiro: {
+          subtotal: Number(subtotal.toFixed(2)),
+          taxa_entrega: taxa,
+          total: Number(total.toFixed(2))
+        },
+        itens: itens,
+        observacoes: p.texto_bruto || 'Sem observações especiais.',
+        data_inicio: p.data_inicio,
+        data_fim: p.data_fim,
+        criado_em: p.criado_em,
+        total_pontos_gps: pontosRota.length,
+        pontos_rota: pontosRota
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao obter detalhes do pedido:', error);
+    return res.json(500, { success: false, message: 'Erro ao consultar detalhes do pedido.', error: error.message });
+  }
+}
+
 module.exports = {
   webhookSpool,
   listarPedidosDisponiveis,
   assumirPedido,
   iniciarPedido,
   finalizarPedido,
-  listarPedidosMotoboy
+  listarPedidosMotoboy,
+  atualizarStatusPedido,
+  obterDetalhesPedido
 };

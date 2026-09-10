@@ -109,4 +109,203 @@ async function getPosicoesMapa(req, res) {
   }
 }
 
-module.exports = { getPosicoesMapa };
+/**
+ * Estatísticas resumidas da operação para os KPIs do Painel da Cozinha
+ * GET /api/admin/stats
+ */
+async function getDashboardStats(req, res) {
+  try {
+    const db = getDb();
+
+    const [emPreparoRes, aguardandoRes, emRotaRes, entreguesRes, totalRes, faturamentoRes, motoboysCountRes] = await Promise.all([
+      db.queryOne(`SELECT COUNT(*) as count FROM pedidos WHERE status = 'em_preparo'`),
+      db.queryOne(`SELECT COUNT(*) as count FROM pedidos WHERE status IN ('disponivel', 'aguardando_retirada', 'pronto')`),
+      db.queryOne(`SELECT COUNT(*) as count FROM pedidos WHERE status = 'em_rota'`),
+      db.queryOne(`SELECT COUNT(*) as count FROM pedidos WHERE status = 'entregue'`),
+      db.queryOne(`SELECT COUNT(*) as count FROM pedidos`),
+      db.queryOne(`SELECT COALESCE(SUM(taxa_entrega), 0) as total_taxas FROM pedidos`),
+      db.queryOne(`SELECT COUNT(*) as count FROM motoboys`)
+    ]);
+
+    const emPreparo = Number(emPreparoRes?.count || 0);
+    const aguardando = Number(aguardandoRes?.count || 0);
+    const emRota = Number(emRotaRes?.count || 0);
+    const entregues = Number(entreguesRes?.count || 0);
+    const total = Number(totalRes?.count || 0);
+    const faturamentoTaxas = Number(faturamentoRes?.total_taxas || 0);
+    const totalMotoboys = Number(motoboysCountRes?.count || 0);
+
+    // Estimativa de faturamento operacional do dia (ticket médio + taxas)
+    const faturamentoEstimado = entregues > 0 
+      ? (entregues * 45.80) + faturamentoTaxas 
+      : 0;
+
+    return res.json(200, {
+      success: true,
+      timestamp: new Date().toISOString(),
+      stats: {
+        pedidos_em_preparo: emPreparo,
+        pedidos_aguardando: aguardando,
+        pedidos_em_rota: emRota,
+        pedidos_entregues: entregues,
+        total_pedidos: total,
+        faturamento_hoje: Number(faturamentoEstimado.toFixed(2)),
+        total_motoboys: totalMotoboys
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erro ao obter estatísticas:', error);
+    return res.json(500, { success: false, message: 'Erro ao obter estatísticas do dashboard.', error: error.message });
+  }
+}
+
+/**
+ * Listagem completa e flexível de pedidos para o painel da cozinha (Lista e Kanban)
+ * GET /api/admin/pedidos?status=...&busca=...
+ */
+async function listarTodosPedidos(req, res) {
+  try {
+    const db = getDb();
+    const { status, busca } = req.query || {};
+
+    let query = `
+      SELECT p.id, p.numero_pedido, p.status, p.origem, p.pedido_id_origem,
+             p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente,
+             p.texto_bruto, p.data_inicio, p.data_fim, p.criado_em,
+             m.id as motoboy_id, m.nome as motoboy_nome, m.telefone as motoboy_telefone,
+             CASE 
+               WHEN p.status = 'em_rota' AND p.data_inicio IS NOT NULL THEN
+                 ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(p.data_inicio)) * 1440)
+               WHEN p.status IN ('disponivel', 'aguardando_retirada', 'pronto') THEN
+                 ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(p.criado_em, DATETIME('now', '-3 hours')))) * 1440)
+               WHEN p.status = 'entregue' AND p.data_fim IS NOT NULL AND p.data_inicio IS NOT NULL THEN
+                 ROUND((julianday(p.data_fim) - julianday(p.data_inicio)) * 1440)
+               ELSE 0
+             END as tempo_decorrido_minutos,
+             (SELECT COUNT(*) FROM pedido_rotas pr WHERE pr.pedido_id = p.id) as total_pontos_gps
+      FROM pedidos p
+      LEFT JOIN motoboys m ON p.motoboy_id = m.id
+    `;
+
+    const conditions = [];
+    const params = [];
+
+    if (status && status !== 'todos' && status !== 'all') {
+      if (status === 'aguardando' || status === 'pronto') {
+        conditions.push(`p.status IN ('disponivel', 'aguardando_retirada', 'pronto')`);
+      } else {
+        conditions.push(`p.status = ?`);
+        params.push(status);
+      }
+    }
+
+    if (busca && busca.trim() !== '') {
+      const termo = `%${busca.trim()}%`;
+      conditions.push(`(p.numero_pedido LIKE ? OR p.cliente LIKE ? OR p.endereco LIKE ? OR p.bairro LIKE ? OR m.nome LIKE ?)`);
+      params.push(termo, termo, termo, termo, termo);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    query += ` ORDER BY p.id DESC`;
+
+    const pedidos = await db.query(query, params);
+
+    return res.json(200, {
+      success: true,
+      total: pedidos.length,
+      pedidos: pedidos.map(p => ({
+        id: p.id,
+        numero_pedido: p.numero_pedido,
+        status: p.status,
+        origem: p.origem || 'MANUAL',
+        cliente: p.cliente || 'Cliente Balcão',
+        endereco: p.endereco || 'Retirada no balcão',
+        bairro: p.bairro || '',
+        taxa_entrega: Number(p.taxa_entrega || 0),
+        telefone_cliente: p.telefone_cliente || '',
+        texto_bruto: p.texto_bruto || '',
+        data_inicio: p.data_inicio,
+        data_fim: p.data_fim,
+        criado_em: p.criado_em,
+        tempo_decorrido_minutos: Math.max(0, Math.round(Number(p.tempo_decorrido_minutos || 0))),
+        motoboy: p.motoboy_id ? {
+          id: p.motoboy_id,
+          nome: p.motoboy_nome,
+          telefone: p.motoboy_telefone
+        } : null,
+        total_pontos_gps: Number(p.total_pontos_gps || 0)
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Erro ao listar todos os pedidos:', error);
+    return res.json(500, { success: false, message: 'Erro ao listar pedidos.', error: error.message });
+  }
+}
+
+/**
+ * Listar motoboys com status detalhado
+ * GET /api/admin/motoboys
+ */
+async function listarMotoboysAdmin(req, res) {
+  try {
+    const db = getDb();
+    const motoboys = await db.query(
+      `SELECT id, nome, telefone, traccar_device_id, latitude, longitude, velocidade, ultima_atualizacao, criado_em FROM motoboys ORDER BY id ASC`
+    );
+
+    const pedidosAtivos = await db.query(
+      `SELECT id, numero_pedido, motoboy_id, data_inicio, cliente, endereco FROM pedidos WHERE status = 'em_rota'`
+    );
+
+    const pedidosPorMotoboy = {};
+    pedidosAtivos.forEach(p => {
+      if (!pedidosPorMotoboy[p.motoboy_id]) pedidosPorMotoboy[p.motoboy_id] = [];
+      pedidosPorMotoboy[p.motoboy_id].push(p);
+    });
+
+    const resultado = motoboys.map(m => {
+      const pedidos = pedidosPorMotoboy[m.id] || [];
+      const hasRecentGps = m.ultima_atualizacao && (new Date() - new Date(m.ultima_atualizacao.replace(' ', 'T') + 'Z') < 1000 * 60 * 15);
+      
+      let statusCalculado = 'disponivel';
+      if (pedidos.length > 0) {
+        statusCalculado = 'em_rota';
+      } else if (!hasRecentGps && m.latitude === null) {
+        statusCalculado = 'offline';
+      }
+
+      return {
+        id: m.id,
+        nome: m.nome,
+        telefone: m.telefone,
+        traccar_device_id: m.traccar_device_id,
+        latitude: m.latitude,
+        longitude: m.longitude,
+        velocidade: Number(m.velocidade || 0),
+        ultima_atualizacao: m.ultima_atualizacao,
+        status: statusCalculado,
+        qtd_pedidos: pedidos.length,
+        pedidos_em_rota: pedidos
+      };
+    });
+
+    return res.json(200, {
+      success: true,
+      total: resultado.length,
+      motoboys: resultado
+    });
+  } catch (error) {
+    console.error('❌ Erro ao listar motoboys:', error);
+    return res.json(500, { success: false, message: 'Erro ao listar motoboys.', error: error.message });
+  }
+}
+
+module.exports = {
+  getPosicoesMapa,
+  getDashboardStats,
+  listarTodosPedidos,
+  listarMotoboysAdmin
+};

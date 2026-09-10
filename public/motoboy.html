@@ -2,660 +2,719 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Portal do Entregador - Monitoramento de Rotas</title>
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0c10">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Ao Ponto Carnes — App do Entregador</title>
+  <link rel="icon" type="image/png" href="/assets/logo-transparent.png">
+
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS (para aba do mapa) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <!-- Design System CSS -->
+  <link rel="stylesheet" href="/css/design-system.css">
 
   <style>
-    :root {
-      --bg-dark: #0b0f19;
-      --card-bg: rgba(30, 41, 59, 0.7);
-      --card-border: rgba(255, 255, 255, 0.1);
-      --primary: #3b82f6;
-      --accent: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-
+    /* Estilos Específicos Mobile First (Thumb Zone & Alta Legibilidade em Trânsito) */
     body {
-      background-color: var(--bg-dark);
-      color: var(--text-main);
+      background-color: var(--bg-app);
+      color: var(--text-primary);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 16px;
-      overflow-x: hidden;
+      padding-bottom: 74px; /* Espaço para a barra inferior */
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .container {
+    .mobile-app-wrapper {
       width: 100%;
-      max-width: 460px;
+      max-width: 480px;
       margin: 0 auto;
-    }
-
-    /* GLASS CARDS */
-    .glass-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 20px;
-      padding: 20px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-      margin-bottom: 16px;
-    }
-
-    .brand-header {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-
-    .brand-icon {
-      font-size: 40px;
-      margin-bottom: 8px;
-    }
-
-    .brand-title {
-      font-size: 20px;
-      font-weight: 800;
-      color: #ffffff;
-      letter-spacing: -0.5px;
-    }
-
-    .brand-subtitle {
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-
-    /* AUTH TABS */
-    .tab-nav {
       display: flex;
-      background: rgba(15, 23, 42, 0.8);
-      border-radius: 12px;
-      padding: 4px;
-      margin-bottom: 20px;
-      border: 1px solid var(--card-border);
+      flex-direction: column;
+      min-height: 100vh;
     }
 
-    .tab-btn {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 13px;
-      font-weight: 600;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .tab-btn.active {
-      background: var(--primary);
-      color: #ffffff;
-      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
-    }
-
-    /* FORM INPUTS */
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .form-input {
-      width: 100%;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 14px 16px;
-      font-size: 15px;
-      color: var(--text-main);
-      outline: none;
-      transition: all 0.2s ease;
-    }
-
-    .form-input:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
-      background: rgba(15, 23, 42, 0.85);
-    }
-
-    /* BUTTONS */
-    .btn {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: all 0.2s ease;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-      color: #ffffff;
-    }
-
-    .btn-primary:active { transform: scale(0.98); }
-
-    .btn-accent {
-      background: linear-gradient(135deg, #10b981, #059669);
-      color: #ffffff;
-    }
-
-    .btn-accent:active { transform: scale(0.98); }
-
-    .btn-retirar {
-      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-      color: #ffffff;
-      padding: 10px 16px;
-      font-size: 13px;
-      font-weight: 800;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-    }
-
-    .btn-retirar:active { transform: scale(0.96); }
-
-    .btn-danger-sm {
-      padding: 8px 14px;
-      font-size: 13px;
-      border-radius: 10px;
-      background: rgba(239, 68, 68, 0.2);
-      border: 1px solid rgba(239, 68, 68, 0.4);
-      color: #fca5a5;
-      cursor: pointer;
-    }
-
-    /* DASHBOARD TOP BAR */
-    .user-bar {
+    /* BARRA SUPERIOR MOBILE */
+    .mobile-header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(10, 12, 16, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 12px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 16px;
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 16px;
-      padding: 14px 18px;
     }
 
-    .user-info {
+    .mobile-brand-wrap {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
-    .avatar {
-      width: 42px;
-      height: 42px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #10b981, #3b82f6);
+    .mobile-logo {
+      height: 38px;
+      width: auto;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+    }
+
+    .motoboy-profile-badge {
+      text-align: right;
+    }
+
+    .motoboy-name-text {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    .gps-pulse-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--status-rota-text);
+      background: var(--status-rota-bg);
+      border: 1px solid var(--status-rota-border);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      margin-top: 2px;
+    }
+
+    .gps-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      animation: pulseDot 1.5s infinite;
+    }
+
+    /* CARD DOMINANTE DA ENTREGA ATIVA (O MAIS IMPORTANTE DA TELA) */
+    .hero-active-card {
+      background: var(--bg-surface-elevated);
+      border: 2px solid var(--border-gold);
+      border-radius: var(--radius-xl);
+      padding: 20px;
+      margin: 16px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(245, 158, 11, 0.15);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-active-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #ea580c, #f59e0b, #10b981);
+    }
+
+    .hero-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hero-order-id {
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .hero-client-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hero-address-block {
+      background: var(--bg-surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+    }
+
+    .hero-address-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--brand-gold-light);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hero-address-main {
+      font-size: 18px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1.35;
+    }
+
+    .hero-address-bairro {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .hero-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+    }
+
+    .hero-eta-badge {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--brand-gold-light);
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid var(--border-gold);
+      padding: 4px 10px;
+      border-radius: var(--radius-md);
+    }
+
+    .hero-taxa-badge {
+      font-size: 15px;
+      font-weight: 800;
+      color: #34d399;
+    }
+
+    /* BOTÃO PRIORITÁRIO "VER ROTA" */
+    .btn-ver-rota-master {
+      background: linear-gradient(135deg, #fbbf24, #f59e0b 60%, #d97706);
+      color: #0c0e12;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      padding: 16px 20px;
+      border-radius: var(--radius-lg);
+      border: none;
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45);
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 54px;
+      transition: transform 0.1s ease, filter 0.2s ease;
+      user-select: none;
+    }
+
+    .btn-ver-rota-master:active {
+      transform: scale(0.97);
+      filter: brightness(0.9);
+    }
+
+    /* BOTÃO "FINALIZAR ENTREGA" */
+    .btn-finalizar-master {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #ffffff;
+      font-size: 15px;
       font-weight: 800;
+      padding: 14px 20px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: var(--shadow-glow-red);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 50px;
+      transition: transform 0.1s ease;
+    }
+
+    .btn-finalizar-master:active {
+      transform: scale(0.97);
+    }
+
+    /* SEÇÃO PRÓXIMAS ENTREGAS */
+    .section-proximas {
+      padding: 0 16px 20px;
+    }
+
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .section-title-text {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .queue-card {
+      background: var(--bg-surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: all var(--transition-fast);
+    }
+
+    .queue-card:active {
+      background: var(--bg-surface-hover);
+    }
+
+    .queue-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .queue-num-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .queue-address {
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* BARRA DE NAVEGAÇÃO INFERIOR FIXA (ERGONOMIA COM UMA MÃO) */
+    .bottom-nav-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-width: 480px;
+      margin: 0 auto;
+      height: 64px;
+      background: rgba(14, 17, 23, 0.96);
+      backdrop-filter: blur(14px);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      z-index: 2000;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .bottom-nav-btn {
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+      transition: color var(--transition-fast);
+    }
+
+    .bottom-nav-btn.active {
+      color: var(--brand-gold-light);
+    }
+
+    .bottom-nav-icon {
       font-size: 18px;
     }
 
-    .user-name { font-size: 15px; font-weight: 700; }
-    .user-phone { font-size: 12px; color: var(--text-muted); }
-
-    /* PEDIDO ITEMS */
-    .pedidos-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 14px;
-    }
-
-    .section-title { font-size: 16px; font-weight: 700; }
-
-    .badge-count {
-      background: var(--primary);
-      color: #ffffff;
-      font-size: 12px;
-      font-weight: 800;
-      padding: 3px 10px;
-      border-radius: 20px;
-    }
-
-    .pedido-card {
-      background: rgba(15, 23, 42, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 14px;
-      padding: 16px;
-      margin-bottom: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      transition: all 0.2s ease;
-    }
-
-    .pedido-card:hover {
-      border-color: rgba(59, 130, 246, 0.3);
-      background: rgba(15, 23, 42, 0.85);
-    }
-
-    .pedido-card-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .pedido-num {
-      font-size: 17px;
-      font-weight: 800;
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .pedido-time {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .pedido-cliente {
-      font-size: 14px;
-      font-weight: 600;
-      color: #e2e8f0;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .pedido-endereco {
-      font-size: 12px;
-      color: var(--text-muted);
-      line-height: 1.4;
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-    }
-
-    /* BADGES DE ORIGEM */
-    .origem-badge {
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-      padding: 3px 8px;
-      border-radius: 6px;
-      letter-spacing: 0.3px;
-    }
-
-    .origem-ifood {
-      background: #ea1d2c;
-      color: #ffffff;
-      box-shadow: 0 0 8px rgba(234, 29, 44, 0.5);
-    }
-
-    .origem-99food {
-      background: #ff5e00;
-      color: #ffffff;
-      box-shadow: 0 0 8px rgba(255, 94, 0, 0.5);
-    }
-
-    .origem-cardapio_web {
-      background: #10b981;
-      color: #ffffff;
-      box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
-    }
-
-    .origem-manual {
-      background: #3b82f6;
-      color: #ffffff;
-    }
-
-    .taxa-badge {
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      color: #34d399;
-      font-size: 12px;
-      font-weight: 800;
-      padding: 3px 8px;
-      border-radius: 6px;
-    }
-
-    .status-badge {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      padding: 2px 6px;
-      border-radius: 6px;
-      background: rgba(59, 130, 246, 0.2);
-      color: #93c5fd;
-      border: 1px solid rgba(59, 130, 246, 0.3);
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 28px 16px;
-      color: var(--text-muted);
-    }
-
-    .empty-icon { font-size: 36px; margin-bottom: 6px; opacity: 0.6; }
-
-    /* TOAST NOTIFICATION */
-    #toast {
+    /* MODAL DE CONFIRMAÇÃO */
+    .modal-confirm-overlay {
       position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
-      background: rgba(15, 23, 42, 0.95);
-      border: 1px solid var(--card-border);
-      color: #ffffff;
-      padding: 14px 24px;
-      border-radius: 30px;
-      font-size: 13px;
-      font-weight: 600;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-      display: flex;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
+      z-index: 9000;
+      display: none;
       align-items: center;
-      gap: 10px;
-      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      z-index: 9999;
-      pointer-events: none;
-      max-width: 90vw;
-      text-align: center;
+      justify-content: center;
+      padding: 20px;
     }
 
-    #toast.show { transform: translateX(-50%) translateY(0); }
-    #toast.success { border-color: var(--accent); }
-    #toast.error { border-color: var(--danger); }
-
-    .hidden { display: none !important; }
+    .modal-confirm-box {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+      box-shadow: var(--shadow-lg);
+    }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    
-    <!-- TELA DE AUTH (LOGIN / CADASTRO) -->
-    <div id="authView">
-      <div class="glass-card">
-        <div class="brand-header">
-          <div class="brand-icon">🛵</div>
-          <h1 class="brand-title">Motoboy Entregas</h1>
-          <p class="brand-subtitle">Acesso para entregadores do restaurante</p>
+  <div class="mobile-app-wrapper">
+
+    <!-- ======================================================================
+         TELA DE AUTENTICAÇÃO (LOGIN / CADASTRO)
+         ====================================================================== -->
+    <div id="authScreen" style="padding: 24px 20px; display: flex; flex-direction: column; justify-content: center; min-height: 90vh;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <img src="/assets/logo-dark-theme.png" alt="Ao Ponto Carnes" style="max-width: 180px; height: auto; margin-bottom: 12px;" onerror="this.src='/assets/logo.png'">
+        <h2 style="font-size: 20px; font-weight: 800; color: var(--text-primary);">Portal do Entregador</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Acesso operacional para motoboys da casa</p>
+      </div>
+
+      <div class="card card-elevated" style="padding: 24px;">
+        <!-- Tabs de login / cadastro -->
+        <div style="display: flex; background: var(--bg-surface); border-radius: var(--radius-md); padding: 4px; margin-bottom: 20px; border: 1px solid var(--border-subtle);">
+          <button id="btnTabLogin" class="btn btn-sm active" style="flex: 1; background: var(--brand-gold); color: #000;" onclick="trocarAbaAuth('login')">Entrar</button>
+          <button id="btnTabRegister" class="btn btn-sm btn-secondary" style="flex: 1;" onclick="trocarAbaAuth('register')">Cadastrar</button>
         </div>
 
-        <!-- TABS DE NAVEGAÇÃO ENTRAR / CADASTRAR -->
-        <div class="tab-nav">
-          <button class="tab-btn active" id="tabLoginBtn" onclick="switchAuthTab('login')">Entrar</button>
-          <button class="tab-btn" id="tabRegisterBtn" onclick="switchAuthTab('register')">Novo Cadastro</button>
-        </div>
-
-        <!-- FORMULÁRIO DE LOGIN -->
-        <form id="loginForm" onsubmit="handleLogin(event)">
+        <!-- FORM LOGIN -->
+        <form id="formLogin" onsubmit="realizarLogin(event)">
           <div class="form-group">
-            <label class="form-label" for="telefoneInput">Telefone (DDD + Número)</label>
-            <input type="tel" id="telefoneInput" class="form-input" placeholder="Ex: 11999998888" required>
+            <label class="form-label" for="inpTel">Telefone (DDD + Número)</label>
+            <input type="tel" id="inpTel" class="form-input" placeholder="Ex: 21990378175" required>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="senhaInput">Senha</label>
-            <input type="password" id="senhaInput" class="form-input" placeholder="Digite sua senha" required>
+            <label class="form-label" for="inpSenha">Senha de Acesso</label>
+            <input type="password" id="inpSenha" class="form-input" placeholder="Digite sua senha" required>
           </div>
 
-          <button type="submit" class="btn btn-primary" id="loginBtn">
+          <button type="submit" class="btn btn-gold" id="btnLoginSubmit" style="width: 100%; padding: 14px; font-size: 14px; margin-top: 8px;">
             <span>ENTRAR NO SISTEMA</span>
           </button>
         </form>
 
-        <!-- FORMULÁRIO DE CADASTRO -->
-        <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
+        <!-- FORM CADASTRO -->
+        <form id="formRegister" onsubmit="realizarCadastro(event)" style="display: none;">
           <div class="form-group">
-            <label class="form-label" for="regNomeInput">Nome Completo</label>
-            <input type="text" id="regNomeInput" class="form-input" placeholder="Ex: Lucas Marinho" required>
+            <label class="form-label" for="inpRegNome">Nome Completo</label>
+            <input type="text" id="inpRegNome" class="form-input" placeholder="Ex: Guilherme Siqueira" required>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="regTelefoneInput">Telefone (com DDD)</label>
-            <input type="tel" id="regTelefoneInput" class="form-input" placeholder="Ex: 21990378175" required>
+            <label class="form-label" for="inpRegTel">Telefone (com DDD)</label>
+            <input type="tel" id="inpRegTel" class="form-input" placeholder="Ex: 21990378175" required>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="regSenhaInput">Senha de Acesso</label>
-            <input type="password" id="regSenhaInput" class="form-input" placeholder="Digite uma senha segura" required>
+            <label class="form-label" for="inpRegSenha">Senha</label>
+            <input type="password" id="inpRegSenha" class="form-input" placeholder="Crie uma senha" required>
           </div>
 
-          <div class="form-group">
-            <label class="form-label" for="regDeviceIdInput">ID Traccar Client (Número do celular no app)</label>
-            <input type="text" id="regDeviceIdInput" class="form-input" placeholder="Ex: 21990378175 (Deixe igual ao telefone)">
-          </div>
-
-          <button type="submit" class="btn btn-accent" id="registerBtn">
-            <span>CADASTRAR MOTOBOY</span>
+          <button type="submit" class="btn btn-gold" id="btnRegisterSubmit" style="width: 100%; padding: 14px; font-size: 14px; margin-top: 8px;">
+            <span>CRIAR CADASTRO</span>
           </button>
         </form>
       </div>
     </div>
 
-    <!-- TELA DO DASHBOARD MOTOBOY -->
-    <div id="dashboardView" class="hidden">
-      <!-- BARRA SUPERIOR MOTOBOY -->
-      <div class="user-bar">
-        <div class="user-info">
-          <div class="avatar" id="userInitial">M</div>
-          <div>
-            <div class="user-name" id="userName">Motoboy</div>
-            <div class="user-phone" id="userPhone">--</div>
-            <div id="gpsStatusBadge" style="font-size: 11px; color: #10b981; font-weight: 700; margin-top: 4px;">🟢 Ativando GPS...</div>
+    <!-- ======================================================================
+         APP PRINCIPAL (QUANDO AUTENTICADO)
+         ====================================================================== -->
+    <div id="mainAppScreen" style="display: none; flex-direction: column; flex: 1;">
+
+      <!-- HEADER MOBILE -->
+      <header class="mobile-header">
+        <div class="mobile-brand-wrap">
+          <img src="/assets/logo-dark-theme.png" alt="Ao Ponto" class="mobile-logo" onerror="this.src='/assets/logo.png'">
+        </div>
+
+        <div class="motoboy-profile-badge">
+          <div class="motoboy-name-text" id="headerMotoboyNome">Motoboy</div>
+          <div class="gps-pulse-pill" id="headerGpsStatus">
+            <span class="gps-dot"></span>
+            <span id="gpsText">GPS Ativo</span>
           </div>
         </div>
-        <button onclick="handleLogout()" class="btn-danger-sm">Sair</button>
-      </div>
+      </header>
 
-      <!-- SEÇÃO 1: PEDIDOS DISPONÍVEIS NO BALCÃO (GERADOS PELO SPOOLER) -->
-      <div class="glass-card" style="border-left: 4px solid var(--primary);">
-        <div class="pedidos-header">
-          <div>
-            <h2 class="section-title" style="display: flex; align-items: center; gap: 8px;">
-              <span>📦</span> Pedidos Prontos para Saída
-            </h2>
-            <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Comandas impressas no balcão</p>
+      <!-- ====================================================================
+           ABA 1: INÍCIO / ENTREGA ATIVA
+           ==================================================================== -->
+      <main id="tabContentInicio" style="flex: 1; display: flex; flex-direction: column;">
+        
+        <!-- CARD DOMINANTE DA ENTREGA ATIVA (EXEMPLO #8830) -->
+        <div id="containerEntregaAtiva">
+          <!-- Renderizado via JavaScript -->
+          <div style="padding: 16px;">
+            <div class="skeleton" style="height: 280px; border-radius: var(--radius-xl);"></div>
           </div>
-          <span class="badge-count" id="disponiveisCount" style="background: var(--primary);">0</span>
         </div>
 
-        <div id="disponiveisList">
-          <!-- Renderizado via JS -->
-        </div>
-      </div>
-
-      <!-- SEÇÃO 2: LISTA DE ENTREGAS EM ROTA DESTE MOTOBOY -->
-      <div class="glass-card" style="border-left: 4px solid var(--accent);">
-        <div class="pedidos-header">
-          <div>
-            <h2 class="section-title" style="display: flex; align-items: center; gap: 8px;">
-              <span>🚀</span> Minhas Entregas em Rota
-            </h2>
-            <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Rastreamento GPS ativo</p>
+        <!-- PRÓXIMAS ENTREGAS NA FILA -->
+        <section class="section-proximas">
+          <div class="section-title-row">
+            <span class="section-title-text">
+              <span>📋</span> Próximos Pedidos
+            </span>
+            <span class="status-badge badge-rota" id="badgeTotalFila">0</span>
           </div>
-          <span class="badge-count" id="pedidosCount" style="background: var(--accent);">0</span>
-        </div>
 
-        <div id="pedidosList">
+          <div id="containerProximasEntregas">
+            <!-- Renderizado via JavaScript -->
+          </div>
+        </section>
+
+      </main>
+
+      <!-- ====================================================================
+           ABA 2: BALCÃO / RETIRADAS
+           ==================================================================== -->
+      <section id="tabContentBalcao" style="display: none; padding: 16px; flex: 1; flex-direction: column;">
+        <div class="section-title-row">
+          <span class="section-title-text">
+            <span>📦</span> Disponíveis no Balcão
+          </span>
+          <span class="status-badge badge-retirada" id="badgeTotalBalcao">0</span>
+        </div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Comandas prontas aguardando motoboy retirar.</p>
+
+        <div id="containerPedidosBalcao">
           <!-- Renderizado via JavaScript -->
         </div>
-      </div>
+      </section>
+
+      <!-- ====================================================================
+           ABA 3: MAPA LOCAL DO MOTOBOY
+           ==================================================================== -->
+      <section id="tabContentMapa" style="display: none; flex: 1; flex-direction: column; min-height: 80vh;">
+        <div id="mapaMobile" style="width: 100%; height: 100%; flex: 1; min-height: 400px; background: #12141a;"></div>
+      </section>
+
+      <!-- ====================================================================
+           ABA 4: PERFIL & RENDIMENTOS
+           ==================================================================== -->
+      <section id="tabContentPerfil" style="display: none; padding: 20px; flex: 1; flex-direction: column; gap: 16px;">
+        <div class="card card-elevated" style="text-align: center; padding: 24px;">
+          <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, var(--brand-gold-light), var(--brand-gold)); color: #000; font-size: 24px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;" id="perfilAvatarInitial">M</div>
+          <h3 style="font-size: 18px; font-weight: 800;" id="perfilNome">Motoboy</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;" id="perfilTelefone">--</p>
+        </div>
+
+        <div class="card">
+          <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 12px;">Desempenho do Turno</span>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="background: var(--bg-surface); padding: 14px; border-radius: var(--radius-md); text-align: center;">
+              <span style="font-size: 11px; color: var(--text-muted); display: block;">Entregas Hoje</span>
+              <strong style="font-size: 22px; color: var(--text-primary);" id="perfilQtdEntregas">0</strong>
+            </div>
+            <div style="background: var(--bg-surface); padding: 14px; border-radius: var(--radius-md); text-align: center;">
+              <span style="font-size: 11px; color: var(--text-muted); display: block;">Ganhos em Taxas</span>
+              <strong style="font-size: 22px; color: #34d399;" id="perfilTotalTaxas">R$ 0,00</strong>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-danger" style="margin-top: 10px;" onclick="realizarLogout()">
+          <span>Sair do Sistema</span>
+        </button>
+      </section>
+
+      <!-- BARRA DE NAVEGAÇÃO INFERIOR FIXA (BOTTOM NAVIGATION) -->
+      <nav class="bottom-nav-bar">
+        <button class="bottom-nav-btn active" id="btnNavInicio" onclick="trocarAbaApp('inicio')">
+          <span class="bottom-nav-icon">🏠</span>
+          <span>Início</span>
+        </button>
+        <button class="bottom-nav-btn" id="btnNavBalcao" onclick="trocarAbaApp('balcao')">
+          <span class="bottom-nav-icon">📦</span>
+          <span>Balcão</span>
+        </button>
+        <button class="bottom-nav-btn" id="btnNavMapa" onclick="trocarAbaApp('mapa')">
+          <span class="bottom-nav-icon">🧭</span>
+          <span>Mapa</span>
+        </button>
+        <button class="bottom-nav-btn" id="btnNavPerfil" onclick="trocarAbaApp('perfil')">
+          <span class="bottom-nav-icon">👤</span>
+          <span>Perfil</span>
+        </button>
+      </nav>
+
     </div>
 
   </div>
 
-  <!-- TOAST FEEDBACK -->
-  <div id="toast">
-    <span id="toastIcon">ℹ️</span>
-    <span id="toastMsg">Mensagem de alerta</span>
+  <!-- MODAL DE CONFIRMAÇÃO DE FINALIZAÇÃO -->
+  <div class="modal-confirm-overlay" id="modalFinalizar">
+    <div class="modal-confirm-box">
+      <div style="font-size: 36px; margin-bottom: 12px;">🏁</div>
+      <h3 style="font-size: 18px; font-weight: 800; margin-bottom: 8px;">Finalizar Entrega?</h3>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;" id="modalFinalizarTexto">Confirmar conclusão do pedido #--?</p>
+      
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-secondary" style="flex: 1;" onclick="fecharModalFinalizar()">Cancelar</button>
+        <button class="btn btn-danger" style="flex: 1;" id="btnConfirmarFinalizacao" onclick="confirmarFinalizarPedido()">SIM, ENTREGUE</button>
+      </div>
+    </div>
   </div>
 
-  <script>
-    let currentMotoboy = null;
-    let gpsInterval = null;
-    let pollingInterval = null;
-    let wakeLock = null;
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container" id="toastContainer"></div>
 
-    // PREVENIR TELA DE APAGAR (Screen Wake Lock API)
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- LÓGICA DO APP MOBILE MOTOBOY -->
+  <script>
+    const state = {
+      motoboy: null,
+      pedidosAtivos: [],
+      pedidosBalcao: [],
+      pedidoParaFinalizar: null,
+      abaAtual: 'inicio',
+      mapa: null,
+      marcadorMotoboy: null,
+      marcadorDestino: null,
+      wakeLock: null,
+      gpsWatcherId: null,
+      pollingTimer: null,
+      ultimaLat: null,
+      ultimaLng: null
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      verificarSessao();
+    });
+
+    // Sessão do Entregador
+    function verificarSessao() {
+      const sessaoStr = localStorage.getItem('motoboySession');
+      if (sessaoStr) {
+        try {
+          state.motoboy = JSON.parse(sessaoStr);
+          iniciarApp();
+        } catch (e) {
+          localStorage.removeItem('motoboySession');
+          exibirTelaAuth();
+        }
+      } else {
+        exibirTelaAuth();
+      }
+    }
+
+    function exibirTelaAuth() {
+      pararGps();
+      if (state.pollingTimer) clearInterval(state.pollingTimer);
+      document.getElementById('authScreen').style.display = 'flex';
+      document.getElementById('mainAppScreen').style.display = 'none';
+    }
+
+    function iniciarApp() {
+      document.getElementById('authScreen').style.display = 'none';
+      document.getElementById('mainAppScreen').style.display = 'flex';
+
+      document.getElementById('headerMotoboyNome').textContent = state.motoboy.nome;
+      document.getElementById('perfilNome').textContent = state.motoboy.nome;
+      document.getElementById('perfilTelefone').textContent = `📞 ${state.motoboy.telefone}`;
+      document.getElementById('perfilAvatarInitial').textContent = state.motoboy.nome.charAt(0).toUpperCase();
+
+      solicitarWakeLock();
+      iniciarGps();
+      carregarDados();
+
+      if (state.pollingTimer) clearInterval(state.pollingTimer);
+      state.pollingTimer = setInterval(() => {
+        if (state.motoboy) carregarDados();
+      }, 4000);
+    }
+
+    // Wake Lock API: Impede a tela do celular de apagar durante a rota
     async function solicitarWakeLock() {
       if ('wakeLock' in navigator) {
         try {
-          wakeLock = await navigator.wakeLock.request('screen');
-          console.log('💡 Wake Lock ativo: a tela não será bloqueada durante as entregas!');
+          state.wakeLock = await navigator.wakeLock.request('screen');
+          console.log('💡 Wake Lock ativo: tela mantida acesa durante o percurso.');
         } catch (err) {
-          console.warn('⚠️ Não foi possível ativar o Wake Lock:', err.message);
+          console.warn('Wake Lock falhou:', err.message);
         }
       }
     }
 
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && currentMotoboy) {
+      if (document.visibilityState === 'visible' && state.motoboy) {
         solicitarWakeLock();
       }
     });
 
-    document.addEventListener('DOMContentLoaded', () => {
-      checkStoredSession();
-    });
-
-    function checkStoredSession() {
-      const stored = localStorage.getItem('motoboySession');
-      if (stored) {
-        try {
-          currentMotoboy = JSON.parse(stored);
-          showDashboardView();
-        } catch (e) {
-          localStorage.removeItem('motoboySession');
-          showAuthView();
-        }
-      } else {
-        showAuthView();
-      }
-    }
-
-    function switchAuthTab(tab) {
-      const loginBtn = document.getElementById('tabLoginBtn');
-      const registerBtn = document.getElementById('tabRegisterBtn');
-      const loginForm = document.getElementById('loginForm');
-      const registerForm = document.getElementById('registerForm');
-
-      if (tab === 'login') {
-        loginBtn.classList.add('active');
-        registerBtn.classList.remove('active');
-        loginForm.classList.remove('hidden');
-        registerForm.classList.add('hidden');
-      } else {
-        registerBtn.classList.add('active');
-        loginBtn.classList.remove('active');
-        registerForm.classList.remove('hidden');
-        loginForm.classList.add('hidden');
-      }
-    }
-
-    function showAuthView() {
-      pararRastreamentoGps();
-      if (pollingInterval) clearInterval(pollingInterval);
-      document.getElementById('authView').classList.remove('hidden');
-      document.getElementById('dashboardView').classList.add('hidden');
-    }
-
-    function showDashboardView() {
-      document.getElementById('authView').classList.add('hidden');
-      document.getElementById('dashboardView').classList.remove('hidden');
-
-      document.getElementById('userName').textContent = currentMotoboy.nome;
-      document.getElementById('userPhone').textContent = currentMotoboy.telefone;
-      document.getElementById('userInitial').textContent = currentMotoboy.nome.charAt(0).toUpperCase();
-
-      carregarPedidosDisponiveis();
-      carregarPedidosAtivos();
-      iniciarRastreamentoGps();
-
-      if (pollingInterval) clearInterval(pollingInterval);
-      pollingInterval = setInterval(() => {
-        if (currentMotoboy) {
-          carregarPedidosDisponiveis();
-          carregarPedidosAtivos();
-        }
-      }, 4000);
-    }
-
     // TRANSMISSÃO AUTOMÁTICA DE GPS (HTML5 Geolocation)
-    function iniciarRastreamentoGps() {
-      const badge = document.getElementById('gpsStatusBadge');
-      solicitarWakeLock();
-
+    function iniciarGps() {
+      const statusText = document.getElementById('gpsText');
       if (!('geolocation' in navigator)) {
-        if (badge) {
-          badge.textContent = '⚠️ GPS não suportado';
-          badge.style.color = '#f59e0b';
-        }
+        if (statusText) statusText.textContent = 'GPS Indisponível';
         return;
       }
 
-      const enviarPosicao = (pos) => {
+      const enviarPonto = (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-        const speed = Math.round((pos.coords.speed || 0) * 3.6);
+        const spd = Math.round((pos.coords.speed || 0) * 3.6);
         const acc = Math.round(pos.coords.accuracy || 0);
+
+        state.ultimaLat = lat;
+        state.ultimaLng = lng;
 
         fetch('/api/motoboy/posicao', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            motoboy_id: currentMotoboy.id,
+            motoboy_id: state.motoboy.id,
             latitude: lat,
             longitude: lng,
-            speed: speed,
+            speed: spd,
             accuracy: acc
           })
         }).then(r => r.json()).then(data => {
-          if (data.success && badge) {
-            badge.innerHTML = '🟢 GPS Transmitindo (' + new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' }) + ')';
-            badge.style.color = '#10b981';
+          if (data.success && statusText) {
+            const h = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+            statusText.textContent = `GPS ${h}`;
           }
-        }).catch(err => console.error('Erro ao enviar GPS:', err));
+        }).catch(() => {});
+
+        atualizarMarcadorMapaProprio(lat, lng);
       };
 
-      navigator.geolocation.getCurrentPosition(enviarPosicao, (err) => {
-        if (badge) {
-          badge.textContent = '🟡 Aguardando autorização de GPS';
-          badge.style.color = '#f59e0b';
-        }
-      }, { enableHighAccuracy: true });
+      navigator.geolocation.getCurrentPosition(enviarPonto, () => {}, { enableHighAccuracy: true });
 
-      if (gpsInterval) clearInterval(gpsInterval);
-      gpsInterval = setInterval(() => {
-        navigator.geolocation.getCurrentPosition(enviarPosicao, () => {}, {
+      state.gpsWatcherId = setInterval(() => {
+        navigator.geolocation.getCurrentPosition(enviarPonto, () => {}, {
           enableHighAccuracy: true,
           maximumAge: 3000,
           timeout: 5000
@@ -663,311 +722,487 @@
       }, 5000);
     }
 
-    function pararRastreamentoGps() {
-      if (gpsInterval) {
-        clearInterval(gpsInterval);
-        gpsInterval = null;
+    function pararGps() {
+      if (state.gpsWatcherId) {
+        clearInterval(state.gpsWatcherId);
+        state.gpsWatcherId = null;
       }
     }
 
-    function formatarOrigemClass(origem) {
-      if (!origem) return 'origem-manual';
-      const o = origem.toLowerCase();
+    // CARREGAR DADOS DO MOTOBOY E DO BALCÃO
+    async function carregarDados() {
+      if (!state.motoboy) return;
+
+      try {
+        const [ativosRes, balcaoRes] = await Promise.all([
+          fetch(`/api/pedidos/motoboy?motoboy_id=${state.motoboy.id}`).then(r => r.json()).catch(() => null),
+          fetch('/api/pedidos/disponiveis').then(r => r.json()).catch(() => null)
+        ]);
+
+        if (ativosRes && ativosRes.success) {
+          state.pedidosAtivos = ativosRes.pedidos || [];
+          renderizarEntregaAtiva();
+          renderizarProximasEntregas();
+          atualizarMétricasPerfil();
+        }
+
+        if (balcaoRes && balcaoRes.success) {
+          state.pedidosBalcao = balcaoRes.pedidos || [];
+          renderizarBalcao();
+        }
+      } catch (err) {
+        console.error('Erro ao buscar dados:', err);
+      }
+    }
+
+    // RENDERIZAR CARD DOMINANTE DA ENTREGA ATIVA
+    function renderizarEntregaAtiva() {
+      const container = document.getElementById('containerEntregaAtiva');
+      if (!container) return;
+
+      if (state.pedidosAtivos.length === 0) {
+        container.innerHTML = `
+          <div style="padding: 24px 16px;">
+            <div class="card" style="text-align: center; padding: 36px 20px; border: 2px dashed var(--border-medium);">
+              <div style="font-size: 42px; margin-bottom: 10px;">🛵</div>
+              <h3 style="font-size: 17px; font-weight: 800; color: var(--text-primary); margin-bottom: 6px;">Nenhuma entrega em rota</h3>
+              <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Você está pronto para retirar novas comandas no balcão.</p>
+              <button class="btn btn-gold" onclick="trocarAbaApp('balcao')">
+                <span>📦 Ver Pedidos no Balcão</span>
+              </button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // O primeiro pedido é a entrega dominante ativa
+      const p = state.pedidosAtivos[0];
+      const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
+      const enderecoCompleto = `${p.endereco}${p.bairro ? ' — ' + p.bairro : ''}`;
+
+      container.innerHTML = `
+        <div class="hero-active-card">
+          <!-- Topo do Card -->
+          <div class="hero-card-header">
+            <div>
+              <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem)}</span>
+              <div class="hero-order-id">#${p.numero_pedido}</div>
+            </div>
+            <div style="text-align: right;">
+              <span class="status-badge badge-rota">EM ROTA</span>
+              <div class="hero-eta-badge" style="margin-top: 4px;">⏱️ ${p.minutos_em_rota || 0} min</div>
+            </div>
+          </div>
+
+          <!-- Cliente -->
+          <div class="hero-client-name">
+            <span>👤</span>
+            <span>${p.cliente || 'Cliente'}</span>
+          </div>
+
+          <!-- Endereço em Destaque Absoluto -->
+          <div class="hero-address-block">
+            <div class="hero-address-label">
+              <span>📍</span> ENDEREÇO DE ENTREGA
+            </div>
+            <div class="hero-address-main">${p.endereco || 'Endereço não informado'}</div>
+            <div class="hero-address-bairro">${p.bairro ? p.bairro + ' • Teresópolis' : 'Teresópolis/RJ'}</div>
+          </div>
+
+          <!-- Meta (Taxa) -->
+          <div class="hero-meta-row">
+            <span style="font-size: 13px; color: var(--text-muted);">Taxa do entregador:</span>
+            <span class="hero-taxa-badge">${taxaStr}</span>
+          </div>
+
+          <!-- BOTÃO PRIORITÁRIO "VER ROTA" (INTEGRAÇÃO NATIVA GOOGLE MAPS / APPLE MAPS) -->
+          <button class="btn-ver-rota-master" onclick="abrirRotaNativa('${encodeURIComponent(enderecoCompleto)}')">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+            </svg>
+            <span>VER ROTA NO MAPA</span>
+          </button>
+
+          <!-- BOTÃO FINALIZAR ENTREGA -->
+          <button class="btn-finalizar-master" onclick="solicitarFinalizarEntrega(${p.id}, '${p.numero_pedido}')">
+            <span>✓ FINALIZAR ENTREGA</span>
+          </button>
+        </div>
+      `;
+    }
+
+    // DISPARO NATIVO DE ROTAS (GOOGLE MAPS / APPLE MAPS)
+    function abrirRotaNativa(enderecoEncoded) {
+      const enderecoLimpo = decodeURIComponent(enderecoEncoded) + ', Teresópolis, RJ';
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+      let urlRota = '';
+      if (isIOS) {
+        // Apple Maps Deep Link
+        urlRota = `http://maps.apple.com/?daddr=${encodeURIComponent(enderecoLimpo)}&dirflg=d`;
+      } else {
+        // Google Maps Navigation Deep Link
+        urlRota = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(enderecoLimpo)}&travelmode=driving`;
+      }
+
+      window.open(urlRota, '_system');
+    }
+
+    // RENDERIZAR PRÓXIMAS ENTREGAS
+    function renderizarProximasEntregas() {
+      const container = document.getElementById('containerProximasEntregas');
+      const badgeTotal = document.getElementById('badgeTotalFila');
+      if (!container) return;
+
+      const fila = state.pedidosAtivos.slice(1);
+      if (badgeTotal) badgeTotal.textContent = fila.length;
+
+      if (fila.length === 0) {
+        container.innerHTML = `
+          <div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 14px; background: var(--bg-surface-card); border-radius: var(--radius-md);">
+            Sem outras entregas pendentes na fila.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = fila.map(p => `
+        <div class="queue-card">
+          <div class="queue-info">
+            <div class="queue-num-row">
+              <strong style="font-size: 15px; color: var(--text-primary);">#${p.numero_pedido}</strong>
+              <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem)}</span>
+              <span style="font-size: 11px; color: var(--brand-gold);">⏱️ Fila</span>
+            </div>
+            <div class="queue-address">📍 ${p.endereco}</div>
+          </div>
+          <div style="text-align: right;">
+            <span style="font-size: 13px; font-weight: 700; color: #34d399;">R$ ${(p.taxa_entrega || 0).toFixed(2).replace('.', ',')}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // RENDERIZAR PEDIDOS NO BALCÃO
+    function renderizarBalcao() {
+      const container = document.getElementById('containerPedidosBalcao');
+      const badge = document.getElementById('badgeTotalBalcao');
+      if (!container) return;
+
+      if (badge) badge.textContent = state.pedidosBalcao.length;
+
+      if (state.pedidosBalcao.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🍽️</div>
+            <div class="empty-state-title">Balcão limpo!</div>
+            <div class="empty-state-desc">Não há novos pedidos aguardando saída.</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = state.pedidosBalcao.map(p => {
+        const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
+        return `
+          <div class="card" style="margin-bottom: 12px; border-left: 3px solid #3b82f6;">
+            <div class="order-card-row">
+              <strong class="order-number">#${p.numero_pedido}</strong>
+              <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem)}</span>
+            </div>
+            <div style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin: 4px 0;">${p.cliente || 'Cliente'}</div>
+            <div class="order-address" style="margin-bottom: 10px;">📍 ${p.endereco} ${p.bairro ? '— ' + p.bairro : ''}</div>
+            
+            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
+              <span style="font-size: 13px; font-weight: 700; color: #34d399;">Taxa: ${taxaStr}</span>
+              <button class="btn btn-gold btn-sm" onclick="retirarPedidoBalcao(${p.id}, '${p.numero_pedido}')">
+                🚀 RETIRAR PEDIDO
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // AÇÃO: RETIRAR PEDIDO NO BALCÃO
+    async function retirarPedidoBalcao(pedidoId, numero) {
+      try {
+        const res = await fetch('/api/pedidos/retirar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pedido_id: pedidoId,
+            motoboy_id: state.motoboy.id
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(`🚀 Pedido #${numero} retirado com sucesso!`, 'success');
+          trocarAbaApp('inicio');
+          carregarDados();
+        } else {
+          showToast(data.message || 'Erro ao retirar pedido.', 'error');
+        }
+      } catch (err) {
+        showToast('Falha na comunicação com o servidor.', 'error');
+      }
+    }
+
+    // AÇÃO: FINALIZAR ENTREGA
+    function solicitarFinalizarEntrega(pedidoId, numero) {
+      state.pedidoParaFinalizar = { id: pedidoId, numero: numero };
+      document.getElementById('modalFinalizarTexto').textContent = `Confirmar conclusão da entrega do pedido #${numero}?`;
+      document.getElementById('modalFinalizar').style.display = 'flex';
+    }
+
+    function fecharModalFinalizar() {
+      document.getElementById('modalFinalizar').style.display = 'none';
+      state.pedidoParaFinalizar = null;
+    }
+
+    async function confirmarFinalizarPedido() {
+      if (!state.pedidoParaFinalizar) return;
+
+      const p = state.pedidoParaFinalizar;
+      const btn = document.getElementById('btnConfirmarFinalizacao');
+      btn.disabled = true;
+      btn.textContent = 'Gravando...';
+
+      try {
+        const res = await fetch('/api/pedidos/finalizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pedido_id: p.id,
+            motoboy_id: state.motoboy.id
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(`🎉 Pedido #${p.numero} entregue com sucesso!`, 'success');
+          fecharModalFinalizar();
+          carregarDados();
+        } else {
+          showToast(data.message || 'Erro ao finalizar.', 'error');
+        }
+      } catch (err) {
+        showToast('Erro de conexão ao finalizar.', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'SIM, ENTREGUE';
+      }
+    }
+
+    // MAPA MOBILE (LEAFLET)
+    function iniciarMapaMobile() {
+      const container = document.getElementById('mapaMobile');
+      if (!container || state.mapa) return;
+
+      const coords = state.ultimaLat ? [state.ultimaLat, state.ultimaLng] : [-22.4123, -42.9664];
+
+      state.mapa = L.map('mapaMobile', {
+        center: coords,
+        zoom: 15,
+        zoomControl: false
+      });
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap',
+        maxZoom: 19
+      }).addTo(state.mapa);
+
+      atualizarMarcadorMapaProprio(coords[0], coords[1]);
+    }
+
+    function atualizarMarcadorMapaProprio(lat, lng) {
+      if (!state.mapa) return;
+
+      const iconHtml = `<div class="marker-motoboy active" style="border-color: #f59e0b; box-shadow: 0 0 16px rgba(245,158,11,0.7);">🛵</div>`;
+      const customIcon = L.divIcon({
+        className: 'custom-icon',
+        html: iconHtml,
+        iconSize: [38, 38],
+        iconAnchor: [19, 19]
+      });
+
+      if (state.marcadorMotoboy) {
+        state.marcadorMotoboy.setLatLng([lat, lng]);
+      } else {
+        state.marcadorMotoboy = L.marker([lat, lng], { icon: customIcon })
+          .bindPopup(`<strong>Você está aqui</strong>`)
+          .addTo(state.mapa);
+      }
+    }
+
+    // NAVEGAÇÃO ENTRE ABAS DO APP
+    function trocarAbaApp(aba) {
+      state.abaAtual = aba;
+
+      ['btnNavInicio', 'btnNavBalcao', 'btnNavMapa', 'btnNavPerfil'].forEach(id => {
+        document.getElementById(id).classList.remove('active');
+      });
+
+      ['tabContentInicio', 'tabContentBalcao', 'tabContentMapa', 'tabContentPerfil'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+      });
+
+      if (aba === 'inicio') {
+        document.getElementById('btnNavInicio').classList.add('active');
+        document.getElementById('tabContentInicio').style.display = 'flex';
+      } else if (aba === 'balcao') {
+        document.getElementById('btnNavBalcao').classList.add('active');
+        document.getElementById('tabContentBalcao').style.display = 'flex';
+      } else if (aba === 'mapa') {
+        document.getElementById('btnNavMapa').classList.add('active');
+        document.getElementById('tabContentMapa').style.display = 'flex';
+        if (!state.mapa) iniciarMapaMobile();
+        setTimeout(() => state.mapa && state.mapa.invalidateSize(), 200);
+      } else if (aba === 'perfil') {
+        document.getElementById('btnNavPerfil').classList.add('active');
+        document.getElementById('tabContentPerfil').style.display = 'flex';
+      }
+    }
+
+    function atualizarMétricasPerfil() {
+      const concluidas = (state.pedidosAtivos || []).length;
+      document.getElementById('perfilQtdEntregas').textContent = concluidas;
+      const totalTaxas = state.pedidosAtivos.reduce((acc, p) => acc + (p.taxa_entrega || 0), 0);
+      document.getElementById('perfilTotalTaxas').textContent = `R$ ${totalTaxas.toFixed(2).replace('.', ',')}`;
+    }
+
+    // AUTENTICAÇÃO
+    function trocarAbaAuth(aba) {
+      const btnL = document.getElementById('btnTabLogin');
+      const btnR = document.getElementById('btnTabRegister');
+      const formL = document.getElementById('formLogin');
+      const formR = document.getElementById('formRegister');
+
+      if (aba === 'login') {
+        btnL.classList.add('active');
+        btnL.style.background = 'var(--brand-gold)';
+        btnL.style.color = '#000';
+        btnR.classList.remove('active');
+        btnR.style.background = 'transparent';
+        btnR.style.color = 'var(--text-muted)';
+        formL.style.display = 'block';
+        formR.style.display = 'none';
+      } else {
+        btnR.classList.add('active');
+        btnR.style.background = 'var(--brand-gold)';
+        btnR.style.color = '#000';
+        btnL.classList.remove('active');
+        btnL.style.background = 'transparent';
+        btnL.style.color = 'var(--text-muted)';
+        formR.style.display = 'block';
+        formL.style.display = 'none';
+      }
+    }
+
+    async function realizarLogin(e) {
+      e.preventDefault();
+      const telefone = document.getElementById('inpTel').value;
+      const senha = document.getElementById('inpSenha').value;
+      const btn = document.getElementById('btnLoginSubmit');
+
+      btn.disabled = true;
+      btn.textContent = 'Entrando...';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefone, senha })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          state.motoboy = data.motoboy;
+          localStorage.setItem('motoboySession', JSON.stringify(state.motoboy));
+          showToast(`👋 Bem-vindo, ${state.motoboy.nome}!`, 'success');
+          iniciarApp();
+        } else {
+          showToast(data.message || 'Falha no login.', 'error');
+        }
+      } catch (err) {
+        showToast('Erro de conexão ao autenticar.', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'ENTRAR NO SISTEMA';
+      }
+    }
+
+    async function realizarCadastro(e) {
+      e.preventDefault();
+      const nome = document.getElementById('inpRegNome').value;
+      const telefone = document.getElementById('inpRegTel').value;
+      const senha = document.getElementById('inpRegSenha').value;
+      const btn = document.getElementById('btnRegisterSubmit');
+
+      btn.disabled = true;
+      btn.textContent = 'Cadastrando...';
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome, telefone, senha })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast('🎉 Cadastro realizado! Faça login.', 'success');
+          document.getElementById('inpTel').value = telefone;
+          document.getElementById('inpSenha').value = senha;
+          trocarAbaAuth('login');
+        } else {
+          showToast(data.message || 'Erro ao cadastrar.', 'error');
+        }
+      } catch (err) {
+        showToast('Erro ao comunicar com o servidor.', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'CRIAR CADASTRO';
+      }
+    }
+
+    function realizarLogout() {
+      localStorage.removeItem('motoboySession');
+      state.motoboy = null;
+      showToast('Sessão encerrada com sucesso.', 'success');
+      exibirTelaAuth();
+    }
+
+    function obterOrigemClasse(origem) {
+      const o = (origem || '').toLowerCase();
       if (o.includes('ifood')) return 'origem-ifood';
       if (o.includes('99')) return 'origem-99food';
       if (o.includes('cardapio')) return 'origem-cardapio_web';
       return 'origem-manual';
     }
 
-    function formatarOrigemNome(origem) {
-      if (!origem) return 'BALCÃO';
-      const o = origem.toUpperCase();
+    function obterOrigemNome(origem) {
+      const o = (origem || '').toUpperCase();
       if (o.includes('IFOOD')) return 'iFood';
       if (o.includes('99')) return '99 Food';
-      if (o.includes('CARDAPIO')) return 'Cardápio Web';
-      return origem;
+      if (o.includes('CARDAPIO')) return 'Cardápio';
+      return 'Balcão';
     }
 
-    // CARREGAR PEDIDOS DISPONÍVEIS NO BALCÃO (GERADOS PELO SPOOLER)
-    async function carregarPedidosDisponiveis() {
-      if (!currentMotoboy) return;
-      const listContainer = document.getElementById('disponiveisList');
-      const badgeCount = document.getElementById('disponiveisCount');
+    function showToast(mensagem, tipo = 'success') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
 
-      try {
-        const response = await fetch('/api/pedidos/disponiveis');
-        const data = await response.json();
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${tipo}`;
+      toast.innerHTML = `<span>${tipo === 'success' ? '✅' : '❌'}</span><span>${mensagem}</span>`;
 
-        if (response.ok && data.success) {
-          const pedidos = data.pedidos || [];
-          badgeCount.textContent = pedidos.length;
-
-          if (pedidos.length === 0) {
-            listContainer.innerHTML = `
-              <div class="empty-state">
-                <div class="empty-icon">🍽️</div>
-                <p>Nenhum pedido aguardando retirada.</p>
-                <span style="font-size: 11px; opacity: 0.8;">As comandas impressas no balcão aparecerão aqui automaticamente.</span>
-              </div>
-            `;
-            return;
-          }
-
-          listContainer.innerHTML = pedidos.map(p => {
-            const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
-            return `
-              <div class="pedido-card">
-                <div class="pedido-card-row">
-                  <div class="pedido-num">
-                    <span class="origem-badge ${formatarOrigemClass(p.origem)}">${formatarOrigemNome(p.origem)}</span>
-                    #${p.numero_pedido}
-                  </div>
-                  <span class="taxa-badge">Taxa: ${taxaStr}</span>
-                </div>
-
-                ${p.cliente ? `
-                  <div class="pedido-cliente">
-                    <span>👤 ${p.cliente}</span>
-                    ${p.telefone_cliente ? `<span style="color: var(--text-muted); font-size: 12px;">(${p.telefone_cliente})</span>` : ''}
-                  </div>
-                ` : ''}
-
-                ${p.endereco ? `
-                  <div class="pedido-endereco">
-                    <span>📍 ${p.endereco}${p.bairro ? ' - ' + p.bairro : ''}</span>
-                  </div>
-                ` : ''}
-
-                <div class="pedido-card-row" style="margin-top: 4px;">
-                  <span class="pedido-time">⏱️ Impresso há ${p.minutos_aguardando || 0} min</span>
-                  <button onclick="handleAssumirPedido(${p.id}, '${p.numero_pedido}', '${p.origem}')" class="btn btn-retirar" style="width: auto;">
-                    🚀 ASSUMIR PEDIDO
-                  </button>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-      } catch (err) {
-        console.error('Erro ao buscar pedidos disponíveis:', err);
-      }
-    }
-
-    // CARREGAR ENTREGAS EM ANDAMENTO DO MOTOBOY
-    async function carregarPedidosAtivos() {
-      if (!currentMotoboy) return;
-      const listContainer = document.getElementById('pedidosList');
-      const badgeCount = document.getElementById('pedidosCount');
-
-      try {
-        const response = await fetch(`/api/pedidos/motoboy?motoboy_id=${currentMotoboy.id}`);
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          const pedidos = data.pedidos || [];
-          badgeCount.textContent = pedidos.length;
-
-          if (pedidos.length === 0) {
-            listContainer.innerHTML = `
-              <div class="empty-state">
-                <div class="empty-icon">🛵</div>
-                <p>Nenhuma entrega em rota no momento.</p>
-                <span style="font-size: 12px;">Retire um pedido acima para iniciar sua rota.</span>
-              </div>
-            `;
-            return;
-          }
-
-          listContainer.innerHTML = pedidos.map(p => {
-            const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : null;
-            return `
-              <div class="pedido-card" style="border-left: 3px solid var(--accent);">
-                <div class="pedido-card-row">
-                  <div class="pedido-num">
-                    <span class="origem-badge ${formatarOrigemClass(p.origem)}">${formatarOrigemNome(p.origem)}</span>
-                    #${p.numero_pedido}
-                    <span class="status-badge">EM ROTA</span>
-                  </div>
-                  ${taxaStr ? `<span class="taxa-badge">Taxa: ${taxaStr}</span>` : ''}
-                </div>
-
-                ${p.cliente ? `
-                  <div class="pedido-cliente">
-                    <span>👤 ${p.cliente}</span>
-                  </div>
-                ` : ''}
-
-                ${p.endereco ? `
-                  <div class="pedido-endereco">
-                    <span>📍 ${p.endereco}${p.bairro ? ' - ' + p.bairro : ''}</span>
-                  </div>
-                ` : ''}
-
-                <div class="pedido-card-row" style="margin-top: 4px;">
-                  <span class="pedido-time">⏱️ Em rota há ${p.minutos_em_rota || 0} min</span>
-                  <button onclick="handleFinalizarPedido(${p.id}, '${p.numero_pedido}')" class="btn btn-accent" style="width: auto; padding: 10px 16px; font-size: 13px;">
-                    ✓ FINALIZAR ENTREGA
-                  </button>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-      } catch (err) {
-        console.error('Erro ao carregar pedidos em rota:', err);
-      }
-    }
-
-    // AÇÃO: ASSUMIR / RETIRAR PEDIDO NO BALCÃO
-    async function handleAssumirPedido(pedido_id, numero_pedido, origem) {
-      if (!currentMotoboy) return;
-
-      try {
-        const response = await fetch('/api/pedidos/retirar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pedido_id: pedido_id,
-            motoboy_id: currentMotoboy.id
-          })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          showToast(`🚀 Pedido #${numero_pedido} retirado! Boa rota!`, 'success');
-          carregarPedidosDisponiveis();
-          carregarPedidosAtivos();
-        } else {
-          showToast(data.message || 'Não foi possível assumir este pedido.', 'error');
-          carregarPedidosDisponiveis();
-        }
-      } catch (err) {
-        showToast('Erro ao comunicar com o servidor.', 'error');
-      }
-    }
-
-    // AÇÃO: FINALIZAR ENTREGA
-    async function handleFinalizarPedido(pedido_id, numero_pedido) {
-      if (!confirm(`Confirmar a entrega do pedido #${numero_pedido}?`)) return;
-
-      try {
-        const response = await fetch('/api/pedidos/finalizar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pedido_id: pedido_id,
-            motoboy_id: currentMotoboy.id
-          })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          showToast(`🎉 Pedido #${numero_pedido} entregue com sucesso!`, 'success');
-          carregarPedidosAtivos();
-        } else {
-          showToast(data.message || 'Erro ao finalizar pedido', 'error');
-        }
-      } catch (err) {
-        showToast('Erro ao comunicar com o servidor', 'error');
-      }
-    }
-
-    // AUTH HANDLERS
-    async function handleLogin(event) {
-      event.preventDefault();
-      const telefone = document.getElementById('telefoneInput').value;
-      const senha = document.getElementById('senhaInput').value;
-      const btn = document.getElementById('loginBtn');
-
-      btn.disabled = true;
-      btn.innerText = 'Autenticando...';
-
-      try {
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ telefone, senha })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          currentMotoboy = data.motoboy;
-          localStorage.setItem('motoboySession', JSON.stringify(currentMotoboy));
-          showToast('👋 Bem-vindo, ' + currentMotoboy.nome + '!', 'success');
-          showDashboardView();
-        } else {
-          showToast(data.message || 'Falha no login', 'error');
-        }
-      } catch (err) {
-        showToast('Erro de conexão com o servidor', 'error');
-      } finally {
-        btn.disabled = false;
-        btn.innerText = 'ENTRAR NO SISTEMA';
-      }
-    }
-
-    async function handleRegister(event) {
-      event.preventDefault();
-      const nome = document.getElementById('regNomeInput').value;
-      const telefone = document.getElementById('regTelefoneInput').value;
-      const senha = document.getElementById('regSenhaInput').value;
-      let traccar_device_id = document.getElementById('regDeviceIdInput').value;
-
-      if (!traccar_device_id) traccar_device_id = telefone;
-
-      const btn = document.getElementById('registerBtn');
-      btn.disabled = true;
-      btn.innerText = 'Cadastrando...';
-
-      try {
-        const response = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nome, telefone, senha, traccar_device_id })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          showToast('🎉 Motoboy cadastrado! Faça login.', 'success');
-          document.getElementById('telefoneInput').value = data.motoboy.telefone;
-          document.getElementById('senhaInput').value = senha;
-          switchAuthTab('login');
-        } else {
-          showToast(data.message || 'Erro ao cadastrar motoboy', 'error');
-        }
-      } catch (err) {
-        showToast('Erro ao comunicar com o servidor', 'error');
-      } finally {
-        btn.disabled = false;
-        btn.innerText = 'CADASTRAR MOTOBOY';
-      }
-    }
-
-    function handleLogout() {
-      localStorage.removeItem('motoboySession');
-      currentMotoboy = null;
-      showToast('Sessão encerrada com sucesso.', 'info');
-      showAuthView();
-    }
-
-    function showToast(message, type = 'info') {
-      const toast = document.getElementById('toast');
-      const icon = document.getElementById('toastIcon');
-      const msg = document.getElementById('toastMsg');
-
-      toast.className = 'show ' + type;
-      msg.textContent = message;
-
-      if (type === 'success') icon.textContent = '✅';
-      else if (type === 'error') icon.textContent = '❌';
-      else icon.textContent = 'ℹ️';
-
+      container.appendChild(toast);
       setTimeout(() => {
-        toast.className = '';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
       }, 3500);
     }
   </script>

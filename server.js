@@ -51,6 +51,8 @@ registerRoute('GET', '/api/pedidos/motoboy', pedidosController.listarPedidosMoto
 registerRoute('POST', '/api/pedidos/webhook-spool', pedidosController.webhookSpool);
 registerRoute('GET', '/api/pedidos/disponiveis', pedidosController.listarPedidosDisponiveis);
 registerRoute('POST', '/api/pedidos/retirar', pedidosController.assumirPedido);
+registerRoute('GET', '/api/pedidos/detalhes', pedidosController.obterDetalhesPedido);
+registerRoute('POST', '/api/pedidos/status', pedidosController.atualizarStatusPedido);
 
 const posicaoController = require('./src/controllers/posicaoController');
 
@@ -59,8 +61,11 @@ registerRoute('POST', '/api/motoboy/posicao', posicaoController.atualizarPosicao
 registerRoute('GET', '/api/traccar/location', posicaoController.webhookTraccarClient);
 registerRoute('POST', '/api/traccar/location', posicaoController.webhookTraccarClient);
 
-// Admin / Mapa e Histórico
+// Admin / Dashboard, Mapa e Histórico
 const historicoController = require('./src/controllers/historicoController');
+registerRoute('GET', '/api/admin/stats', adminController.getDashboardStats);
+registerRoute('GET', '/api/admin/pedidos', adminController.listarTodosPedidos);
+registerRoute('GET', '/api/admin/motoboys', adminController.listarMotoboysAdmin);
 registerRoute('GET', '/api/admin/posicoes-mapa', adminController.getPosicoesMapa);
 registerRoute('GET', '/api/admin/historico', historicoController.listarHistoricoEntregas);
 registerRoute('GET', '/api/admin/historico/rota', historicoController.obterRotaPedido);

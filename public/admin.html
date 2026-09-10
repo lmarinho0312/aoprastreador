@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Painel da Cozinha - Monitoramento de Entregas</title>
+  <title>Ao Ponto Carnes — Painel Operacional da Cozinha</title>
+  <link rel="icon" type="image/png" href="/assets/logo-transparent.png">
 
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,1070 +14,1354 @@
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 
+  <!-- Design System CSS -->
+  <link rel="stylesheet" href="/css/design-system.css">
+
   <style>
-    :root {
-      --bg-dark: #0b0f19;
-      --panel-bg: rgba(15, 23, 42, 0.95);
-      --card-bg: rgba(30, 41, 59, 0.7);
-      --card-border: rgba(255, 255, 255, 0.1);
-      --primary: #3b82f6;
-      --accent: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-
+    /* Estilos Estruturais do Painel Desktop */
     body {
-      background-color: var(--bg-dark);
-      color: var(--text-main);
       height: 100vh;
       width: 100vw;
       overflow: hidden;
       display: flex;
     }
 
-    /* DASHBOARD LAYOUT */
+    /* SIDEBAR */
     .app-sidebar {
-      width: 440px;
+      width: 240px;
       height: 100vh;
-      background: var(--panel-bg);
-      border-right: 1px solid var(--card-border);
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-subtle);
       display: flex;
       flex-direction: column;
       z-index: 1000;
-      box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+      flex-shrink: 0;
     }
 
-    .app-main {
-      flex: 1;
-      height: 100vh;
-      position: relative;
-    }
-
-    #map {
-      width: 100%;
-      height: 100%;
-      background: #191a1a;
-    }
-
-    /* BARRA DE NAVEGAÇÃO MOBILE (Visível apenas em telas pequenas) */
-    .mobile-view-bar {
-      display: none;
-      background: rgba(15, 23, 42, 0.98);
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--card-border);
+    .sidebar-brand {
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      border-bottom: 1px solid var(--border-subtle);
       gap: 8px;
-      z-index: 1001;
     }
 
-    .mobile-btn {
+    .brand-logo-img {
+      max-width: 140px;
+      height: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+    }
+
+    .sidebar-nav {
       flex: 1;
-      padding: 10px;
-      border: none;
-      background: rgba(30, 41, 59, 0.8);
-      color: var(--text-muted);
-      font-size: 13px;
-      font-weight: 700;
-      border-radius: 8px;
-      cursor: pointer;
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow-y: auto;
     }
 
-    .mobile-btn.active {
-      background: var(--primary);
-      color: #ffffff;
-      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
-    }
-
-    /* SIDEBAR HEADER */
-    .sidebar-header {
-      padding: 18px 20px;
-      border-bottom: 1px solid var(--card-border);
-    }
-
-    .brand {
+    .nav-item {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 14px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: 1px solid transparent;
+      user-select: none;
     }
 
-    .brand-logo {
-      width: 42px;
-      height: 42px;
-      background: linear-gradient(135deg, #3b82f6, #10b981);
-      border-radius: 12px;
+    .nav-item:hover {
+      background: var(--bg-surface-elevated);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background: linear-gradient(135deg, var(--brand-gold-light), var(--brand-gold));
+      color: var(--text-inverse);
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+    }
+
+    .nav-icon {
+      font-size: 16px;
+      width: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
-      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
     }
 
-    .brand-title {
-      font-size: 18px;
-      font-weight: 800;
-      color: #ffffff;
-      line-height: 1.2;
-    }
-
-    .brand-subtitle {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    /* STATS BADGES */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
-
-    .stat-card {
-      background: rgba(30, 41, 59, 0.5);
-      border: 1px solid var(--card-border);
-      border-radius: 10px;
-      padding: 8px;
-      text-align: center;
-    }
-
-    .stat-val {
-      font-size: 16px;
-      font-weight: 800;
-      color: #ffffff;
-    }
-
-    .stat-lbl {
-      font-size: 10px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      font-weight: 600;
-      margin-top: 2px;
-    }
-
-    /* TABS NAV */
-    .tab-nav-admin {
+    .sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-surface-card);
       display: flex;
-      background: rgba(15, 23, 42, 0.9);
-      padding: 8px 16px;
-      border-bottom: 1px solid var(--card-border);
-      gap: 8px;
-    }
-
-    .tab-btn-admin {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 12px;
-      font-weight: 700;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .tab-btn-admin.active {
-      background: var(--primary);
-      color: #ffffff;
-      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
-    }
-
-    /* SEARCH BAR */
-    .search-box {
-      padding: 12px 20px;
-      border-bottom: 1px solid var(--card-border);
-    }
-
-    .search-input {
-      width: 100%;
-      background: rgba(15, 23, 42, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 10px;
-      padding: 10px 14px 10px 38px;
-      font-size: 13px;
-      color: #ffffff;
-      outline: none;
-      transition: all 0.2s;
-    }
-
-    .search-input:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
-    }
-
-    .search-wrapper { position: relative; }
-
-    .search-icon {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 14px;
-      opacity: 0.6;
-    }
-
-    /* MOTOBOY & HISTÓRICO LIST */
-    .content-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px 20px;
-    }
-
-    .card-item {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 14px 16px;
-      margin-bottom: 12px;
-      transition: all 0.2s ease;
-    }
-
-    .card-item:hover {
-      border-color: rgba(59, 130, 246, 0.4);
-      background: rgba(30, 41, 59, 0.9);
-    }
-
-    .card-item-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    }
-
-    .card-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    .status-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-    .status-dot.idle { background: var(--warning); }
-    .status-dot.done { background: var(--primary); }
-
-    .card-meta {
-      font-size: 12px;
-      color: var(--text-muted);
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-
-    .pedidos-tags {
-      display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 6px;
     }
 
-    .tag-pedido {
-      background: rgba(59, 130, 246, 0.2);
-      border: 1px solid rgba(59, 130, 246, 0.3);
-      color: #93c5fd;
+    .system-status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-size: 12px;
       font-weight: 700;
-      padding: 4px 8px;
-      border-radius: 6px;
+      color: var(--status-rota-text);
     }
 
-    .origem-badge {
-      font-size: 10px;
-      font-weight: 800;
-      text-transform: uppercase;
-      padding: 2px 6px;
-      border-radius: 4px;
-      letter-spacing: 0.3px;
-    }
-    .origem-ifood { background: #ea1d2c; color: #fff; }
-    .origem-99food { background: #ff5e00; color: #fff; }
-    .origem-cardapio_web { background: #10b981; color: #fff; }
-    .origem-manual { background: #3b82f6; color: #fff; }
-
-    .btn-rota {
-      width: 100%;
-      padding: 12px 14px;
-      background: linear-gradient(135deg, #10b981, #059669);
-      border: none;
-      border-radius: 10px;
-      color: #ffffff;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-top: 8px;
-      transition: all 0.2s;
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-    }
-
-    .btn-rota:hover {
-      opacity: 0.95;
-      transform: translateY(-1px);
-    }
-
-    /* FOOTER STATUS BAR */
-    .sidebar-footer {
-      padding: 12px 20px;
-      border-top: 1px solid var(--card-border);
-      font-size: 11px;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: rgba(15, 23, 42, 0.9);
-    }
-
-    .live-pulse {
+    .status-dot-live {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 8px var(--accent);
-      animation: pulse 1.5s infinite;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulseDot 1.5s infinite;
     }
 
-    @keyframes pulse {
-      0% { transform: scale(0.95); opacity: 0.8; }
-      50% { transform: scale(1.2); opacity: 1; }
-      100% { transform: scale(0.95); opacity: 0.8; }
+    /* MAIN CONTENT */
+    .app-main {
+      flex: 1;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-app);
+      overflow: hidden;
     }
 
-    /* FLOATING NOTIFICATION TOAST */
-    #mapToast {
-      position: fixed;
-      top: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(15, 23, 42, 0.95);
-      border: 1px solid var(--accent);
-      color: #ffffff;
-      padding: 10px 18px;
-      border-radius: 20px;
+    /* HEADER */
+    .app-header {
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .header-greeting-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .header-greeting-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .live-clock-badge {
+      text-align: right;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    .live-clock-date {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .role-badge {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-medium);
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
       font-size: 12px;
       font-weight: 700;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-      z-index: 9999;
-      display: none;
+      color: var(--text-secondary);
+      display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    /* BOTÃO MOBILE VOLTAR PARA A LISTA NO MAPA */
-    #btnVoltarListaMobile {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid var(--card-border);
-      color: #ffffff;
-      padding: 8px 14px;
-      border-radius: 20px;
-      font-size: 12px;
+    /* WORKSPACE BODY */
+    .app-body {
+      flex: 1;
+      padding: 24px 28px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* DASHBOARD GRID (2 COLUMNS) */
+    .dashboard-split-grid {
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      gap: 20px;
+      flex: 1;
+      min-height: 480px;
+    }
+
+    .panel-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-surface-card);
+    }
+
+    .panel-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+
+    .panel-body-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    /* TABS FILTER */
+    .filter-pills-bar {
+      display: flex;
+      gap: 6px;
+      padding: 10px 16px;
+      background: var(--bg-surface-elevated);
+      border-bottom: 1px solid var(--border-subtle);
+      overflow-x: auto;
+    }
+
+    .filter-pill {
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
       font-weight: 700;
-      z-index: 2000;
+      color: var(--text-muted);
       cursor: pointer;
-      display: none;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+      background: transparent;
+      border: 1px solid transparent;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
     }
 
-    /* CUSTOM LEAFLET MARKERS */
-    .custom-marker {
-      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-      border: 2px solid #ffffff;
-      border-radius: 50%;
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+    .filter-pill:hover {
+      color: var(--text-primary);
     }
 
-    .route-marker-start {
-      background: #10b981;
-      border: 2px solid #ffffff;
-      border-radius: 50%;
-      color: #ffffff;
+    .filter-pill.active {
+      background: var(--bg-surface);
+      color: var(--brand-gold-light);
+      border-color: var(--border-gold);
+    }
+
+    /* KANBAN BOARD VIEW */
+    .kanban-board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      flex: 1;
+    }
+
+    .kanban-col {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .kanban-col-header {
+      padding: 14px 18px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
       font-size: 14px;
       font-weight: 800;
-      box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
     }
 
-    .route-marker-end {
-      background: #ef4444;
-      border: 2px solid #ffffff;
-      border-radius: 50%;
-      color: #ffffff;
+    .kanban-col-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: 800;
-      box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+      flex-direction: column;
+      gap: 10px;
     }
 
+    /* POPUP LEAFLET CUSTOM */
     .leaflet-popup-content-wrapper {
-      background: var(--panel-bg) !important;
-      color: #ffffff !important;
-      border: 1px solid var(--card-border);
-      border-radius: 14px !important;
+      background: var(--bg-surface) !important;
+      color: var(--text-primary) !important;
+      border: 1px solid var(--border-gold);
+      border-radius: var(--radius-md) !important;
       padding: 4px !important;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+      box-shadow: var(--shadow-lg) !important;
+    }
+    .leaflet-popup-tip {
+      background: var(--bg-surface) !important;
     }
 
-    .leaflet-popup-tip { background: var(--panel-bg) !important; }
-    .popup-box { padding: 12px; min-width: 200px; }
-    .popup-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; color: #ffffff; }
-    .popup-phone { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
-
-    /* LAYOUT MOBILE MODERNO E ADAPTÁVEL */
-    @media (max-width: 768px) {
-      body { flex-direction: column; }
-
-      .mobile-view-bar { display: flex; }
-
+    /* RESPONSIVIDADE DESKTOP -> TABLET */
+    @media (max-width: 1180px) {
+      .dashboard-split-grid {
+        grid-template-columns: 1fr;
+      }
       .app-sidebar {
-        width: 100vw;
-        height: calc(100vh - 46px);
-        display: flex;
-      }
-
-      .app-sidebar.mobile-hidden {
-        display: none !important;
-      }
-
-      .app-main {
-        width: 100vw;
-        height: calc(100vh - 46px);
-        display: none;
-      }
-
-      .app-main.mobile-active {
-        display: block !important;
-      }
-
-      #btnVoltarListaMobile {
-        display: flex;
-        align-items: center;
-        gap: 6px;
+        width: 200px;
       }
     }
-
-    .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-  <!-- TOAST FLUTUANTE -->
-  <div id="mapToast">
-    <span>📍</span>
-    <span id="mapToastMsg">Rota desenhada no mapa!</span>
-  </div>
+  <!-- ========================================================================
+       SIDEBAR LATERAL (IDENTIDADE AO PONTO CARNES)
+       ======================================================================== -->
+  <aside class="app-sidebar">
+    <div class="sidebar-brand">
+      <img src="/assets/logo-dark-theme.png" alt="Ao Ponto Carnes" class="brand-logo-img" onerror="this.src='/assets/logo.png'">
+    </div>
 
-  <!-- BARRA DE SELEÇÃO MOBILE DE TELAS (LISTA OU MAPA) -->
-  <div class="mobile-view-bar">
-    <button class="mobile-btn active" id="mBtnPanel" onclick="alternarTelaMobile('panel')">📋 Painel & Lista</button>
-    <button class="mobile-btn" id="mBtnMap" onclick="alternarTelaMobile('map')">🗺️ Ver Mapa Interativo</button>
-  </div>
-
-  <!-- PAINEL LATERAL DA COZINHA -->
-  <aside class="app-sidebar" id="sidebarContainer">
-    <div class="sidebar-header">
-      <div class="brand">
-        <div class="brand-logo">🍽️</div>
-        <div>
-          <h1 class="brand-title">Painel da Cozinha</h1>
-          <p class="brand-subtitle">Monitoramento e Histórico de Entregas</p>
-        </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" id="nav-inicio" onclick="alternarVisao('inicio')">
+        <span class="nav-icon">🏠</span>
+        <span>Início</span>
       </div>
-
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-val" id="statMotoboys">0</div>
-          <div class="stat-lbl">Entregadores</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-val" id="statPedidos" style="color: var(--accent);">0</div>
-          <div class="stat-lbl">Em Rota</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-val" id="statGps">OFF</div>
-          <div class="stat-lbl">Sinal GPS</div>
-        </div>
+      <div class="nav-item" id="nav-pedidos" onclick="alternarVisao('pedidos')">
+        <span class="nav-icon">📋</span>
+        <span>Pedidos</span>
       </div>
-    </div>
-
-    <!-- TABS NAVEGAÇÃO DA COZINHA -->
-    <div class="tab-nav-admin">
-      <button class="tab-btn-admin active" id="tabAoVivoBtn" onclick="trocarAbaAdmin('aovivo')">📡 Ao Vivo</button>
-      <button class="tab-btn-admin" id="tabHistoricoBtn" onclick="trocarAbaAdmin('historico')">📜 Histórico</button>
-    </div>
-
-    <!-- BUSCA DE PEDIDOS OU MOTOBOYS -->
-    <div class="search-box">
-      <div class="search-wrapper">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="searchInput" class="search-input" placeholder="Buscar por pedido ou motoboy..." oninput="filtrarConteudo()">
+      <div class="nav-item" id="nav-entregas" onclick="alternarVisao('entregas')">
+        <span class="nav-icon">🗺️</span>
+        <span>Mapa & Rotas</span>
       </div>
-    </div>
+      <div class="nav-item" id="nav-motoboys" onclick="alternarVisao('motoboys')">
+        <span class="nav-icon">🛵</span>
+        <span>Motoboys</span>
+      </div>
+      <div class="nav-item" id="nav-historico" onclick="alternarVisao('historico')">
+        <span class="nav-icon">📜</span>
+        <span>Histórico</span>
+      </div>
+    </nav>
 
-    <!-- VIEW 1: LISTA MOTOBOYS AO VIVO -->
-    <div class="content-list" id="motoboyList">
-      <!-- Renderizado via JS -->
-    </div>
-
-    <!-- VIEW 2: HISTÓRICO DE ENTREGAS -->
-    <div class="content-list hidden" id="historicoList">
-      <!-- Renderizado via JS -->
-    </div>
-
-    <!-- FOOTER DA BARRA LATERAL -->
     <div class="sidebar-footer">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span class="live-pulse"></span>
-        <span id="footerStatusText">ATUALIZANDO A CADA 5s</span>
+      <div class="system-status-indicator">
+        <span class="status-dot-live"></span>
+        <span id="txtStatusConexao">Sistema Online</span>
       </div>
-      <span id="lastUpdateText">--:--:--</span>
+      <div style="font-size: 11px; color: var(--text-faint); display: flex; justify-content: space-between;">
+        <span>v1.2.0 • Ao Ponto</span>
+        <span id="pingInfo">📡 Turso/Local</span>
+      </div>
     </div>
   </aside>
 
-  <!-- ÁREA PRINCIPAL DO MAPA INTERATIVO -->
-  <main class="app-main" id="mapContainer">
-    <button id="btnVoltarListaMobile" onclick="alternarTelaMobile('panel')">
-      ⬅️ Voltar para a Lista
-    </button>
-    <div id="map"></div>
+  <!-- ========================================================================
+       CONTEÚDO PRINCIPAL (HEADER + CORPO OPERACIONAL)
+       ======================================================================== -->
+  <main class="app-main">
+    <!-- HEADER -->
+    <header class="app-header">
+      <div>
+        <h1 class="header-greeting-title" id="greetingText">Bom dia, Equipe!</h1>
+        <p class="header-greeting-sub">Aqui está o resumo operacional das entregas de hoje.</p>
+      </div>
+
+      <div class="header-actions">
+        <div class="live-clock-badge">
+          <div id="liveClock">--:--:--</div>
+          <div class="live-clock-date" id="liveDate">Hoje</div>
+        </div>
+
+        <div class="role-badge">
+          <span>👨‍🍳</span>
+          <span>Cozinha</span>
+        </div>
+
+        <button class="btn btn-secondary btn-sm" onclick="carregarTudo(true)" title="Atualizar dados agora">
+          <span>🔄 Atualizar</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- CORPO DA APLICAÇÃO -->
+    <div class="app-body">
+
+      <!-- ====================================================================
+           VISÃO 1: INÍCIO (DASHBOARD COM KPIS, LISTA E MAPA)
+           ==================================================================== -->
+      <section id="view-inicio">
+        <!-- 4 KPI STATS CARDS -->
+        <div class="stats-container">
+          <!-- 1. Pedidos em preparo -->
+          <div class="stat-box stat-preparo">
+            <div class="stat-icon-wrap">🛒</div>
+            <div class="stat-info">
+              <span class="stat-label">Pedidos em preparo</span>
+              <div class="stat-value">
+                <span id="kpiPreparo">0</span>
+                <span class="stat-sub" id="kpiPreparoSub">de 0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Em rota -->
+          <div class="stat-box stat-rota">
+            <div class="stat-icon-wrap">🛵</div>
+            <div class="stat-info">
+              <span class="stat-label">Em rota</span>
+              <div class="stat-value">
+                <span id="kpiRota">0</span>
+                <span class="stat-sub" id="kpiRotaSub">de 0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Entregues hoje -->
+          <div class="stat-box stat-entregues">
+            <div class="stat-icon-wrap">✓</div>
+            <div class="stat-info">
+              <span class="stat-label">Entregues hoje</span>
+              <div class="stat-value">
+                <span id="kpiEntregues">0</span>
+                <span class="stat-sub" id="kpiEntreguesSub">de 0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Faturamento hoje -->
+          <div class="stat-box stat-faturamento">
+            <div class="stat-icon-wrap">💰</div>
+            <div class="stat-info">
+              <span class="stat-label">Faturamento hoje</span>
+              <div class="stat-value" id="kpiFaturamento">R$ 0,00</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GRID DIVIDIDO (PEDIDOS EM ANDAMENTO + MAPA INTERATIVO) -->
+        <div class="dashboard-split-grid">
+          
+          <!-- COLUNA ESQUERDA: LISTA DE PEDIDOS EM ANDAMENTO -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <span class="panel-title">Pedidos em andamento</span>
+              <a href="javascript:void(0)" onclick="alternarVisao('pedidos')" style="font-size: 12px; color: var(--brand-gold); text-decoration: none; font-weight: 700;">Ver todos &gt;</a>
+            </div>
+
+            <!-- Filtros rápidos -->
+            <div class="filter-pills-bar">
+              <button class="filter-pill active" onclick="filtrarStatusLista('todos', this)">Todos</button>
+              <button class="filter-pill" onclick="filtrarStatusLista('em_preparo', this)">Em preparo</button>
+              <button class="filter-pill" onclick="filtrarStatusLista('disponivel', this)">Aguardando saída</button>
+              <button class="filter-pill" onclick="filtrarStatusLista('em_rota', this)">Em rota</button>
+            </div>
+
+            <div class="panel-body-scroll" id="containerPedidosLista">
+              <!-- Renderizado via JavaScript -->
+              <div class="skeleton" style="height: 68px; margin-bottom: 10px;"></div>
+              <div class="skeleton" style="height: 68px; margin-bottom: 10px;"></div>
+              <div class="skeleton" style="height: 68px;"></div>
+            </div>
+          </div>
+
+          <!-- COLUNA DIREITA: ENTREGAS NO MAPA -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <span class="panel-title">Entregas no mapa</span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <select id="selectFiltroMapa" class="form-select" style="padding: 4px 10px; font-size: 12px; width: auto;" onchange="atualizarMapa()">
+                  <option value="todos">Todos os motoboys</option>
+                  <option value="em_rota">Apenas em rota</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="flex: 1; position: relative;">
+              <div id="mapDashboard" class="map-container"></div>
+
+              <!-- CARD FLUTUANTE DE ENTREGA EM DESTAQUE NO MAPA -->
+              <div class="map-floating-card" id="mapFloatingCard" style="display: none;">
+                <div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <strong style="font-size: 14px;" id="floatingCardNum">#8830</strong>
+                    <span class="status-badge badge-rota" id="floatingCardStatus">Em rota</span>
+                  </div>
+                  <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" id="floatingCardAddr">R. Feliciano Sodré, 520 - Várzea</div>
+                  <div style="font-size: 11px; color: var(--brand-gold); font-weight: 700; margin-top: 2px;" id="floatingCardEta">⏱️ ETA 12 min</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="abrirDetalhesDoCardFlutuante()">Detalhes &gt;</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VISÃO 2: KANBAN OPERACIONAL DE PEDIDOS
+           ==================================================================== -->
+      <section id="view-pedidos" style="display: none; flex: 1; flex-direction: column;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div>
+            <h2 class="text-title">Fluxo Operacional de Pedidos</h2>
+            <p class="text-subtitle">Acompanhe o ciclo de produção e saída das comandas em tempo real.</p>
+          </div>
+          <div class="search-box" style="width: 320px;">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="inputBuscaPedidos" class="form-input" placeholder="Buscar pedido, cliente ou endereço..." oninput="filtrarPedidosKanban()">
+          </div>
+        </div>
+
+        <div class="kanban-board">
+          <!-- Coluna 1: Em Preparo -->
+          <div class="kanban-col">
+            <div class="kanban-col-header" style="border-top: 3px solid var(--brand-gold);">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span>🔥</span>
+                <span>Em Preparo</span>
+              </div>
+              <span class="status-badge badge-preparo" id="countKanbanPreparo">0</span>
+            </div>
+            <div class="kanban-col-body" id="colKanbanPreparo">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+
+          <!-- Coluna 2: Aguardando Retirada (Balcão) -->
+          <div class="kanban-col">
+            <div class="kanban-col-header" style="border-top: 3px solid #3b82f6;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span>📦</span>
+                <span>Aguardando Saída</span>
+              </div>
+              <span class="status-badge badge-retirada" id="countKanbanAguardando">0</span>
+            </div>
+            <div class="kanban-col-body" id="colKanbanAguardando">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+
+          <!-- Coluna 3: Em Rota -->
+          <div class="kanban-col">
+            <div class="kanban-col-header" style="border-top: 3px solid #10b981;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span>🚀</span>
+                <span>Em Rota de Entrega</span>
+              </div>
+              <span class="status-badge badge-rota" id="countKanbanRota">0</span>
+            </div>
+            <div class="kanban-col-body" id="colKanbanRota">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VISÃO 3: MAPA FULLSCREEN & ROTAS
+           ==================================================================== -->
+      <section id="view-entregas" style="display: none; flex: 1; flex-direction: column;">
+        <div class="map-container" id="mapFullscreen" style="flex: 1;"></div>
+      </section>
+
+      <!-- ====================================================================
+           VISÃO 4: GESTÃO DE MOTOBOYS
+           ==================================================================== -->
+      <section id="view-motoboys" style="display: none; flex: 1; flex-direction: column;">
+        <div style="margin-bottom: 16px;">
+          <h2 class="text-title">Equipe de Entregadores</h2>
+          <p class="text-subtitle">Monitoramento de status operacional e conectividade GPS.</p>
+        </div>
+        <div id="gridMotoboys" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
+          <!-- Renderizado via JS -->
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VISÃO 5: HISTÓRICO DE ENTREGAS
+           ==================================================================== -->
+      <section id="view-historico" style="display: none; flex: 1; flex-direction: column;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div>
+            <h2 class="text-title">Histórico de Entregas</h2>
+            <p class="text-subtitle">Registro completo com tempos de percurso e auditoria GPS.</p>
+          </div>
+          <div class="search-box" style="width: 320px;">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="inputBuscaHistorico" class="form-input" placeholder="Buscar no histórico..." oninput="filtrarHistorico()">
+          </div>
+        </div>
+        <div class="panel-card" style="flex: 1; overflow-y: auto;">
+          <div id="containerHistorico" style="padding: 16px;">
+            <!-- Renderizado via JS -->
+          </div>
+        </div>
+      </section>
+
+    </div>
   </main>
+
+  <!-- ========================================================================
+       DRAWER / MODAL DE DETALHES DO PEDIDO
+       ======================================================================== -->
+  <div class="drawer-backdrop" id="drawerPedido" onclick="fecharDetalhesPedido(event)">
+    <div class="drawer-panel" onclick="event.stopPropagation()">
+      <div class="drawer-header">
+        <div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <h3 style="font-size: 18px; font-weight: 800;" id="dtlNumeroPedido">#--</h3>
+            <span class="origem-badge origem-manual" id="dtlOrigem">ORIGEM</span>
+            <span class="status-badge badge-preparo" id="dtlStatus">--</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" id="dtlHorario">Criado às --:--</div>
+        </div>
+        <button class="btn btn-secondary btn-icon" onclick="fecharDetalhesPedido()">✕</button>
+      </div>
+
+      <div class="drawer-body">
+        <!-- DADOS DO CLIENTE & CONTATO -->
+        <div class="card card-elevated">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Cliente & Destino</span>
+            <button class="btn btn-gold btn-sm" id="btnWhatsappCliente" onclick="abrirWhatsappCliente()">
+              <span>💬 WhatsApp</span>
+            </button>
+          </div>
+          <div style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;" id="dtlClienteNome">--</div>
+          <div style="font-size: 13px; color: var(--brand-gold-light); margin-bottom: 8px;" id="dtlClienteTelefone">📞 --</div>
+          <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.4;" id="dtlClienteEndereco">📍 --</div>
+        </div>
+
+        <!-- ITENS DA COMANDA -->
+        <div class="card">
+          <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 12px;">Itens da Comanda</span>
+          <div id="dtlItensLista" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Itens -->
+          </div>
+
+          <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 13px; color: var(--text-muted);">Taxa de entrega: <strong id="dtlTaxaValor" style="color: var(--text-primary);">R$ 0,00</strong></span>
+            <div style="text-align: right;">
+              <span style="font-size: 11px; color: var(--text-muted); display: block;">Total do Pedido</span>
+              <strong style="font-size: 18px; color: var(--brand-gold-light);" id="dtlTotalValor">R$ 0,00</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- MOTOBOY RESPONSÁVEL -->
+        <div class="card">
+          <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 10px;">Entregador Responsável</span>
+          <div id="dtlMotoboyInfo" style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--bg-surface-elevated); border: 1px solid var(--border-medium); display: flex; align-items: center; justify-content: center; font-size: 18px;">🛵</div>
+              <div>
+                <div style="font-weight: 700; font-size: 14px;" id="dtlMotoboyNome">Aguardando atribuição</div>
+                <div style="font-size: 12px; color: var(--text-muted);" id="dtlMotoboyTelefone">--</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="drawer-footer" id="dtlFooterAcoes">
+        <!-- Ações dinâmicas de acordo com o status atual -->
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container" id="toastContainer"></div>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
+  <!-- LÓGICA FRONT-END OPERACIONAL -->
   <script>
-    let map;
-    let markers = {};
-    let activeRoutePolylineBg = null;
-    let activeRoutePolylineFg = null;
-    let routeMarkers = [];
-    let motoboysData = [];
-    let historicoData = [];
-    let abaAtual = 'aovivo';
-    let telaMobileAtual = 'panel';
-    let pollingInterval = null;
+    // Estado Global da Aplicação
+    const state = {
+      visaoAtual: 'inicio',
+      filtroLista: 'todos',
+      pedidos: [],
+      motoboys: [],
+      stats: {},
+      selectedPedidoId: null,
+      pedidoDetalheCache: null,
+      mapDashboard: null,
+      mapFullscreen: null,
+      markersDashboard: {},
+      markersFullscreen: {},
+      pollingTimer: null,
+      restauranteCoords: [-22.4123, -42.9664] // Teresópolis - RJ (Ao Ponto Carnes)
+    };
 
-    // HELPER: HORÁRIO DE BRASÍLIA (UTC-3)
-    function formatarHoraBrasilia(dateStr) {
-      if (!dateStr) return '--:--';
-      if (typeof dateStr === 'string' && dateStr.includes(' ')) {
-        const parts = dateStr.split(' ');
-        if (parts.length === 2) {
-          const timeParts = parts[1].split(':');
-          return `${timeParts[0]}:${timeParts[1]}`;
-        }
-      }
-      try {
-        const d = new Date(dateStr);
-        return d.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
-      } catch (e) {
-        return dateStr;
-      }
-    }
-
-    // INICIALIZAÇÃO
+    // Inicialização
     document.addEventListener('DOMContentLoaded', () => {
-      initMap();
-      carregarDadosAoVivo();
-      pollingInterval = setInterval(() => {
-        if (abaAtual === 'aovivo') carregarDadosAoVivo();
-      }, 5000);
+      iniciarRelogio();
+      iniciarMapaDashboard();
+      carregarTudo();
+
+      // Polling inteligente a cada 4 segundos
+      state.pollingTimer = setInterval(() => {
+        carregarTudo(false);
+      }, 4000);
     });
 
-    // INICIALIZAR LEAFLET MAP
-    function initMap() {
-      map = L.map('map', { zoomControl: false }).setView([-23.5615, -46.6560], 13);
-      L.control.zoom({ position: 'topright' }).addTo(map);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap'
-      }).addTo(map);
-    }
+    // Relógio dinâmico e saudação
+    function iniciarRelogio() {
+      function atualizar() {
+        const agora = new Date();
+        const horaStr = agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        const dataStr = agora.toLocaleDateString('pt-BR', { 
+          timeZone: 'America/Sao_Paulo',
+          weekday: 'short', 
+          day: 'numeric', 
+          month: 'short' 
+        });
 
-    // ALTERNAR TELA NO MOBILE (LISTA VS MAPA)
-    function alternarTelaMobile(tela) {
-      telaMobileAtual = tela;
-      const sidebar = document.getElementById('sidebarContainer');
-      const mapContainer = document.getElementById('mapContainer');
-      const mBtnPanel = document.getElementById('mBtnPanel');
-      const mBtnMap = document.getElementById('mBtnMap');
+        const clockEl = document.getElementById('liveClock');
+        const dateEl = document.getElementById('liveDate');
+        if (clockEl) clockEl.textContent = horaStr;
+        if (dateEl) dateEl.textContent = dataStr.charAt(0).toUpperCase() + dataStr.slice(1);
 
-      if (window.innerWidth <= 768) {
-        if (tela === 'map') {
-          sidebar.classList.add('mobile-hidden');
-          mapContainer.classList.add('mobile-active');
-          mBtnMap.classList.add('active');
-          mBtnPanel.classList.remove('active');
-          setTimeout(() => { map.invalidateSize(); }, 200);
-        } else {
-          sidebar.classList.remove('mobile-hidden');
-          mapContainer.classList.remove('mobile-active');
-          mBtnPanel.classList.add('active');
-          mBtnMap.classList.remove('active');
+        // Saudação dinâmica
+        const h = agora.getHours();
+        const greetingEl = document.getElementById('greetingText');
+        if (greetingEl) {
+          if (h >= 5 && h < 12) greetingEl.textContent = 'Bom dia, Equipe!';
+          else if (h >= 12 && h < 18) greetingEl.textContent = 'Boa tarde, Equipe!';
+          else greetingEl.textContent = 'Boa noite, Equipe!';
         }
-      } else {
-        setTimeout(() => { map.invalidateSize(); }, 200);
       }
+      atualizar();
+      setInterval(atualizar, 1000);
     }
 
-    // ALTERNAR ABAS (AO VIVO / HISTÓRICO)
-    function trocarAbaAdmin(aba) {
-      abaAtual = aba;
-      const tabAoVivoBtn = document.getElementById('tabAoVivoBtn');
-      const tabHistoricoBtn = document.getElementById('tabHistoricoBtn');
-      const motoboyList = document.getElementById('motoboyList');
-      const historicoList = document.getElementById('historicoList');
+    // Alternar visões da sidebar
+    function alternarVisao(visao) {
+      state.visaoAtual = visao;
 
-      limparRotaNoMapa();
+      // Atualizar classes da sidebar
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      const activeNav = document.getElementById('nav-' + visao);
+      if (activeNav) activeNav.classList.add('active');
 
-      if (aba === 'aovivo') {
-        tabAoVivoBtn.classList.add('active');
-        tabHistoricoBtn.classList.remove('active');
-        motoboyList.classList.remove('hidden');
-        historicoList.classList.add('hidden');
-        document.getElementById('footerStatusText').textContent = 'ATUALIZANDO A CADA 5s';
-        carregarDadosAoVivo();
-      } else {
-        tabHistoricoBtn.classList.add('active');
-        tabAoVivoBtn.classList.remove('active');
-        historicoList.classList.remove('hidden');
-        motoboyList.classList.add('hidden');
-        document.getElementById('footerStatusText').textContent = 'HISTÓRICO DE ENTREGAS';
-        carregarHistorico();
-      }
-    }
-
-    // BUSCAR DADOS DA API AO VIVO /api/admin/posicoes-mapa
-    async function carregarDadosAoVivo() {
-      try {
-        const response = await fetch('/api/admin/posicoes-mapa');
-        const result = await response.json();
-
-        if (response.ok && result.success) {
-          motoboysData = result.data || [];
-          
-          document.getElementById('statMotoboys').textContent = result.total_motoboys || 0;
-          document.getElementById('statPedidos').textContent = result.total_pedidos_em_rota || 0;
-          
-          const gpsElement = document.getElementById('statGps');
-          if (result.traccar_online) {
-            gpsElement.textContent = 'ONLINE';
-            gpsElement.style.color = 'var(--accent)';
-          } else {
-            gpsElement.textContent = 'DEV MOCK';
-            gpsElement.style.color = 'var(--warning)';
-          }
-
-          document.getElementById('lastUpdateText').textContent = formatarHoraBrasilia(new Date().toISOString());
-
-          if (abaAtual === 'aovivo') {
-            renderizarListaMotoboys();
-            atualizarMarcadoresAoVivo();
-          }
-        }
-      } catch (err) {
-        console.error('❌ Erro ao consultar posições do mapa:', err);
-      }
-    }
-
-    // RENDERIZAR LISTA LATERAL DE MOTOBOYS (AO VIVO)
-    function renderizarListaMotoboys() {
-      const container = document.getElementById('motoboyList');
-      const termoBusca = document.getElementById('searchInput').value.toLowerCase().trim();
-
-      const motoboysFiltrados = motoboysData.filter(m => {
-        if (!termoBusca) return true;
-        return m.nome.toLowerCase().includes(termoBusca) ||
-               m.telefone.toLowerCase().includes(termoBusca) ||
-               m.pedidos_numeros.some(p => p.toLowerCase().includes(termoBusca));
+      // Ocultar todas as seções
+      ['inicio', 'pedidos', 'entregas', 'motoboys', 'historico'].forEach(v => {
+        const sec = document.getElementById('view-' + v);
+        if (sec) sec.style.display = (v === visao) ? 'flex' : 'none';
       });
 
-      if (motoboysFiltrados.length === 0) {
+      // Tratar redimensionamento dos mapas Leaflet ao ficarem visíveis
+      if (visao === 'inicio' && state.mapDashboard) {
+        setTimeout(() => state.mapDashboard.invalidateSize(), 200);
+      } else if (visao === 'entregas') {
+        if (!state.mapFullscreen) iniciarMapaFullscreen();
+        setTimeout(() => state.mapFullscreen.invalidateSize(), 200);
+      }
+    }
+
+    // Carregar todos os dados (Stats, Pedidos, Motoboys)
+    async function carregarTudo(showLoadingToast = false) {
+      try {
+        const [statsRes, pedidosRes, mapaRes, motoboysRes] = await Promise.all([
+          fetch('/api/admin/stats').then(r => r.json()).catch(() => null),
+          fetch('/api/admin/pedidos').then(r => r.json()).catch(() => null),
+          fetch('/api/admin/posicoes-mapa').then(r => r.json()).catch(() => null),
+          fetch('/api/admin/motoboys').then(r => r.json()).catch(() => null)
+        ]);
+
+        if (statsRes && statsRes.success) {
+          state.stats = statsRes.stats;
+          renderizarStats();
+        }
+
+        if (pedidosRes && pedidosRes.success) {
+          state.pedidos = pedidosRes.pedidos || [];
+          renderizarListaPedidos();
+          renderizarKanban();
+          renderizarHistorico();
+        }
+
+        if (mapaRes && mapaRes.success) {
+          state.motoboysMapa = mapaRes.data || [];
+          atualizarMarcadoresMapa();
+        }
+
+        if (motoboysRes && motoboysRes.success) {
+          state.motoboys = motoboysRes.motoboys || [];
+          renderizarMotoboys();
+        }
+
+        if (showLoadingToast) {
+          showToast('Dados operacionais atualizados com sucesso!', 'success');
+        }
+      } catch (err) {
+        console.error('Erro ao carregar dados operacionais:', err);
+      }
+    }
+
+    // Renderizar Indicadores de Topo (KPIs)
+    function renderizarStats() {
+      const s = state.stats;
+      const preparoEl = document.getElementById('kpiPreparo');
+      const preparoSubEl = document.getElementById('kpiPreparoSub');
+      const rotaEl = document.getElementById('kpiRota');
+      const rotaSubEl = document.getElementById('kpiRotaSub');
+      const entreguesEl = document.getElementById('kpiEntregues');
+      const entreguesSubEl = document.getElementById('kpiEntreguesSub');
+      const faturamentoEl = document.getElementById('kpiFaturamento');
+
+      if (preparoEl) preparoEl.textContent = s.pedidos_em_preparo || 0;
+      if (preparoSubEl) preparoSubEl.textContent = `de ${s.total_pedidos || 0}`;
+
+      if (rotaEl) rotaEl.textContent = s.pedidos_em_rota || 0;
+      if (rotaSubEl) rotaSubEl.textContent = `de ${s.total_pedidos || 0}`;
+
+      if (entreguesEl) entreguesEl.textContent = s.pedidos_entregues || 0;
+      if (entreguesSubEl) entreguesSubEl.textContent = `de ${s.total_pedidos || 0}`;
+
+      if (faturamentoEl) {
+        faturamentoEl.textContent = 'R$ ' + (s.faturamento_hoje || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      }
+    }
+
+    // Renderizar Lista da Coluna Esquerda do Dashboard
+    function renderizarListaPedidos() {
+      const container = document.getElementById('containerPedidosLista');
+      if (!container) return;
+
+      let lista = state.pedidos;
+      if (state.filtroLista !== 'todos') {
+        if (state.filtroLista === 'disponivel') {
+          lista = lista.filter(p => p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto');
+        } else {
+          lista = lista.filter(p => p.status === state.filtroLista);
+        }
+      }
+
+      if (lista.length === 0) {
         container.innerHTML = `
-          <div style="text-align: center; color: var(--text-muted); padding: 40px 10px;">
-            <div style="font-size: 32px; margin-bottom: 8px;">🔍</div>
-            <p>Nenhum entregador encontrado.</p>
+          <div class="empty-state">
+            <div class="empty-state-icon">🍽️</div>
+            <div class="empty-state-title">Nenhum pedido encontrado</div>
+            <div class="empty-state-desc">Não há pedidos com esse filtro no momento.</div>
           </div>
         `;
         return;
       }
 
-      container.innerHTML = motoboysFiltrados.map(m => {
-        const temPedidos = m.pedidos_numeros.length > 0;
+      container.innerHTML = lista.map(p => {
+        const isSelected = p.id === state.selectedPedidoId ? 'selected' : '';
+        const badgeInfo = obterBadgeStatus(p.status);
+        const horaStr = p.criado_em ? p.criado_em.substring(11, 16) : '--:--';
+        const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
+
         return `
-          <div class="card-item" onclick="focarMotoboyNoMapa(${m.motoboy_id})" style="cursor: pointer;">
-            <div class="card-item-header">
-              <div class="card-title">
-                <span class="status-dot ${temPedidos ? 'active' : 'idle'}"></span>
-                ${m.nome}
+          <div class="order-card ${isSelected}" onclick="selecionarPedido(${p.id})">
+            <div class="order-card-row">
+              <div class="order-num-time">
+                <span class="order-number">#${p.numero_pedido}</span>
+                <span class="order-time">${horaStr}</span>
+                <span class="status-badge ${badgeInfo.classe}">${badgeInfo.label}</span>
               </div>
-              <span style="font-size: 11px; font-weight: 700; color: ${temPedidos ? '#93c5fd' : 'var(--text-muted)'}">
-                ${temPedidos ? m.pedidos_numeros.length + ' pedido(s)' : 'Disponível'}
-              </span>
+              <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem)}</span>
             </div>
 
-            <div class="card-meta">
-              <span>📞 ${m.telefone}</span>
-              <span>⚡ ${Math.round(m.speed || 0)} km/h</span>
-              <span style="color: ${m.origem_gps === 'gps_real' || m.origem_gps === 'traccar_real' ? 'var(--accent)' : 'var(--text-muted)'}; font-weight: 700;">
-                ${m.origem_gps === 'gps_real' || m.origem_gps === 'traccar_real' ? '📡 Traccar/GPS Real' : '⚙️ Simulado'}
-              </span>
+            <div class="order-address">
+              📍 ${p.endereco} ${p.bairro ? '— ' + p.bairro : ''}
             </div>
 
-            ${temPedidos ? `
-              <div class="pedidos-tags">
-                ${m.pedidos_detalhes.map(p => `
-                  <span class="tag-pedido">#${p.numero_pedido} (${p.minutos_em_rota}m)</span>
-                `).join('')}
-              </div>
-            ` : ''}
+            <div class="order-meta">
+              <span class="order-motoboy">
+                <span>🛵</span>
+                <span>${p.motoboy ? p.motoboy.nome : 'Sem motoboy'}</span>
+              </span>
+              <span class="order-price">${taxaStr}</span>
+            </div>
           </div>
         `;
       }).join('');
     }
 
-    // ATUALIZAR MARCADORES DA VISTA AO VIVO
-    function atualizarMarcadoresAoVivo() {
-      const bounds = [];
+    // Helper de Badges Semânticos
+    function obterBadgeStatus(status) {
+      switch (status) {
+        case 'em_preparo': return { label: 'Em preparo', classe: 'badge-preparo' };
+        case 'disponivel':
+        case 'aguardando_retirada':
+        case 'pronto': return { label: 'Aguardando retirada', classe: 'badge-retirada' };
+        case 'em_rota': return { label: 'Em rota', classe: 'badge-rota' };
+        case 'entregue': return { label: 'Entregue', classe: 'badge-entregue' };
+        default: return { label: status, classe: 'badge-preparo' };
+      }
+    }
 
-      motoboysData.forEach(m => {
-        const lat = m.latitude;
-        const lng = m.longitude;
-        if (!lat || !lng) return;
+    function obterOrigemClasse(origem) {
+      const o = (origem || '').toLowerCase();
+      if (o.includes('ifood')) return 'origem-ifood';
+      if (o.includes('99')) return 'origem-99food';
+      if (o.includes('cardapio')) return 'origem-cardapio_web';
+      return 'origem-manual';
+    }
 
-        bounds.push([lat, lng]);
-        const temPedidos = m.pedidos_numeros.length > 0;
-        const pedidosHtml = temPedidos 
-          ? m.pedidos_detalhes.map(p => `<span class="tag-pedido">#${p.numero_pedido}</span>`).join(' ')
-          : '<em style="color: var(--text-muted); font-size: 12px;">Sem pedidos no momento</em>';
+    function obterOrigemNome(origem) {
+      const o = (origem || '').toUpperCase();
+      if (o.includes('IFOOD')) return 'iFood';
+      if (o.includes('99')) return '99 Food';
+      if (o.includes('CARDAPIO')) return 'Cardápio';
+      return 'Balcão';
+    }
 
-        const popupContent = `
-          <div class="popup-box">
-            <div class="popup-title">🛵 ${m.nome}</div>
-            <div class="popup-phone">📞 ${m.telefone} | ⚡ ${Math.round(m.speed || 0)} km/h</div>
-            <div class="popup-pedidos-title">Pedidos em Rota:</div>
-            <div class="pedidos-tags">${pedidosHtml}</div>
+    function filtrarStatusLista(status, btn) {
+      state.filtroLista = status;
+      document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderizarListaPedidos();
+    }
+
+    // Selecionar Pedido para Foco no Mapa e Card Flutuante
+    function selecionarPedido(pedidoId) {
+      state.selectedPedidoId = pedidoId;
+      renderizarListaPedidos();
+
+      const p = state.pedidos.find(item => item.id === pedidoId);
+      if (!p) return;
+
+      const card = document.getElementById('mapFloatingCard');
+      const numEl = document.getElementById('floatingCardNum');
+      const statusEl = document.getElementById('floatingCardStatus');
+      const addrEl = document.getElementById('floatingCardAddr');
+      const etaEl = document.getElementById('floatingCardEta');
+
+      if (card) {
+        card.style.display = 'flex';
+        if (numEl) numEl.textContent = `#${p.numero_pedido}`;
+        if (statusEl) {
+          const badge = obterBadgeStatus(p.status);
+          statusEl.textContent = badge.label;
+          statusEl.className = `status-badge ${badge.classe}`;
+        }
+        if (addrEl) addrEl.textContent = `${p.endereco} ${p.bairro ? '— ' + p.bairro : ''}`;
+        if (etaEl) etaEl.textContent = `⏱️ ${p.tempo_decorrido_minutos} min decorridos`;
+      }
+
+      // Focar motoboy no mapa se houver
+      if (p.motoboy && state.markersDashboard[p.motoboy.id]) {
+        const marker = state.markersDashboard[p.motoboy.id];
+        state.mapDashboard.setView(marker.getLatLng(), 15, { animate: true });
+        marker.openPopup();
+      }
+    }
+
+    function abrirDetalhesDoCardFlutuante() {
+      if (state.selectedPedidoId) {
+        abrirDetalhesPedido(state.selectedPedidoId);
+      }
+    }
+
+    // MAPA DASHBOARD (LEAFLET DARK COM TERESÓPOLIS)
+    function iniciarMapaDashboard() {
+      const container = document.getElementById('mapDashboard');
+      if (!container || state.mapDashboard) return;
+
+      state.mapDashboard = L.map('mapDashboard', {
+        center: state.restauranteCoords,
+        zoom: 14,
+        zoomControl: false
+      });
+
+      L.control.zoom({ position: 'bottomright' }).addTo(state.mapDashboard);
+
+      // TileLayer CartoDB Dark Matter
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+      }).addTo(state.mapDashboard);
+
+      // Marcador da Loja Ao Ponto Carnes (Chama / Fogo)
+      const flameIcon = L.divIcon({
+        className: 'custom-icon',
+        html: `<div class="marker-restaurant" title="Ao Ponto Carnes — Loja Matriz">🔥</div>`,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22]
+      });
+
+      L.marker(state.restauranteCoords, { icon: flameIcon })
+        .bindPopup(`
+          <div style="padding: 6px 8px; text-align: center;">
+            <strong style="color: var(--brand-gold-light); font-size: 14px;">🥩 AO PONTO CARNES</strong><br>
+            <span style="font-size: 11px; color: var(--text-muted);">Loja Matriz • Teresópolis/RJ</span>
+          </div>
+        `)
+        .addTo(state.mapDashboard);
+    }
+
+    // MAPA FULLSCREEN (VISÃO 3)
+    function iniciarMapaFullscreen() {
+      const container = document.getElementById('mapFullscreen');
+      if (!container || state.mapFullscreen) return;
+
+      state.mapFullscreen = L.map('mapFullscreen', {
+        center: state.restauranteCoords,
+        zoom: 14
+      });
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+      }).addTo(state.mapFullscreen);
+
+      const flameIcon = L.divIcon({
+        className: 'custom-icon',
+        html: `<div class="marker-restaurant">🔥</div>`,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22]
+      });
+
+      L.marker(state.restauranteCoords, { icon: flameIcon })
+        .bindPopup(`<strong>Ao Ponto Carnes</strong>`)
+        .addTo(state.mapFullscreen);
+    }
+
+    // Atualizar Marcadores dos Motoboys no Mapa
+    function atualizarMarcadoresMapa() {
+      if (!state.motoboysMapa || !state.mapDashboard) return;
+
+      state.motoboysMapa.forEach(m => {
+        if (!m.latitude || !m.longitude) return;
+
+        const isEmRota = m.status_motoboy === 'em_rota';
+        const iconHtml = `<div class="marker-motoboy ${isEmRota ? 'active' : 'idle'}">🛵</div>`;
+        const customIcon = L.divIcon({
+          className: 'custom-icon',
+          html: iconHtml,
+          iconSize: [38, 38],
+          iconAnchor: [19, 19]
+        });
+
+        const popupHtml = `
+          <div style="padding: 8px 10px; min-width: 180px;">
+            <div style="font-weight: 800; font-size: 13px; color: var(--brand-gold-light);">🛵 ${m.nome}</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">📞 ${m.telefone} • ⚡ ${Math.round(m.speed || 0)} km/h</div>
+            <div style="font-size: 11px; margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1);">
+              ${isEmRota ? `<strong>Em rota:</strong> #${m.pedidos_numeros.join(', #')}` : '<em>Disponível no balcão</em>'}
+            </div>
           </div>
         `;
 
-        if (markers[m.motoboy_id]) {
-          markers[m.motoboy_id].setLatLng([lat, lng]);
-          markers[m.motoboy_id].getPopup().setContent(popupContent);
+        if (state.markersDashboard[m.motoboy_id]) {
+          state.markersDashboard[m.motoboy_id].setLatLng([m.latitude, m.longitude]);
+          state.markersDashboard[m.motoboy_id].getPopup().setContent(popupHtml);
         } else {
-          const customIcon = L.divIcon({
-            className: 'custom-marker',
-            html: '🛵',
-            iconSize: [36, 36],
-            iconAnchor: [18, 18]
-          });
+          const marker = L.marker([m.latitude, m.longitude], { icon: customIcon })
+            .bindPopup(popupHtml)
+            .addTo(state.mapDashboard);
 
-          const marker = L.marker([lat, lng], { icon: customIcon })
-            .bindPopup(popupContent)
-            .addTo(map);
-
-          markers[m.motoboy_id] = marker;
+          state.markersDashboard[m.motoboy_id] = marker;
         }
       });
-
-      if (bounds.length > 0 && !window.mapBoundsAdjusted) {
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
-        window.mapBoundsAdjusted = true;
-      }
     }
 
-    function focarMotoboyNoMapa(motoboy_id) {
-      const m = motoboysData.find(item => item.motoboy_id === motoboy_id);
-      if (m && markers[motoboy_id]) {
-        alternarTelaMobile('map');
-        setTimeout(() => {
-          map.setView([m.latitude, m.longitude], 16, { animate: true });
-          markers[motoboy_id].openPopup();
-        }, 300);
-      }
+    // RENDERIZAR KANBAN DE PEDIDOS
+    function renderizarKanban() {
+      const colPreparo = document.getElementById('colKanbanPreparo');
+      const colAguardando = document.getElementById('colKanbanAguardando');
+      const colRota = document.getElementById('colKanbanRota');
+
+      if (!colPreparo || !colAguardando || !colRota) return;
+
+      const preparo = state.pedidos.filter(p => p.status === 'em_preparo');
+      const aguardando = state.pedidos.filter(p => p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto');
+      const rota = state.pedidos.filter(p => p.status === 'em_rota');
+
+      document.getElementById('countKanbanPreparo').textContent = preparo.length;
+      document.getElementById('countKanbanAguardando').textContent = aguardando.length;
+      document.getElementById('countKanbanRota').textContent = rota.length;
+
+      colPreparo.innerHTML = preparo.map(p => cardKanbanHtml(p, 'preparo')).join('') || emptyKanbanHtml('Sem pedidos em preparo');
+      colAguardando.innerHTML = aguardando.map(p => cardKanbanHtml(p, 'aguardando')).join('') || emptyKanbanHtml('Sem pedidos no balcão');
+      colRota.innerHTML = rota.map(p => cardKanbanHtml(p, 'rota')).join('') || emptyKanbanHtml('Nenhuma entrega em rota');
     }
 
-    // --- CARREGAR HISTÓRICO DE ENTREGAS E ROTAS ---
+    function cardKanbanHtml(p, colTipo) {
+      const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
+      let botaoAcao = '';
 
-    async function carregarHistorico() {
-      const container = document.getElementById('historicoList');
-      container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 30px;">Carregando histórico...</div>`;
+      if (colTipo === 'preparo') {
+        botaoAcao = `<button class="btn btn-gold btn-sm" style="width: 100%; margin-top: 8px;" onclick="alterarStatusPedido(${p.id}, 'disponivel')">✓ Marcar como Pronto</button>`;
+      } else if (colTipo === 'aguardando') {
+        botaoAcao = `<button class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 8px;" onclick="abrirDetalhesPedido(${p.id})">🚀 Despachar / Atribuir</button>`;
+      } else if (colTipo === 'rota') {
+        botaoAcao = `<button class="btn btn-success btn-sm" style="width: 100%; margin-top: 8px;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Concluir Entrega</button>`;
+      }
 
+      return `
+        <div class="order-card" style="margin-bottom: 0;">
+          <div class="order-card-row">
+            <strong class="order-number">#${p.numero_pedido}</strong>
+            <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem)}</span>
+          </div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">${p.cliente}</div>
+          <div class="order-address">📍 ${p.endereco}</div>
+          <div class="order-meta">
+            <span>⏱️ ${p.tempo_decorrido_minutos} min</span>
+            <span class="order-price">${taxaStr}</span>
+          </div>
+          ${botaoAcao}
+        </div>
+      `;
+    }
+
+    function emptyKanbanHtml(msg) {
+      return `<div style="text-align: center; color: var(--text-muted); padding: 30px 10px; font-size: 12px;">${msg}</div>`;
+    }
+
+    // RENDERIZAR GESTÃO DE MOTOBOYS
+    function renderizarMotoboys() {
+      const container = document.getElementById('gridMotoboys');
+      if (!container) return;
+
+      if (state.motoboys.length === 0) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-state-title">Nenhum motoboy cadastrado</div></div>`;
+        return;
+      }
+
+      container.innerHTML = state.motoboys.map(m => {
+        const isOnline = m.status !== 'offline';
+        const statusBadge = m.status === 'em_rota' 
+          ? `<span class="status-badge badge-rota">Em Rota (${m.qtd_pedidos})</span>`
+          : (isOnline ? `<span class="status-badge badge-retirada">Disponível</span>` : `<span class="status-badge badge-problema">Offline</span>`);
+
+        return `
+          <div class="card card-elevated" style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 42px; height: 42px; border-radius: 50%; background: var(--bg-surface-hover); border: 2px solid ${isOnline ? '#10b981' : 'var(--border-subtle)'}; display: flex; align-items: center; justify-content: center; font-size: 20px;">🛵</div>
+                <div>
+                  <strong style="font-size: 15px; display: block;">${m.nome}</strong>
+                  <span style="font-size: 12px; color: var(--text-muted);">📞 ${m.telefone}</span>
+                </div>
+              </div>
+              ${statusBadge}
+            </div>
+
+            <div style="background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between;">
+              <span>⚡ Velocidade: <strong style="color: var(--text-primary);">${m.velocidade} km/h</strong></span>
+              <span>📡 GPS: <strong style="color: ${m.latitude ? 'var(--status-rota-text)' : 'var(--text-faint)'};">${m.latitude ? 'Ativo' : 'Pendente'}</strong></span>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="abrirWhatsappMotoboy('${m.telefone}')">💬 Conversar</button>
+              <button class="btn btn-gold btn-sm" style="flex: 1;" onclick="focarMotoboyNoMapa(${m.id})">🗺️ Ver no Mapa</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // RENDERIZAR HISTÓRICO
+    function renderizarHistorico() {
+      const container = document.getElementById('containerHistorico');
+      if (!container) return;
+
+      const entregues = state.pedidos.filter(p => p.status === 'entregue');
+      if (entregues.length === 0) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-state-title">Nenhuma entrega no histórico</div></div>`;
+        return;
+      }
+
+      container.innerHTML = entregues.map(e => `
+        <div class="order-card" style="margin-bottom: 8px;">
+          <div class="order-card-row">
+            <div class="order-num-time">
+              <strong class="order-number">#${e.numero_pedido}</strong>
+              <span class="status-badge badge-entregue">Entregue</span>
+              <span class="origem-badge ${obterOrigemClasse(e.origem)}">${obterOrigemNome(e.origem)}</span>
+            </div>
+            <span style="font-size: 12px; color: var(--text-muted);">⏱️ Concluído em ${e.tempo_decorrido_minutos} min</span>
+          </div>
+          <div style="font-size: 13px; color: var(--text-secondary);">👤 <strong>${e.cliente}</strong> — 📍 ${e.endereco}</div>
+          <div class="order-meta">
+            <span>🛵 Entregador: <strong>${e.motoboy ? e.motoboy.nome : 'Sem motoboy'}</strong></span>
+            <span class="order-price">Taxa: R$ ${e.taxa_entrega.toFixed(2).replace('.', ',')}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ABRIR DETALHES DO PEDIDO NO DRAWER
+    async function abrirDetalhesPedido(pedidoId) {
       try {
-        const res = await fetch('/api/admin/historico');
+        const res = await fetch(`/api/pedidos/detalhes?id=${pedidoId}`);
         const data = await res.json();
 
         if (res.ok && data.success) {
-          historicoData = data.entregas || [];
-          renderizarListaHistorico();
-        } else {
-          container.innerHTML = `<div style="text-align: center; color: var(--danger); padding: 20px;">Falha ao carregar histórico.</div>`;
-        }
-      } catch (err) {
-        console.error('Erro no histórico:', err);
-      }
-    }
+          const p = data.pedido;
+          state.pedidoDetalheCache = p;
 
-    function renderizarListaHistorico() {
-      const container = document.getElementById('historicoList');
-      const termo = document.getElementById('searchInput').value.toLowerCase().trim();
+          document.getElementById('dtlNumeroPedido').textContent = `#${p.numero_pedido}`;
+          document.getElementById('dtlOrigem').textContent = obterOrigemNome(p.origem);
+          document.getElementById('dtlOrigem').className = `origem-badge ${obterOrigemClasse(p.origem)}`;
 
-      const entregasFiltradas = historicoData.filter(e => {
-        if (!termo) return true;
-        return e.numero_pedido.toLowerCase().includes(termo) ||
-               e.motoboy.nome.toLowerCase().includes(termo) ||
-               e.motoboy.telefone.toLowerCase().includes(termo);
-      });
+          const badge = obterBadgeStatus(p.status);
+          document.getElementById('dtlStatus').textContent = badge.label;
+          document.getElementById('dtlStatus').className = `status-badge ${badge.classe}`;
 
-      if (entregasFiltradas.length === 0) {
-        container.innerHTML = `
-          <div style="text-align: center; color: var(--text-muted); padding: 40px 10px;">
-            <div style="font-size: 32px; margin-bottom: 8px;">📦</div>
-            <p>Nenhuma entrega registrada no histórico.</p>
-          </div>
-        `;
-        return;
-      }
+          document.getElementById('dtlHorario').textContent = p.criado_em ? `Criado às ${p.criado_em.substring(11, 16)}` : 'Horário não informado';
 
-      container.innerHTML = entregasFiltradas.map(e => {
-        const isEntregue = e.status === 'entregue';
-        const isDisponivel = e.status === 'disponivel';
-        const dataInicioFmt = e.data_inicio ? formatarHoraBrasilia(e.data_inicio) : '--:--';
-        const dataFimFmt = e.data_fim ? formatarHoraBrasilia(e.data_fim) : (isDisponivel ? 'No balcão' : 'Em rota');
-        const origStr = (e.origem || '').toLowerCase();
-        const origemClass = origStr.includes('ifood') ? 'origem-ifood' :
-                            origStr.includes('99') ? 'origem-99food' :
-                            origStr.includes('cardapio') ? 'origem-cardapio_web' : 'origem-manual';
-        const origemNome = origStr.includes('ifood') ? 'iFood' :
-                           origStr.includes('99') ? '99 Food' :
-                           origStr.includes('cardapio') ? 'Cardápio Web' : (e.origem || 'Balcão');
-        const taxaStr = e.taxa_entrega > 0 ? `R$ ${e.taxa_entrega.toFixed(2).replace('.', ',')}` : null;
+          document.getElementById('dtlClienteNome').textContent = p.cliente.nome;
+          document.getElementById('dtlClienteTelefone').textContent = `📞 ${p.cliente.telefone}`;
+          document.getElementById('dtlClienteEndereco').textContent = `📍 ${p.cliente.endereco}${p.cliente.bairro ? ' — ' + p.cliente.bairro : ''}`;
 
-        return `
-          <div class="card-item">
-            <div class="card-item-header">
-              <div class="card-title">
-                <span class="origem-badge ${origemClass}">${origemNome}</span>
-                <span class="status-dot ${isEntregue ? 'done' : (isDisponivel ? 'idle' : 'active')}"></span>
-                Pedido #${e.numero_pedido}
+          // Itens
+          const itensContainer = document.getElementById('dtlItensLista');
+          itensContainer.innerHTML = p.itens.map(it => `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; font-size: 13px;">
+              <div>
+                <strong style="color: var(--text-primary);">${it.qtd}x ${it.nome}</strong>
+                ${it.obs ? `<div style="font-size: 11px; color: var(--brand-gold);">${it.obs}</div>` : ''}
               </div>
-              <span class="tag-pedido" style="background: ${isEntregue ? 'rgba(16, 185, 129, 0.2)' : (isDisponivel ? 'rgba(59, 130, 246, 0.2)' : 'rgba(245, 158, 11, 0.2)')}; color: ${isEntregue ? '#6ee7b7' : (isDisponivel ? '#93c5fd' : '#fcd34d')}; border-color: ${isEntregue ? '#10b981' : (isDisponivel ? '#3b82f6' : '#f59e0b')};">
-                ${isEntregue ? 'ENTREGUE' : (isDisponivel ? 'PRONTO' : 'EM ROTA')}
-              </span>
+              <span style="color: var(--text-secondary); font-weight: 600;">${it.preco > 0 ? `R$ ${(it.preco * it.qtd).toFixed(2).replace('.', ',')}` : 'Incluso'}</span>
             </div>
+          `).join('');
 
-            <div class="card-meta">
-              <span>🛵 ${e.motoboy.nome}</span>
-              ${taxaStr ? `<span>💰 <strong>Taxa: ${taxaStr}</strong></span>` : ''}
-              <span>⏱️ <strong>${e.duracao_minutos} min</strong></span>
-            </div>
+          document.getElementById('dtlTaxaValor').textContent = `R$ ${p.financeiro.taxa_entrega.toFixed(2).replace('.', ',')}`;
+          document.getElementById('dtlTotalValor').textContent = `R$ ${p.financeiro.total.toFixed(2).replace('.', ',')}`;
 
-            ${e.cliente ? `
-              <div style="font-size: 12px; color: #e2e8f0; margin-bottom: 4px;">
-                👤 <strong>${e.cliente}</strong> ${e.bairro ? `(${e.bairro})` : ''}
-              </div>
-            ` : ''}
-
-            ${e.endereco ? `
-              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
-                📍 ${e.endereco}
-              </div>
-            ` : ''}
-
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; display: flex; justify-content: space-between;">
-              <span>Saída: <strong>${dataInicioFmt}</strong></span>
-              <span>Chegada: <strong>${dataFimFmt}</strong></span>
-              <span>📍 ${e.total_pontos_gps} pings</span>
-            </div>
-
-            ${e.total_pontos_gps > 0 ? `
-              <button class="btn-rota" onclick="desenharRotaDoPedido(${e.pedido_id})">
-                🗺️ VER ROTA PERCORRIDA NO MAPA
-              </button>
-            ` : ''}
-          </div>
-        `;
-      }).join('');
-    }
-
-    // Tentar Snap-to-Roads via OSRM Match API para encaixar o trajeto perfeitamente nas vias reais
-    async function obterGeometriaViasOsrm(pontos) {
-      if (!pontos || pontos.length < 2) return null;
-      try {
-        const amostragem = pontos.length > 80 
-          ? pontos.filter((_, idx) => idx % Math.ceil(pontos.length / 80) === 0 || idx === pontos.length - 1)
-          : pontos;
-
-        const coordsStr = amostragem.map(p => `${p.longitude},${p.latitude}`).join(';');
-        const url = `https://router.project-osrm.org/match/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
-
-        const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 4500);
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(tid);
-
-        const data = await res.json();
-        if (res.ok && data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
-          const coordsGeoJson = data.matchings[0].geometry.coordinates;
-          return coordsGeoJson.map(c => [c[1], c[0]]);
-        }
-      } catch (err) {
-        console.warn('⚠️ OSRM Snap-to-Roads indisponível. Exibindo linha de GPS purificada:', err.message);
-      }
-      return null;
-    }
-
-    // DESENHAR ROTA PERCORRIDA COM TRAÇADO ENCAIXADO NAS VIAS E PONTOS GPS
-    async function desenharRotaDoPedido(pedido_id) {
-      limparRotaNoMapa();
-
-      try {
-        const res = await fetch(`/api/admin/historico/rota?pedido_id=${pedido_id}`);
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-          alert('Não foi possível obter os pontos da rota deste pedido.');
-          return;
-        }
-
-        const pontos = data.pontos || [];
-        const pedido = data.pedido;
-
-        if (pontos.length === 0) {
-          alert(`O pedido #${pedido.numero_pedido} não possui pontos de GPS gravados durante a entrega.`);
-          return;
-        }
-
-        const rawLatLngs = pontos.map(p => [p.latitude, p.longitude]);
-
-        // Tentar buscar o traçado encaixado nas vias (Snap-to-Roads)
-        let latLngsFinal = rawLatLngs;
-        const snappedVias = await obterGeometriaViasOsrm(pontos);
-        if (snappedVias && snappedVias.length > 0) {
-          latLngsFinal = snappedVias;
-        }
-
-        // Alternar para o Mapa no Mobile
-        alternarTelaMobile('map');
-
-        setTimeout(() => {
-          map.invalidateSize();
-
-          // 1. Linha de Fundo (Sombra Escura)
-          activeRoutePolylineBg = L.polyline(latLngsFinal, {
-            color: '#00264d',
-            weight: 10,
-            opacity: 0.8
-          }).addTo(map);
-
-          // 2. Linha Principal (Azul Neon Brilhante #00ffff)
-          activeRoutePolylineFg = L.polyline(latLngsFinal, {
-            color: '#00ffff',
-            weight: 5,
-            opacity: 0.95,
-            smoothFactor: 1
-          }).addTo(map);
-
-          // 3. Desenhar PONTOS INTERMEDIÁRIOS de GPS capturados ao longo da rota
-          pontos.forEach((p, idx) => {
-            const isStart = idx === 0;
-            const isEnd = idx === pontos.length - 1;
-
-            if (isStart) {
-              const startIcon = L.divIcon({ className: 'route-marker-start', html: '🟢', iconSize: [30, 30] });
-              const startMarker = L.marker([p.latitude, p.longitude], { icon: startIcon })
-                .bindPopup(`<b>🟢 Início da Entrega #${pedido.numero_pedido}</b><br>Entregador: ${pedido.motoboy.nome}<br>Horário: ${formatarHoraBrasilia(p.criado_em)}`)
-                .addTo(map);
-              routeMarkers.push(startMarker);
-            } else if (isEnd) {
-              const endIcon = L.divIcon({ className: 'route-marker-end', html: '🏁', iconSize: [30, 30] });
-              const endMarker = L.marker([p.latitude, p.longitude], { icon: endIcon })
-                .bindPopup(`<b>🏁 Chegada #${pedido.numero_pedido}</b><br>Entregador: ${pedido.motoboy.nome}<br>Duração: <strong>${pedido.duracao_minutos} min</strong><br>Horário: ${formatarHoraBrasilia(p.criado_em)}`)
-                .addTo(map);
-              routeMarkers.push(endMarker);
-            } else {
-              const circle = L.circleMarker([p.latitude, p.longitude], {
-                radius: 5,
-                color: '#00ffff',
-                fillColor: '#3b82f6',
-                fillOpacity: 0.9,
-                weight: 2
-              }).bindPopup(`<b>📍 Ping GPS #${idx + 1}</b><br>Horário: ${formatarHoraBrasilia(p.criado_em)}<br>Velocidade: ${Math.round(p.velocidade)} km/h`)
-                .addTo(map);
-              routeMarkers.push(circle);
-            }
-          });
-
-          // 4. Enquadrar o mapa para exibir todo o percurso
-          if (latLngsFinal.length > 1) {
-            map.fitBounds(activeRoutePolylineFg.getBounds(), { padding: [60, 60] });
+          // Motoboy
+          if (p.motoboy) {
+            document.getElementById('dtlMotoboyNome').textContent = p.motoboy.nome;
+            document.getElementById('dtlMotoboyTelefone').textContent = p.motoboy.telefone;
           } else {
-            map.setView(latLngsFinal[0], 16);
+            document.getElementById('dtlMotoboyNome').textContent = 'Aguardando atribuição';
+            document.getElementById('dtlMotoboyTelefone').textContent = 'Nenhum entregador associado';
           }
 
-          exibirToastMapa(`📍 Rota #${pedido.numero_pedido} ajustada às vias (${pontos.length} pings, ${pedido.duracao_minutos} min)`);
-        }, 300);
+          // Rodapé de Ações
+          renderizarAcoesDrawer(p);
 
+          // Abrir gaveta
+          document.getElementById('drawerPedido').classList.add('open');
+        }
       } catch (err) {
-        console.error('Erro ao desenhar rota:', err);
-        alert('Erro ao carregar mapa da rota.');
+        console.error('Erro ao abrir detalhes:', err);
+        showToast('Falha ao carregar detalhes do pedido.', 'error');
       }
     }
 
-    function limparRotaNoMapa() {
-      if (activeRoutePolylineBg) {
-        map.removeLayer(activeRoutePolylineBg);
-        activeRoutePolylineBg = null;
-      }
-      if (activeRoutePolylineFg) {
-        map.removeLayer(activeRoutePolylineFg);
-        activeRoutePolylineFg = null;
-      }
-      routeMarkers.forEach(m => map.removeLayer(m));
-      routeMarkers = [];
+    function fecharDetalhesPedido(e) {
+      if (e && e.target && e.target.id !== 'drawerPedido') return;
+      document.getElementById('drawerPedido').classList.remove('open');
     }
 
-    function exibirToastMapa(msg) {
-      const toast = document.getElementById('mapToast');
-      const msgEl = document.getElementById('mapToastMsg');
-      if (toast && msgEl) {
-        msgEl.textContent = msg;
-        toast.style.display = 'flex';
-        setTimeout(() => { toast.style.display = 'none'; }, 4000);
+    function renderizarAcoesDrawer(p) {
+      const footer = document.getElementById('dtlFooterAcoes');
+      if (!footer) return;
+
+      if (p.status === 'em_preparo') {
+        footer.innerHTML = `
+          <button class="btn btn-gold" style="flex: 1;" onclick="alterarStatusPedido(${p.id}, 'disponivel')">✓ Marcar como Pronto</button>
+        `;
+      } else if (p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto') {
+        footer.innerHTML = `
+          <button class="btn btn-gold" style="flex: 1;" onclick="alterarStatusPedido(${p.id}, 'em_rota')">🚀 Iniciar Entrega (Em Rota)</button>
+        `;
+      } else if (p.status === 'em_rota') {
+        footer.innerHTML = `
+          <button class="btn btn-success" style="flex: 1;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Concluir Entrega (Entregue)</button>
+        `;
+      } else {
+        footer.innerHTML = `
+          <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
+        `;
       }
     }
 
-    function filtrarConteudo() {
-      if (abaAtual === 'aovivo') renderizarListaMotoboys();
-      else renderizarListaHistorico();
+    // Alterar Status do Pedido via API
+    async function alterarStatusPedido(pedidoId, novoStatus) {
+      try {
+        const res = await fetch('/api/pedidos/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pedido_id: pedidoId, status: novoStatus })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(`Pedido atualizado para "${novoStatus}"!`, 'success');
+          fecharDetalhesPedido();
+          carregarTudo();
+        } else {
+          showToast(data.message || 'Não foi possível alterar o status.', 'error');
+        }
+      } catch (err) {
+        showToast('Erro de conexão ao alterar status.', 'error');
+      }
+    }
+
+    // Ações de Contato
+    function abrirWhatsappCliente() {
+      if (!state.pedidoDetalheCache || !state.pedidoDetalheCache.cliente.telefone) return;
+      const tel = state.pedidoDetalheCache.cliente.telefone.replace(/\D/g, '');
+      const msg = encodeURIComponent(`Olá, ${state.pedidoDetalheCache.cliente.nome}! Aqui é da Ao Ponto Carnes referente ao seu pedido #${state.pedidoDetalheCache.numero_pedido}.`);
+      window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
+    }
+
+    function abrirWhatsappMotoboy(telefone) {
+      const tel = telefone.replace(/\D/g, '');
+      window.open(`https://wa.me/55${tel}?text=${encodeURIComponent('Olá! Mensagem da cozinha da Ao Ponto Carnes.')}`, '_blank');
+    }
+
+    function focarMotoboyNoMapa(motoboyId) {
+      alternarVisao('inicio');
+      const marker = state.markersDashboard[motoboyId];
+      if (marker && state.mapDashboard) {
+        state.mapDashboard.setView(marker.getLatLng(), 16, { animate: true });
+        marker.openPopup();
+      }
+    }
+
+    // Helper Toast
+    function showToast(mensagem, tipo = 'success') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${tipo}`;
+      toast.innerHTML = `<span>${tipo === 'success' ? '✅' : '❌'}</span><span>${mensagem}</span>`;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
     }
   </script>
 </body>
