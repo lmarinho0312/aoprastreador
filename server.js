@@ -48,6 +48,9 @@ registerRoute('POST', '/api/auth/register', authController.register);
 registerRoute('POST', '/api/pedidos/iniciar', pedidosController.iniciarPedido);
 registerRoute('POST', '/api/pedidos/finalizar', pedidosController.finalizarPedido);
 registerRoute('GET', '/api/pedidos/motoboy', pedidosController.listarPedidosMotoboy);
+registerRoute('POST', '/api/pedidos/webhook-spool', pedidosController.webhookSpool);
+registerRoute('GET', '/api/pedidos/disponiveis', pedidosController.listarPedidosDisponiveis);
+registerRoute('POST', '/api/pedidos/retirar', pedidosController.assumirPedido);
 
 const posicaoController = require('./src/controllers/posicaoController');
 

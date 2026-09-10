@@ -20,6 +20,10 @@ npm-debug.log*
 # Vercel
 .vercel
 
+# Spooler Agent local cache
+agent/processed_cache.json
+agent/processados/
+
 # Sistema operacional
 .DS_Store
 Thumbs.db

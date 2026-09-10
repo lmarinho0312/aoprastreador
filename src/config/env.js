@@ -26,5 +26,6 @@ module.exports = {
   TRACCAR_URL: process.env.TRACCAR_URL || 'http://localhost:8082',
   TRACCAR_USER: process.env.TRACCAR_USER || 'admin',
   TRACCAR_PASS: process.env.TRACCAR_PASS || 'admin',
-  JWT_SECRET: process.env.JWT_SECRET || 'default_secret_key'
+  JWT_SECRET: process.env.JWT_SECRET || 'default_secret_key',
+  BALCAO_API_SECRET: process.env.BALCAO_API_SECRET || 'balcao_secret_token_aoponto_2026'
 };

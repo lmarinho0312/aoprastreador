@@ -12,6 +12,11 @@ async function listarHistoricoEntregas(req, res) {
       SELECT p.id as pedido_id,
              p.numero_pedido,
              p.status,
+             p.origem,
+             p.cliente,
+             p.endereco,
+             p.bairro,
+             p.taxa_entrega,
              p.data_inicio,
              p.data_fim,
              m.id as motoboy_id,
@@ -19,7 +24,7 @@ async function listarHistoricoEntregas(req, res) {
              m.telefone as motoboy_telefone,
              CASE 
                WHEN p.data_fim IS NOT NULL THEN ROUND((julianday(p.data_fim) - julianday(p.data_inicio)) * 1440)
-               ELSE ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(p.data_inicio)) * 1440)
+               ELSE ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(p.data_inicio, DATETIME('now', '-3 hours')))) * 1440)
              END as duracao_minutos,
              (SELECT COUNT(*) FROM pedido_rotas pr WHERE pr.pedido_id = p.id) as total_pontos_gps
       FROM pedidos p
@@ -34,12 +39,17 @@ async function listarHistoricoEntregas(req, res) {
         pedido_id: e.pedido_id,
         numero_pedido: e.numero_pedido,
         status: e.status,
+        origem: e.origem || 'MANUAL',
+        cliente: e.cliente || null,
+        endereco: e.endereco || null,
+        bairro: e.bairro || null,
+        taxa_entrega: Number(e.taxa_entrega || 0),
         data_inicio: e.data_inicio,
         data_fim: e.data_fim,
         duracao_minutos: e.duracao_minutos !== null ? Math.max(0, Math.round(e.duracao_minutos)) : 0,
         motoboy: {
           id: e.motoboy_id,
-          nome: e.motoboy_nome || 'Desconhecido',
+          nome: e.motoboy_nome || (e.status === 'disponivel' ? 'Aguardando Retirada' : 'Desconhecido'),
           telefone: e.motoboy_telefone || '-'
         },
         total_pontos_gps: Number(e.total_pontos_gps || 0)

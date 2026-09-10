@@ -296,6 +296,19 @@
       border-radius: 6px;
     }
 
+    .origem-badge {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.3px;
+    }
+    .origem-ifood { background: #ea1d2c; color: #fff; }
+    .origem-99food { background: #ff5e00; color: #fff; }
+    .origem-cardapio_web { background: #10b981; color: #fff; }
+    .origem-manual { background: #3b82f6; color: #fff; }
+
     .btn-rota {
       width: 100%;
       padding: 12px 14px;
@@ -855,25 +868,48 @@
 
       container.innerHTML = entregasFiltradas.map(e => {
         const isEntregue = e.status === 'entregue';
-        const dataInicioFmt = formatarHoraBrasilia(e.data_inicio);
-        const dataFimFmt = e.data_fim ? formatarHoraBrasilia(e.data_fim) : 'Em andamento';
+        const isDisponivel = e.status === 'disponivel';
+        const dataInicioFmt = e.data_inicio ? formatarHoraBrasilia(e.data_inicio) : '--:--';
+        const dataFimFmt = e.data_fim ? formatarHoraBrasilia(e.data_fim) : (isDisponivel ? 'No balcão' : 'Em rota');
+        const origStr = (e.origem || '').toLowerCase();
+        const origemClass = origStr.includes('ifood') ? 'origem-ifood' :
+                            origStr.includes('99') ? 'origem-99food' :
+                            origStr.includes('cardapio') ? 'origem-cardapio_web' : 'origem-manual';
+        const origemNome = origStr.includes('ifood') ? 'iFood' :
+                           origStr.includes('99') ? '99 Food' :
+                           origStr.includes('cardapio') ? 'Cardápio Web' : (e.origem || 'Balcão');
+        const taxaStr = e.taxa_entrega > 0 ? `R$ ${e.taxa_entrega.toFixed(2).replace('.', ',')}` : null;
 
         return `
           <div class="card-item">
             <div class="card-item-header">
               <div class="card-title">
-                <span class="status-dot ${isEntregue ? 'done' : 'active'}"></span>
+                <span class="origem-badge ${origemClass}">${origemNome}</span>
+                <span class="status-dot ${isEntregue ? 'done' : (isDisponivel ? 'idle' : 'active')}"></span>
                 Pedido #${e.numero_pedido}
               </div>
-              <span class="tag-pedido" style="background: ${isEntregue ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}; color: ${isEntregue ? '#6ee7b7' : '#fcd34d'}; border-color: ${isEntregue ? '#10b981' : '#f59e0b'};">
-                ${isEntregue ? 'ENTREGUE' : 'EM ROTA'}
+              <span class="tag-pedido" style="background: ${isEntregue ? 'rgba(16, 185, 129, 0.2)' : (isDisponivel ? 'rgba(59, 130, 246, 0.2)' : 'rgba(245, 158, 11, 0.2)')}; color: ${isEntregue ? '#6ee7b7' : (isDisponivel ? '#93c5fd' : '#fcd34d')}; border-color: ${isEntregue ? '#10b981' : (isDisponivel ? '#3b82f6' : '#f59e0b')};">
+                ${isEntregue ? 'ENTREGUE' : (isDisponivel ? 'PRONTO' : 'EM ROTA')}
               </span>
             </div>
 
             <div class="card-meta">
               <span>🛵 ${e.motoboy.nome}</span>
+              ${taxaStr ? `<span>💰 <strong>Taxa: ${taxaStr}</strong></span>` : ''}
               <span>⏱️ <strong>${e.duracao_minutos} min</strong></span>
             </div>
+
+            ${e.cliente ? `
+              <div style="font-size: 12px; color: #e2e8f0; margin-bottom: 4px;">
+                👤 <strong>${e.cliente}</strong> ${e.bairro ? `(${e.bairro})` : ''}
+              </div>
+            ` : ''}
+
+            ${e.endereco ? `
+              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
+                📍 ${e.endereco}
+              </div>
+            ` : ''}
 
             <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; display: flex; justify-content: space-between;">
               <span>Saída: <strong>${dataInicioFmt}</strong></span>
@@ -881,9 +917,11 @@
               <span>📍 ${e.total_pontos_gps} pings</span>
             </div>
 
-            <button class="btn-rota" onclick="desenharRotaDoPedido(${e.pedido_id})">
-              🗺️ VER ROTA PERCORRIDA NO MAPA
-            </button>
+            ${e.total_pontos_gps > 0 ? `
+              <button class="btn-rota" onclick="desenharRotaDoPedido(${e.pedido_id})">
+                🗺️ VER ROTA PERCORRIDA NO MAPA
+              </button>
+            ` : ''}
           </div>
         `;
       }).join('');

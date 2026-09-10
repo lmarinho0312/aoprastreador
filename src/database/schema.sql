@@ -1,4 +1,4 @@
--- Schema do Banco de Dados SQLite (Sistema de Rastreamento de Entregas)
+-- Schema do Banco de Dados SQLite / Turso (Sistema de Rastreamento de Entregas)
 
 CREATE TABLE IF NOT EXISTS motoboys (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,9 +17,18 @@ CREATE TABLE IF NOT EXISTS pedidos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     numero_pedido TEXT NOT NULL,
     motoboy_id INTEGER,
-    status TEXT NOT NULL DEFAULT 'em_rota',
-    data_inicio DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status TEXT NOT NULL DEFAULT 'disponivel',
+    origem TEXT DEFAULT 'MANUAL',
+    pedido_id_origem TEXT,
+    cliente TEXT,
+    endereco TEXT,
+    bairro TEXT,
+    taxa_entrega REAL DEFAULT 0.0,
+    telefone_cliente TEXT,
+    texto_bruto TEXT,
+    data_inicio DATETIME NULL,
     data_fim DATETIME NULL,
+    criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (motoboy_id) REFERENCES motoboys(id) ON DELETE SET NULL
 );
 
@@ -37,4 +46,5 @@ CREATE TABLE IF NOT EXISTS pedido_rotas (
 
 CREATE INDEX IF NOT EXISTS idx_pedidos_motoboy_status ON pedidos(motoboy_id, status);
 CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status);
+CREATE INDEX IF NOT EXISTS idx_pedidos_origem_id ON pedidos(origem, pedido_id_origem);
 CREATE INDEX IF NOT EXISTS idx_pedido_rotas_pedido ON pedido_rotas(pedido_id);

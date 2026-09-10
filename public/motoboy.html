@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Motoboy App - Sistema de Entregas</title>
-
+  <title>Portal do Entregador - Monitoramento de Rotas</title>
+  
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,13 +12,12 @@
 
   <style>
     :root {
-      --bg-dark: #0f172a;
-      --card-bg: rgba(30, 41, 59, 0.75);
+      --bg-dark: #0b0f19;
+      --card-bg: rgba(30, 41, 59, 0.7);
       --card-border: rgba(255, 255, 255, 0.1);
       --primary: #3b82f6;
-      --primary-hover: #2563eb;
       --accent: #10b981;
-      --accent-hover: #059669;
+      --warning: #f59e0b;
       --danger: #ef4444;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
@@ -29,7 +28,6 @@
       margin: 0;
       padding: 0;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      -webkit-tap-highlight-color: transparent;
     }
 
     body {
@@ -39,36 +37,54 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
-      background-image: 
-        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.15) 0px, transparent 50%);
-      background-attachment: fixed;
       padding: 16px;
+      overflow-x: hidden;
     }
 
     .container {
       width: 100%;
-      max-width: 440px;
+      max-width: 460px;
       margin: 0 auto;
     }
 
-    /* GLASSMORPHISM CARD */
+    /* GLASS CARDS */
     .glass-card {
       background: var(--card-bg);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--card-border);
       border-radius: 20px;
-      padding: 24px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-      margin-bottom: 20px;
+      padding: 20px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      margin-bottom: 16px;
     }
 
-    /* TABS NAV */
+    .brand-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .brand-icon {
+      font-size: 40px;
+      margin-bottom: 8px;
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* AUTH TABS */
     .tab-nav {
       display: flex;
-      background: rgba(15, 23, 42, 0.6);
+      background: rgba(15, 23, 42, 0.8);
       border-radius: 12px;
       padding: 4px;
       margin-bottom: 20px;
@@ -82,7 +98,7 @@
       background: transparent;
       color: var(--text-muted);
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 600;
       border-radius: 8px;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -92,40 +108,6 @@
       background: var(--primary);
       color: #ffffff;
       box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
-    }
-
-    /* HEADER */
-    .brand-header {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    .brand-icon {
-      width: 64px;
-      height: 64px;
-      background: linear-gradient(135deg, #3b82f6, #10b981);
-      border-radius: 18px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 32px;
-      margin-bottom: 12px;
-      box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
-    }
-
-    .brand-title {
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      background: linear-gradient(to right, #ffffff, #94a3b8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .brand-subtitle {
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-top: 4px;
     }
 
     /* FORM INPUTS */
@@ -146,7 +128,7 @@
     .form-input {
       width: 100%;
       background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid var(--card-border);
       border-radius: 12px;
       padding: 14px 16px;
       font-size: 15px;
@@ -164,16 +146,16 @@
     /* BUTTONS */
     .btn {
       width: 100%;
-      padding: 16px;
+      padding: 14px;
       border: none;
-      border-radius: 14px;
-      font-size: 15px;
+      border-radius: 12px;
+      font-size: 14px;
       font-weight: 700;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 8px;
       transition: all 0.2s ease;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
@@ -192,6 +174,18 @@
 
     .btn-accent:active { transform: scale(0.98); }
 
+    .btn-retirar {
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      color: #ffffff;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 800;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-retirar:active { transform: scale(0.96); }
+
     .btn-danger-sm {
       padding: 8px 14px;
       font-size: 13px;
@@ -199,6 +193,7 @@
       background: rgba(239, 68, 68, 0.2);
       border: 1px solid rgba(239, 68, 68, 0.4);
       color: #fca5a5;
+      cursor: pointer;
     }
 
     /* DASHBOARD TOP BAR */
@@ -206,7 +201,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 16px;
@@ -254,18 +249,30 @@
     }
 
     .pedido-card {
-      background: rgba(15, 23, 42, 0.6);
+      background: rgba(15, 23, 42, 0.7);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 14px;
       padding: 16px;
       margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: all 0.2s ease;
+    }
+
+    .pedido-card:hover {
+      border-color: rgba(59, 130, 246, 0.3);
+      background: rgba(15, 23, 42, 0.85);
+    }
+
+    .pedido-card-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
     .pedido-num {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 800;
       color: #ffffff;
       display: flex;
@@ -276,7 +283,67 @@
     .pedido-time {
       font-size: 12px;
       color: var(--text-muted);
-      margin-top: 4px;
+    }
+
+    .pedido-cliente {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pedido-endereco {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    /* BADGES DE ORIGEM */
+    .origem-badge {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.3px;
+    }
+
+    .origem-ifood {
+      background: #ea1d2c;
+      color: #ffffff;
+      box-shadow: 0 0 8px rgba(234, 29, 44, 0.5);
+    }
+
+    .origem-99food {
+      background: #ff5e00;
+      color: #ffffff;
+      box-shadow: 0 0 8px rgba(255, 94, 0, 0.5);
+    }
+
+    .origem-cardapio_web {
+      background: #10b981;
+      color: #ffffff;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    }
+
+    .origem-manual {
+      background: #3b82f6;
+      color: #ffffff;
+    }
+
+    .taxa-badge {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
     }
 
     .status-badge {
@@ -292,11 +359,11 @@
 
     .empty-state {
       text-align: center;
-      padding: 32px 16px;
+      padding: 28px 16px;
       color: var(--text-muted);
     }
 
-    .empty-icon { font-size: 40px; margin-bottom: 8px; opacity: 0.6; }
+    .empty-icon { font-size: 36px; margin-bottom: 6px; opacity: 0.6; }
 
     /* TOAST NOTIFICATION */
     #toast {
@@ -309,7 +376,7 @@
       color: #ffffff;
       padding: 14px 24px;
       border-radius: 30px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       box-shadow: 0 10px 30px rgba(0,0,0,0.5);
       display: flex;
@@ -318,6 +385,8 @@
       transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       z-index: 9999;
       pointer-events: none;
+      max-width: 90vw;
+      text-align: center;
     }
 
     #toast.show { transform: translateX(-50%) translateY(0); }
@@ -349,13 +418,13 @@
         <!-- FORMULÁRIO DE LOGIN -->
         <form id="loginForm" onsubmit="handleLogin(event)">
           <div class="form-group">
-            <label class="form-label" for="telefoneInput">Telefone (Login)</label>
-            <input type="tel" id="telefoneInput" class="form-input" placeholder="Ex: 11999998888" value="11999998888" required>
+            <label class="form-label" for="telefoneInput">Telefone (DDD + Número)</label>
+            <input type="tel" id="telefoneInput" class="form-input" placeholder="Ex: 11999998888" required>
           </div>
 
           <div class="form-group">
             <label class="form-label" for="senhaInput">Senha</label>
-            <input type="password" id="senhaInput" class="form-input" placeholder="••••••••" value="123456" required>
+            <input type="password" id="senhaInput" class="form-input" placeholder="Digite sua senha" required>
           </div>
 
           <button type="submit" class="btn btn-primary" id="loginBtn">
@@ -363,26 +432,26 @@
           </button>
         </form>
 
-        <!-- FORMULÁRIO DE NOVO CADASTRO -->
+        <!-- FORMULÁRIO DE CADASTRO -->
         <form id="registerForm" class="hidden" onsubmit="handleRegister(event)">
           <div class="form-group">
             <label class="form-label" for="regNomeInput">Nome Completo</label>
-            <input type="text" id="regNomeInput" class="form-input" placeholder="Ex: Carlos Andrade" required>
+            <input type="text" id="regNomeInput" class="form-input" placeholder="Ex: Lucas Marinho" required>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="regTelefoneInput">Telefone com DDD</label>
-            <input type="tel" id="regTelefoneInput" class="form-input" placeholder="Ex: 11977776666" required>
+            <label class="form-label" for="regTelefoneInput">Telefone (com DDD)</label>
+            <input type="tel" id="regTelefoneInput" class="form-input" placeholder="Ex: 21990378175" required>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="regSenhaInput">Criar Senha</label>
+            <label class="form-label" for="regSenhaInput">Senha de Acesso</label>
             <input type="password" id="regSenhaInput" class="form-input" placeholder="Digite uma senha segura" required>
           </div>
 
           <div class="form-group">
             <label class="form-label" for="regDeviceIdInput">ID Traccar Client (Número do celular no app)</label>
-            <input type="text" id="regDeviceIdInput" class="form-input" placeholder="Ex: 11977776666 (Deixe igual ao telefone)">
+            <input type="text" id="regDeviceIdInput" class="form-input" placeholder="Ex: 21990378175 (Deixe igual ao telefone)">
           </div>
 
           <button type="submit" class="btn btn-accent" id="registerBtn">
@@ -397,34 +466,43 @@
       <!-- BARRA SUPERIOR MOTOBOY -->
       <div class="user-bar">
         <div class="user-info">
-          <div class="avatar" id="userInitial">J</div>
+          <div class="avatar" id="userInitial">M</div>
           <div>
-            <div class="user-name" id="userName">João Silva</div>
-            <div class="user-phone" id="userPhone">11999998888</div>
-            <div id="gpsStatusBadge" style="font-size: 11px; color: #10b981; font-weight: 700; margin-top: 4px;">🟢 Ativando GPS ao vivo...</div>
+            <div class="user-name" id="userName">Motoboy</div>
+            <div class="user-phone" id="userPhone">--</div>
+            <div id="gpsStatusBadge" style="font-size: 11px; color: #10b981; font-weight: 700; margin-top: 4px;">🟢 Ativando GPS...</div>
           </div>
         </div>
         <button onclick="handleLogout()" class="btn-danger-sm">Sair</button>
       </div>
 
-      <!-- PAINEL DE INICIAR NOVO PEDIDO -->
-      <div class="glass-card">
-        <h2 class="section-title" style="margin-bottom: 12px;">📦 Iniciar Nova Entrega</h2>
-        <form onsubmit="handleIniciarPedido(event)">
-          <div class="form-group" style="margin-bottom: 14px;">
-            <input type="number" id="numeroPedidoInput" class="form-input" placeholder="Digite o número do pedido (ex: 1045)" inputmode="numeric" required>
+      <!-- SEÇÃO 1: PEDIDOS DISPONÍVEIS NO BALCÃO (GERADOS PELO SPOOLER) -->
+      <div class="glass-card" style="border-left: 4px solid var(--primary);">
+        <div class="pedidos-header">
+          <div>
+            <h2 class="section-title" style="display: flex; align-items: center; gap: 8px;">
+              <span>📦</span> Pedidos Prontos para Saída
+            </h2>
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Comandas impressas no balcão</p>
           </div>
-          <button type="submit" class="btn btn-accent" id="iniciarBtn">
-            <span>+ INICIAR ENTREGA</span>
-          </button>
-        </form>
+          <span class="badge-count" id="disponiveisCount" style="background: var(--primary);">0</span>
+        </div>
+
+        <div id="disponiveisList">
+          <!-- Renderizado via JS -->
+        </div>
       </div>
 
-      <!-- LISTA DE PEDIDOS EM ANDAMENTO -->
-      <div class="glass-card">
+      <!-- SEÇÃO 2: LISTA DE ENTREGAS EM ROTA DESTE MOTOBOY -->
+      <div class="glass-card" style="border-left: 4px solid var(--accent);">
         <div class="pedidos-header">
-          <h2 class="section-title">🚀 Entregas em Rota</h2>
-          <span class="badge-count" id="pedidosCount">0</span>
+          <div>
+            <h2 class="section-title" style="display: flex; align-items: center; gap: 8px;">
+              <span>🚀</span> Minhas Entregas em Rota
+            </h2>
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Rastreamento GPS ativo</p>
+          </div>
+          <span class="badge-count" id="pedidosCount" style="background: var(--accent);">0</span>
         </div>
 
         <div id="pedidosList">
@@ -443,6 +521,27 @@
 
   <script>
     let currentMotoboy = null;
+    let gpsInterval = null;
+    let pollingInterval = null;
+    let wakeLock = null;
+
+    // PREVENIR TELA DE APAGAR (Screen Wake Lock API)
+    async function solicitarWakeLock() {
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+          console.log('💡 Wake Lock ativo: a tela não será bloqueada durante as entregas!');
+        } catch (err) {
+          console.warn('⚠️ Não foi possível ativar o Wake Lock:', err.message);
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && currentMotoboy) {
+        solicitarWakeLock();
+      }
+    });
 
     document.addEventListener('DOMContentLoaded', () => {
       checkStoredSession();
@@ -464,41 +563,55 @@
     }
 
     function switchAuthTab(tab) {
+      const loginBtn = document.getElementById('tabLoginBtn');
+      const registerBtn = document.getElementById('tabRegisterBtn');
       const loginForm = document.getElementById('loginForm');
       const registerForm = document.getElementById('registerForm');
-      const tabLoginBtn = document.getElementById('tabLoginBtn');
-      const tabRegisterBtn = document.getElementById('tabRegisterBtn');
 
       if (tab === 'login') {
+        loginBtn.classList.add('active');
+        registerBtn.classList.remove('active');
         loginForm.classList.remove('hidden');
         registerForm.classList.add('hidden');
-        tabLoginBtn.classList.add('active');
-        tabRegisterBtn.classList.remove('active');
       } else {
-        loginForm.classList.add('hidden');
+        registerBtn.classList.add('active');
+        loginBtn.classList.remove('active');
         registerForm.classList.remove('hidden');
-        tabLoginBtn.classList.remove('active');
-        tabRegisterBtn.classList.add('active');
+        loginForm.classList.add('hidden');
       }
     }
 
-    let gpsInterval = null;
-    let wakeLock = null;
+    function showAuthView() {
+      pararRastreamentoGps();
+      if (pollingInterval) clearInterval(pollingInterval);
+      document.getElementById('authView').classList.remove('hidden');
+      document.getElementById('dashboardView').classList.add('hidden');
+    }
 
-    async function solicitarWakeLock() {
-      try {
-        if ('wakeLock' in navigator) {
-          wakeLock = await navigator.wakeLock.request('screen');
+    function showDashboardView() {
+      document.getElementById('authView').classList.add('hidden');
+      document.getElementById('dashboardView').classList.remove('hidden');
+
+      document.getElementById('userName').textContent = currentMotoboy.nome;
+      document.getElementById('userPhone').textContent = currentMotoboy.telefone;
+      document.getElementById('userInitial').textContent = currentMotoboy.nome.charAt(0).toUpperCase();
+
+      carregarPedidosDisponiveis();
+      carregarPedidosAtivos();
+      iniciarRastreamentoGps();
+
+      if (pollingInterval) clearInterval(pollingInterval);
+      pollingInterval = setInterval(() => {
+        if (currentMotoboy) {
+          carregarPedidosDisponiveis();
+          carregarPedidosAtivos();
         }
-      } catch (err) {
-        console.log('Wake Lock aviso:', err.message);
-      }
+      }, 4000);
     }
 
+    // TRANSMISSÃO AUTOMÁTICA DE GPS (HTML5 Geolocation)
     function iniciarRastreamentoGps() {
-      if (!currentMotoboy) return;
       const badge = document.getElementById('gpsStatusBadge');
-
       solicitarWakeLock();
 
       if (!('geolocation' in navigator)) {
@@ -513,6 +626,7 @@
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         const speed = Math.round((pos.coords.speed || 0) * 3.6);
+        const acc = Math.round(pos.coords.accuracy || 0);
 
         fetch('/api/motoboy/posicao', {
           method: 'POST',
@@ -521,7 +635,8 @@
             motoboy_id: currentMotoboy.id,
             latitude: lat,
             longitude: lng,
-            speed: speed
+            speed: speed,
+            accuracy: acc
           })
         }).then(r => r.json()).then(data => {
           if (data.success && badge) {
@@ -533,8 +648,8 @@
 
       navigator.geolocation.getCurrentPosition(enviarPosicao, (err) => {
         if (badge) {
-          badge.textContent = '⚠️ Permissão de GPS pendente/negada';
-          badge.style.color = '#ef4444';
+          badge.textContent = '🟡 Aguardando autorização de GPS';
+          badge.style.color = '#f59e0b';
         }
       }, { enableHighAccuracy: true });
 
@@ -555,24 +670,211 @@
       }
     }
 
-    function showAuthView() {
-      pararRastreamentoGps();
-      document.getElementById('authView').classList.remove('hidden');
-      document.getElementById('dashboardView').classList.add('hidden');
+    function formatarOrigemClass(origem) {
+      if (!origem) return 'origem-manual';
+      const o = origem.toLowerCase();
+      if (o.includes('ifood')) return 'origem-ifood';
+      if (o.includes('99')) return 'origem-99food';
+      if (o.includes('cardapio')) return 'origem-cardapio_web';
+      return 'origem-manual';
     }
 
-    function showDashboardView() {
-      document.getElementById('authView').classList.add('hidden');
-      document.getElementById('dashboardView').classList.remove('hidden');
-
-      document.getElementById('userName').textContent = currentMotoboy.nome;
-      document.getElementById('userPhone').textContent = currentMotoboy.telefone;
-      document.getElementById('userInitial').textContent = currentMotoboy.nome.charAt(0).toUpperCase();
-
-      carregarPedidosAtivos();
-      iniciarRastreamentoGps();
+    function formatarOrigemNome(origem) {
+      if (!origem) return 'BALCÃO';
+      const o = origem.toUpperCase();
+      if (o.includes('IFOOD')) return 'iFood';
+      if (o.includes('99')) return '99 Food';
+      if (o.includes('CARDAPIO')) return 'Cardápio Web';
+      return origem;
     }
 
+    // CARREGAR PEDIDOS DISPONÍVEIS NO BALCÃO (GERADOS PELO SPOOLER)
+    async function carregarPedidosDisponiveis() {
+      if (!currentMotoboy) return;
+      const listContainer = document.getElementById('disponiveisList');
+      const badgeCount = document.getElementById('disponiveisCount');
+
+      try {
+        const response = await fetch('/api/pedidos/disponiveis');
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          const pedidos = data.pedidos || [];
+          badgeCount.textContent = pedidos.length;
+
+          if (pedidos.length === 0) {
+            listContainer.innerHTML = `
+              <div class="empty-state">
+                <div class="empty-icon">🍽️</div>
+                <p>Nenhum pedido aguardando retirada.</p>
+                <span style="font-size: 11px; opacity: 0.8;">As comandas impressas no balcão aparecerão aqui automaticamente.</span>
+              </div>
+            `;
+            return;
+          }
+
+          listContainer.innerHTML = pedidos.map(p => {
+            const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
+            return `
+              <div class="pedido-card">
+                <div class="pedido-card-row">
+                  <div class="pedido-num">
+                    <span class="origem-badge ${formatarOrigemClass(p.origem)}">${formatarOrigemNome(p.origem)}</span>
+                    #${p.numero_pedido}
+                  </div>
+                  <span class="taxa-badge">Taxa: ${taxaStr}</span>
+                </div>
+
+                ${p.cliente ? `
+                  <div class="pedido-cliente">
+                    <span>👤 ${p.cliente}</span>
+                    ${p.telefone_cliente ? `<span style="color: var(--text-muted); font-size: 12px;">(${p.telefone_cliente})</span>` : ''}
+                  </div>
+                ` : ''}
+
+                ${p.endereco ? `
+                  <div class="pedido-endereco">
+                    <span>📍 ${p.endereco}${p.bairro ? ' - ' + p.bairro : ''}</span>
+                  </div>
+                ` : ''}
+
+                <div class="pedido-card-row" style="margin-top: 4px;">
+                  <span class="pedido-time">⏱️ Impresso há ${p.minutos_aguardando || 0} min</span>
+                  <button onclick="handleAssumirPedido(${p.id}, '${p.numero_pedido}', '${p.origem}')" class="btn btn-retirar" style="width: auto;">
+                    🚀 ASSUMIR PEDIDO
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error('Erro ao buscar pedidos disponíveis:', err);
+      }
+    }
+
+    // CARREGAR ENTREGAS EM ANDAMENTO DO MOTOBOY
+    async function carregarPedidosAtivos() {
+      if (!currentMotoboy) return;
+      const listContainer = document.getElementById('pedidosList');
+      const badgeCount = document.getElementById('pedidosCount');
+
+      try {
+        const response = await fetch(`/api/pedidos/motoboy?motoboy_id=${currentMotoboy.id}`);
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          const pedidos = data.pedidos || [];
+          badgeCount.textContent = pedidos.length;
+
+          if (pedidos.length === 0) {
+            listContainer.innerHTML = `
+              <div class="empty-state">
+                <div class="empty-icon">🛵</div>
+                <p>Nenhuma entrega em rota no momento.</p>
+                <span style="font-size: 12px;">Retire um pedido acima para iniciar sua rota.</span>
+              </div>
+            `;
+            return;
+          }
+
+          listContainer.innerHTML = pedidos.map(p => {
+            const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : null;
+            return `
+              <div class="pedido-card" style="border-left: 3px solid var(--accent);">
+                <div class="pedido-card-row">
+                  <div class="pedido-num">
+                    <span class="origem-badge ${formatarOrigemClass(p.origem)}">${formatarOrigemNome(p.origem)}</span>
+                    #${p.numero_pedido}
+                    <span class="status-badge">EM ROTA</span>
+                  </div>
+                  ${taxaStr ? `<span class="taxa-badge">Taxa: ${taxaStr}</span>` : ''}
+                </div>
+
+                ${p.cliente ? `
+                  <div class="pedido-cliente">
+                    <span>👤 ${p.cliente}</span>
+                  </div>
+                ` : ''}
+
+                ${p.endereco ? `
+                  <div class="pedido-endereco">
+                    <span>📍 ${p.endereco}${p.bairro ? ' - ' + p.bairro : ''}</span>
+                  </div>
+                ` : ''}
+
+                <div class="pedido-card-row" style="margin-top: 4px;">
+                  <span class="pedido-time">⏱️ Em rota há ${p.minutos_em_rota || 0} min</span>
+                  <button onclick="handleFinalizarPedido(${p.id}, '${p.numero_pedido}')" class="btn btn-accent" style="width: auto; padding: 10px 16px; font-size: 13px;">
+                    ✓ FINALIZAR ENTREGA
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error('Erro ao carregar pedidos em rota:', err);
+      }
+    }
+
+    // AÇÃO: ASSUMIR / RETIRAR PEDIDO NO BALCÃO
+    async function handleAssumirPedido(pedido_id, numero_pedido, origem) {
+      if (!currentMotoboy) return;
+
+      try {
+        const response = await fetch('/api/pedidos/retirar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pedido_id: pedido_id,
+            motoboy_id: currentMotoboy.id
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          showToast(`🚀 Pedido #${numero_pedido} retirado! Boa rota!`, 'success');
+          carregarPedidosDisponiveis();
+          carregarPedidosAtivos();
+        } else {
+          showToast(data.message || 'Não foi possível assumir este pedido.', 'error');
+          carregarPedidosDisponiveis();
+        }
+      } catch (err) {
+        showToast('Erro ao comunicar com o servidor.', 'error');
+      }
+    }
+
+    // AÇÃO: FINALIZAR ENTREGA
+    async function handleFinalizarPedido(pedido_id, numero_pedido) {
+      if (!confirm(`Confirmar a entrega do pedido #${numero_pedido}?`)) return;
+
+      try {
+        const response = await fetch('/api/pedidos/finalizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pedido_id: pedido_id,
+            motoboy_id: currentMotoboy.id
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          showToast(`🎉 Pedido #${numero_pedido} entregue com sucesso!`, 'success');
+          carregarPedidosAtivos();
+        } else {
+          showToast(data.message || 'Erro ao finalizar pedido', 'error');
+        }
+      } catch (err) {
+        showToast('Erro ao comunicar com o servidor', 'error');
+      }
+    }
+
+    // AUTH HANDLERS
     async function handleLogin(event) {
       event.preventDefault();
       const telefone = document.getElementById('telefoneInput').value;
@@ -650,112 +952,6 @@
       currentMotoboy = null;
       showToast('Sessão encerrada com sucesso.', 'info');
       showAuthView();
-    }
-
-    async function carregarPedidosAtivos() {
-      if (!currentMotoboy) return;
-      const listContainer = document.getElementById('pedidosList');
-
-      try {
-        const response = await fetch(`/api/pedidos/motoboy?motoboy_id=${currentMotoboy.id}`);
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          const pedidos = data.pedidos || [];
-          document.getElementById('pedidosCount').textContent = pedidos.length;
-
-          if (pedidos.length === 0) {
-            listContainer.innerHTML = `
-              <div class="empty-state">
-                <div class="empty-icon">🛵</div>
-                <p>Nenhuma entrega em rota no momento.</p>
-                <span style="font-size: 12px;">Digite o número acima para iniciar.</span>
-              </div>
-            `;
-            return;
-          }
-
-          listContainer.innerHTML = pedidos.map(p => `
-            <div class="pedido-card">
-              <div>
-                <div class="pedido-num">
-                  #${p.numero_pedido}
-                  <span class="status-badge">EM ROTA</span>
-                </div>
-                <div class="pedido-time">
-                  ⏱️ Há ${p.minutos_em_rota || 0} min
-                </div>
-              </div>
-              <button onclick="handleFinalizarPedido(${p.id}, '${p.numero_pedido}')" class="btn btn-accent" style="width: auto; padding: 10px 16px; font-size: 13px;">
-                ✓ CONCLUIR
-              </button>
-            </div>
-          `).join('');
-        }
-      } catch (err) {
-        console.error('Erro ao carregar pedidos:', err);
-      }
-    }
-
-    async function handleIniciarPedido(event) {
-      event.preventDefault();
-      const input = document.getElementById('numeroPedidoInput');
-      const numero_pedido = input.value.trim();
-      if (!numero_pedido || !currentMotoboy) return;
-
-      const btn = document.getElementById('iniciarBtn');
-      btn.disabled = true;
-
-      try {
-        const response = await fetch('/api/pedidos/iniciar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            numero_pedido,
-            motoboy_id: currentMotoboy.id
-          })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          showToast(`✅ Pedido #${numero_pedido} iniciado!`, 'success');
-          input.value = '';
-          carregarPedidosAtivos();
-        } else {
-          showToast(data.message || 'Erro ao iniciar pedido', 'error');
-        }
-      } catch (err) {
-        showToast('Erro ao comunicar com o servidor', 'error');
-      } finally {
-        btn.disabled = false;
-      }
-    }
-
-    async function handleFinalizarPedido(pedido_id, numero_pedido) {
-      if (!confirm(`Confirmar a entrega do pedido #${numero_pedido}?`)) return;
-
-      try {
-        const response = await fetch('/api/pedidos/finalizar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pedido_id,
-            motoboy_id: currentMotoboy.id
-          })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          showToast(`🎉 Pedido #${numero_pedido} entregue!`, 'success');
-          carregarPedidosAtivos();
-        } else {
-          showToast(data.message || 'Erro ao finalizar pedido', 'error');
-        }
-      } catch (err) {
-        showToast('Erro ao comunicar com o servidor', 'error');
-      }
     }
 
     function showToast(message, type = 'info') {
