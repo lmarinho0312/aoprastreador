@@ -43,6 +43,8 @@ registerRoute('GET', '/api/health', async (req, res) => {
 // Autenticação
 registerRoute('POST', '/api/auth/login', authController.login);
 registerRoute('POST', '/api/auth/register', authController.register);
+registerRoute('POST', '/api/auth/admin-login', authController.loginAdmin);
+registerRoute('POST', '/api/auth/admin-alterar-senha', authController.alterarSenhaAdmin);
 
 // Pedidos
 registerRoute('POST', '/api/pedidos/iniciar', pedidosController.iniciarPedido);
