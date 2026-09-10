@@ -1,9 +1,12 @@
 /**
- * Decodificador de Comandos ESC/POS RAW (.SPL) para Texto Puro
- * Remove caracteres de controle binários, inicialização, cortes de papel e comandos gráficos.
+ * Decodificador Avançado de Spool (.SPL)
+ * Suporta:
+ * 1. ESC/POS RAW (com descarte inteligente de payloads binários de imagens raster)
+ * 2. Windows EMF Metafiles (extração de registros de texto ExtTextOutW)
+ * 3. Varredura profunda de strings ASCII e UTF-16LE
  */
 
-// Tabela de conversão de CP850 (Code Page comum na Epson TM-T20 no Brasil) para UTF-8
+// Tabela de conversão de CP850 (Code Page da Epson TM-T20 no Brasil)
 const CP850_MAP = {
   0x80: 'Ç', 0x81: 'ü', 0x82: 'é', 0x83: 'â', 0x84: 'ä', 0x85: 'à', 0x86: 'å', 0x87: 'ç',
   0x88: 'ê', 0x89: 'ë', 0x8A: 'è', 0x8B: 'ï', 0x8C: 'î', 0x8D: 'ì', 0x8E: 'Ä', 0x8F: 'Å',
@@ -16,9 +19,12 @@ const CP850_MAP = {
 function decodeEscPosBuffer(buffer) {
   if (!buffer || buffer.length === 0) return '';
 
+  // 1. Tentar decodificação ESC/POS com salto estrito de blocos gráficos
   let out = '';
   let i = 0;
   const len = buffer.length;
+  let imagensEncontradas = 0;
+  let bytesGraficosPulados = 0;
 
   while (i < len) {
     const byte = buffer[i];
@@ -31,9 +37,26 @@ function decodeEscPosBuffer(buffer) {
 
       // ESC @ (Initialize)
       if (cmd === 0x40) { i++; continue; }
-      // ESC ! n, ESC a n, ESC d n, ESC J n, ESC M n, ESC E n, ESC G n, ESC t n
-      if ([0x21, 0x61, 0x64, 0x4A, 0x4D, 0x45, 0x47, 0x74, 0x33].includes(cmd)) {
-        i += 2; // Pula comando + parâmetro n
+
+      // ESC * m nL nH d1...dk (Bit image mode)
+      if (cmd === 0x2A) {
+        if (i + 3 < len) {
+          const m = buffer[i + 1];
+          const nL = buffer[i + 2];
+          const nH = buffer[i + 3];
+          const dotsPerCol = (m === 0 || m === 1) ? 1 : 3;
+          const cols = nL + (nH << 8);
+          const k = cols * dotsPerCol;
+          imagensEncontradas++;
+          bytesGraficosPulados += k;
+          i += 4 + k;
+          continue;
+        }
+      }
+
+      // Comandos de 2 ou 3 bytes comuns
+      if ([0x21, 0x61, 0x64, 0x4A, 0x4D, 0x45, 0x47, 0x74, 0x33, 0x24, 0x5C].includes(cmd)) {
+        i += 2;
         continue;
       }
       i++;
@@ -46,6 +69,51 @@ function decodeEscPosBuffer(buffer) {
       if (i >= len) break;
       const cmd = buffer[i];
 
+      // GS v 0 m xL xH yL yH d1...dk (Raster bit image - Epson TM-T20 padrão)
+      if (cmd === 0x76 && i + 1 < len && buffer[i + 1] === 0x30) {
+        if (i + 6 < len) {
+          const xL = buffer[i + 3];
+          const xH = buffer[i + 4];
+          const yL = buffer[i + 5];
+          const yH = buffer[i + 6];
+          const bytesWidth = xL + (xH << 8);
+          const dotsHeight = yL + (yH << 8);
+          const k = bytesWidth * dotsHeight;
+          imagensEncontradas++;
+          bytesGraficosPulados += k;
+          i += 7 + k;
+          continue;
+        }
+      }
+
+      // GS ( L pL pH m fn ... (Graphics data)
+      if (cmd === 0x28 && i + 1 < len && buffer[i + 1] === 0x4C) {
+        if (i + 3 < len) {
+          const pL = buffer[i + 2];
+          const pH = buffer[i + 3];
+          const k = pL + (pH << 8);
+          imagensEncontradas++;
+          bytesGraficosPulados += k;
+          i += 4 + k;
+          continue;
+        }
+      }
+
+      // GS 8 L p1 p2 p3 p4 m fn ... (Large graphics data)
+      if (cmd === 0x38 && i + 1 < len && buffer[i + 1] === 0x4C) {
+        if (i + 5 < len) {
+          const p1 = buffer[i + 2];
+          const p2 = buffer[i + 3];
+          const p3 = buffer[i + 4];
+          const p4 = buffer[i + 5];
+          const k = p1 + (p2 << 8) + (p3 << 16) + (p4 << 24);
+          imagensEncontradas++;
+          bytesGraficosPulados += k;
+          i += 6 + k;
+          continue;
+        }
+      }
+
       // GS V m [n] (Cut paper)
       if (cmd === 0x56) {
         i++;
@@ -57,8 +125,7 @@ function decodeEscPosBuffer(buffer) {
         continue;
       }
 
-      // GS ! n, GS B n, GS f n, GS H n, GS w n, GS h n
-      if ([0x21, 0x42, 0x66, 0x48, 0x77, 0x68].includes(cmd)) {
+      if ([0x21, 0x42, 0x66, 0x48, 0x77, 0x68, 0x4C, 0x57].includes(cmd)) {
         i += 2;
         continue;
       }
@@ -72,7 +139,7 @@ function decodeEscPosBuffer(buffer) {
       continue;
     }
 
-    // Quebras de linha e tabs padrão
+    // Quebras de linha e tabs
     if (byte === 0x0A || byte === 0x0D) {
       out += '\n';
       i++;
@@ -84,7 +151,7 @@ function decodeEscPosBuffer(buffer) {
       continue;
     }
 
-    // Caracteres imprimíveis padrão ASCII (0x20 a 0x7E)
+    // Caracteres ASCII imprimíveis (0x20 a 0x7E)
     if (byte >= 0x20 && byte <= 0x7E) {
       out += String.fromCharCode(byte);
       i++;
@@ -98,24 +165,61 @@ function decodeEscPosBuffer(buffer) {
       continue;
     }
 
-    // Latin1 fallback para acentos
-    if (byte >= 0xC0 && byte <= 0xFF) {
-      out += Buffer.from([byte]).toString('latin1');
-      i++;
-      continue;
-    }
-
-    // Ignorar bytes de controle nulos ou irrelevantes
     i++;
   }
 
-  // Normalizar quebras de linha repetidas e espaços excessivos
-  return out
-    .split('\n')
-    .map(l => l.trimEnd())
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  // Se o texto resultante for muito curto ou não tiver palavras legíveis:
+  // Fazer uma varredura profunda no buffer para encontrar qualquer frase de texto
+  const textoLimpo = out.trim();
+  if (textoLimpo.length >= 20 && (textoLimpo.includes('99') || textoLimpo.includes('IFOOD') || textoLimpo.includes('CARDAPIO') || textoLimpo.includes('Pedido') || textoLimpo.includes('PEDIDO') || textoLimpo.includes('Rua') || textoLimpo.includes('Entrega') || textoLimpo.includes('Taxa'))) {
+    return textoLimpo;
+  }
+
+  // 2. Extração profunda de strings legíveis (ASCII + UTF-16LE do Windows)
+  const stringsProfundas = extrairTodasStringsLegiveis(buffer);
+  if (stringsProfundas.length > 0) {
+    return stringsProfundas.join('\n');
+  }
+
+  return textoLimpo;
 }
 
-module.exports = { decodeEscPosBuffer };
+// Extrai todas as palavras ou frases com 3 ou mais caracteres contínuos
+function extrairTodasStringsLegiveis(buffer) {
+  const achados = [];
+
+  // Busca ASCII
+  let seqAscii = '';
+  for (let i = 0; i < buffer.length; i++) {
+    const b = buffer[i];
+    if ((b >= 32 && b <= 126) || (b >= 160 && b <= 255)) {
+      seqAscii += (CP850_MAP[b] || String.fromCharCode(b));
+    } else {
+      if (seqAscii.trim().length >= 4) {
+        achados.push(seqAscii.trim());
+      }
+      seqAscii = '';
+    }
+  }
+  if (seqAscii.trim().length >= 4) achados.push(seqAscii.trim());
+
+  // Busca UTF-16LE (caractere + 0x00)
+  let seqUtf16 = '';
+  for (let i = 0; i < buffer.length - 1; i += 2) {
+    const b1 = buffer[i];
+    const b2 = buffer[i + 1];
+    if (b2 === 0 && ((b1 >= 32 && b1 <= 126) || (b1 >= 160 && b1 <= 255))) {
+      seqUtf16 += String.fromCharCode(b1);
+    } else {
+      if (seqUtf16.trim().length >= 4) {
+        achados.push(seqUtf16.trim());
+      }
+      seqUtf16 = '';
+    }
+  }
+  if (seqUtf16.trim().length >= 4) achados.push(seqUtf16.trim());
+
+  return achados;
+}
+
+module.exports = { decodeEscPosBuffer, extrairTodasStringsLegiveis };

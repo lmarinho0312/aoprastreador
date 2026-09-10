@@ -653,7 +653,7 @@
       if (state.pollingTimer) clearInterval(state.pollingTimer);
       state.pollingTimer = setInterval(() => {
         if (state.motoboy) carregarDados();
-      }, 4000);
+      }, 5000);
     }
 
     // Wake Lock API: Impede a tela do celular de apagar durante a rota
@@ -729,14 +729,15 @@
       }
     }
 
-    // CARREGAR DADOS DO MOTOBOY E DO BALCÃO
+    // CARREGAR DADOS DO MOTOBOY E DO BALCÃO COM ANTI-CACHE ABSOLUTO
     async function carregarDados() {
       if (!state.motoboy) return;
 
       try {
+        const t = Date.now();
         const [ativosRes, balcaoRes] = await Promise.all([
-          fetch(`/api/pedidos/motoboy?motoboy_id=${state.motoboy.id}`).then(r => r.json()).catch(() => null),
-          fetch('/api/pedidos/disponiveis').then(r => r.json()).catch(() => null)
+          fetch(`/api/pedidos/motoboy?motoboy_id=${state.motoboy.id}&_t=${t}`, { cache: 'no-store' }).then(r => r.json()).catch(() => null),
+          fetch(`/api/pedidos/disponiveis?_t=${t}`, { cache: 'no-store' }).then(r => r.json()).catch(() => null)
         ]);
 
         if (ativosRes && ativosRes.success) {
@@ -834,7 +835,10 @@
 
     // DISPARO NATIVO DE ROTAS (GOOGLE MAPS / APPLE MAPS)
     function abrirRotaNativa(enderecoEncoded) {
-      const enderecoLimpo = decodeURIComponent(enderecoEncoded) + ', Teresópolis, RJ';
+      let enderecoLimpo = decodeURIComponent(enderecoEncoded).trim();
+      if (!/Teres[oó]polis/i.test(enderecoLimpo)) {
+        enderecoLimpo += ', Teresópolis - RJ';
+      }
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
       let urlRota = '';
@@ -846,7 +850,7 @@
         urlRota = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(enderecoLimpo)}&travelmode=driving`;
       }
 
-      window.open(urlRota, '_system');
+      window.open(urlRota, '_blank');
     }
 
     // RENDERIZAR PRÓXIMAS ENTREGAS

@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
+const { execSync } = require('child_process');
 const { decodeEscPosBuffer } = require('./escpos-decoder');
 const { parseComandaTexto } = require('./comanda-parser');
 
@@ -22,7 +23,7 @@ let config = {
   spool_dir: 'C:\\Windows\\System32\\spool\\PRINTERS',
   api_url: 'https://sistrastreamento.vercel.app/api/pedidos/webhook-spool',
   api_secret: 'balcao_secret_token_aoponto_2026',
-  poll_interval_ms: 1000,
+  poll_interval_ms: 500,
   delete_processed_files: false,
   archive_dir: path.join(__dirname, 'processados')
 };
@@ -35,6 +36,12 @@ if (fs.existsSync(configPath)) {
     log('⚠️ Erro ao ler config.json, usando configurações padrão.');
   }
 }
+
+// Ativar automaticamente KeepPrintedJobs em todas as impressoras
+try {
+  execSync('powershell -Command "Get-Printer | Set-Printer -KeepPrintedJobs:1"', { stdio: 'ignore' });
+  log('✅ Retenção de impressão (KeepPrintedJobs) garantida nas impressoras.');
+} catch (e) {}
 
 // ── Cache Local Anti-Duplicação ──────────────────────────────────────────────
 const cachePath = path.join(__dirname, 'processed_cache.json');
@@ -116,16 +123,18 @@ async function processarArquivoSpool(filePath) {
     return;
   }
 
-  let fileBuffer;
-  try {
-    fileBuffer = fs.readFileSync(filePath);
-  } catch (err) {
-    if (err.code === 'EBUSY' || err.code === 'EPERM') {
-      // Arquivo ainda em uso pelo spooler do Windows, tentar na próxima rodada
-      return;
+  // Tentar ler o arquivo aguardando o fim da gravação pelo Windows
+  let fileBuffer = null;
+  for (let tentativa = 1; tentativa <= 15; tentativa++) {
+    try {
+      if (fs.existsSync(filePath)) {
+        fileBuffer = fs.readFileSync(filePath);
+        if (fileBuffer && fileBuffer.length > 0) break;
+      }
+    } catch (err) {
+      // EBUSY ou EPERM temporário enquanto grava
     }
-    log(`⚠️ Não foi possível ler arquivo ${fileName}: ${err.message}`);
-    return;
+    await new Promise(r => setTimeout(r, 200));
   }
 
   if (!fileBuffer || fileBuffer.length < 10) return;
@@ -185,13 +194,12 @@ async function varrerSpool() {
 
   try {
     if (!fs.existsSync(config.spool_dir)) {
-      log(`⚠️ Diretório de spool não encontrado: ${config.spool_dir}`);
       isScanning = false;
       return;
     }
 
     const files = fs.readdirSync(config.spool_dir);
-    const splFiles = files.filter(f => f.toLowerCase().endsWith('.spl') || f.toLowerCase().endsWith('.txt'));
+    const splFiles = files.filter(f => f.toLowerCase().endsWith('.spl'));
 
     for (const file of splFiles) {
       const fullPath = path.join(config.spool_dir, file);
@@ -200,39 +208,34 @@ async function varrerSpool() {
   } catch (err) {
     if (err.code === 'EPERM' || err.code === 'EACCES') {
       log(`❌ ERRO DE PERMISSÃO: Acesso negado à pasta ${config.spool_dir}. O programa PRECISA rodar como Administrador!`);
-    } else {
-      log(`⚠️ Erro na varredura do spool: ${err.message}`);
     }
   } finally {
     isScanning = false;
   }
 }
 
-// ── Inicialização e Teste de Permissões ─────────────────────────────────────
+// ── Inicialização ──────────────────────────────────────────────────────────
 log(`=============================================================`);
 log(`   🖨️ AGENTE SPOOLER BALCÃO - EPSON TM-T20 (MONITOR ATIVO)   `);
 log(`=============================================================`);
 log(` Pasta Spool:  ${config.spool_dir}`);
 log(` Destino API:  ${config.api_url}`);
 log(` Intervalo:    ${config.poll_interval_ms}ms`);
-log(` Comandas:     iFood Gestor, 99 Food, Cardápio Web`);
 log(`=============================================================`);
 
-// Verificação de Acesso Inicial à Pasta de Impressão do Windows
 try {
   const testFiles = fs.readdirSync(config.spool_dir);
   log(`✅ Conexão com Spooler OK! Acesso permitido a: ${config.spool_dir} (${testFiles.length} arquivos no diretório).`);
   log(`🟢 Monitorando impressões no balcão em tempo real...\n`);
 } catch (err) {
   log(`❌ ERRO CRÍTICO DE PERMISSÃO NO WINDOWS: ${err.message}`);
-  log(`👉 MOTIVO: O Windows bloqueia o acesso à pasta System32\\spool\\PRINTERS para usuários comuns.`);
-  log(`👉 SOLUÇÃO: Você DEVE executar o programa como Administrador (clique com botão direito -> "Executar como Administrador").\n`);
+  log(`👉 Execute como Administrador!\n`);
 }
 
 // Executa primeira varredura imediata
 varrerSpool();
 
-// Loop permanente de monitoramento
+// Loop permanente de monitoramento a cada 500ms
 setInterval(varrerSpool, config.poll_interval_ms);
 
 process.on('SIGINT', () => {

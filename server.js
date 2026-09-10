@@ -93,6 +93,11 @@ async function requestHandler(req, res) {
     if (!res.headersSent) {
       res.statusCode = status;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      // Anti-cache total para garantir que requisições automáticas do front-end sempre tragam dados frescos
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Surrogate-Control', 'no-store');
     }
     res.end(JSON.stringify(payload));
   };
