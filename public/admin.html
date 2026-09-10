@@ -202,6 +202,27 @@
       flex-direction: column;
     }
 
+    /* SEÇÕES DE VISÃO (CORREÇÃO DE ALTERNÂNCIA E LAYOUT) */
+    .view-section {
+      display: none !important;
+      flex-direction: column !important;
+      width: 100% !important;
+      flex: 1 !important;
+      min-height: 0 !important;
+      gap: 20px !important;
+    }
+
+    .view-section.active {
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    /* MAP TILE DARK THEME (Zero Watermark) */
+    .map-container.map-dark-tiles .leaflet-tile-pane {
+      filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3);
+      -webkit-filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3);
+    }
+
     /* DASHBOARD GRID (2 COLUMNS) */
     .dashboard-split-grid {
       display: grid;
@@ -413,7 +434,7 @@
       <!-- ====================================================================
            VISÃO 1: INÍCIO (DASHBOARD COM KPIS, LISTA E MAPA)
            ==================================================================== -->
-      <section id="view-inicio">
+      <section id="view-inicio" class="view-section active">
         <!-- 4 KPI STATS CARDS -->
         <div class="stats-container">
           <!-- 1. Pedidos no balcao aguardando saida -->
@@ -501,7 +522,7 @@
             </div>
 
             <div style="flex: 1; position: relative;">
-              <div id="mapDashboard" class="map-container"></div>
+              <div id="mapDashboard" class="map-container map-dark-tiles"></div>
 
               <!-- CARD FLUTUANTE DE ENTREGA EM DESTAQUE NO MAPA -->
               <div class="map-floating-card" id="mapFloatingCard" style="display: none;">
@@ -524,7 +545,7 @@
       <!-- ====================================================================
            VISÃO 2: KANBAN OPERACIONAL DE PEDIDOS
            ==================================================================== -->
-      <section id="view-pedidos" style="display: none; flex: 1; flex-direction: column;">
+      <section id="view-pedidos" class="view-section">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
           <div>
             <h2 class="text-title">Fluxo Operacional de Pedidos</h2>
@@ -584,14 +605,14 @@
       <!-- ====================================================================
            VISÃO 3: MAPA FULLSCREEN & ROTAS
            ==================================================================== -->
-      <section id="view-entregas" style="display: none; flex: 1; flex-direction: column;">
-        <div class="map-container" id="mapFullscreen" style="flex: 1;"></div>
+      <section id="view-entregas" class="view-section">
+        <div class="map-container map-dark-tiles" id="mapFullscreen" style="flex: 1;"></div>
       </section>
 
       <!-- ====================================================================
            VISÃO 4: GESTÃO DE MOTOBOYS
            ==================================================================== -->
-      <section id="view-motoboys" style="display: none; flex: 1; flex-direction: column;">
+      <section id="view-motoboys" class="view-section">
         <div style="margin-bottom: 16px;">
           <h2 class="text-title">Equipe de Entregadores</h2>
           <p class="text-subtitle">Monitoramento de status operacional e conectividade GPS.</p>
@@ -604,7 +625,7 @@
       <!-- ====================================================================
            VISÃO 5: HISTÓRICO DE ENTREGAS
            ==================================================================== -->
-      <section id="view-historico" style="display: none; flex: 1; flex-direction: column;">
+      <section id="view-historico" class="view-section">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
           <div>
             <h2 class="text-title">Histórico de Entregas</h2>
@@ -761,7 +782,7 @@
       setInterval(atualizar, 1000);
     }
 
-    // Alternar visões da sidebar
+    // Alternar visões da sidebar (Layout estável e sem glitch)
     function alternarVisao(visao) {
       state.visaoAtual = visao;
 
@@ -770,18 +791,31 @@
       const activeNav = document.getElementById('nav-' + visao);
       if (activeNav) activeNav.classList.add('active');
 
-      // Ocultar todas as seções
+      // Alternar seções ativas de forma limpa (sem forçar flex-direction: row)
       ['inicio', 'pedidos', 'entregas', 'motoboys', 'historico'].forEach(v => {
         const sec = document.getElementById('view-' + v);
-        if (sec) sec.style.display = (v === visao) ? 'flex' : 'none';
+        if (sec) {
+          sec.style.display = ''; // Limpa estilo inline para prevalecer .view-section
+          if (v === visao) {
+            sec.classList.add('active');
+          } else {
+            sec.classList.remove('active');
+          }
+        }
       });
 
       // Tratar redimensionamento dos mapas Leaflet ao ficarem visíveis
       if (visao === 'inicio' && state.mapDashboard) {
-        setTimeout(() => state.mapDashboard.invalidateSize(), 200);
+        setTimeout(() => {
+          if (state.mapDashboard) state.mapDashboard.invalidateSize(true);
+        }, 150);
       } else if (visao === 'entregas') {
-        if (!state.mapFullscreen) iniciarMapaFullscreen();
-        setTimeout(() => state.mapFullscreen.invalidateSize(), 200);
+        if (!state.mapFullscreen) {
+          iniciarMapaFullscreen();
+        }
+        setTimeout(() => {
+          if (state.mapFullscreen) state.mapFullscreen.invalidateSize(true);
+        }, 150);
       }
     }
 
@@ -985,7 +1019,7 @@
       }
     }
 
-    // MAPA DASHBOARD (LEAFLET DARK COM TERESÓPOLIS)
+    // MAPA DASHBOARD (LEAFLET DARK COM TERESÓPOLIS - ZERO WATERMARK)
     function iniciarMapaDashboard() {
       const container = document.getElementById('mapDashboard');
       if (!container || state.mapDashboard) return;
@@ -998,10 +1032,9 @@
 
       L.control.zoom({ position: 'bottomright' }).addTo(state.mapDashboard);
 
-      // TileLayer CartoDB Dark Matter
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd',
+      // TileLayer OpenStreetMap (com filtro dark CSS map-dark-tiles)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19
       }).addTo(state.mapDashboard);
 
@@ -1033,9 +1066,8 @@
         zoom: 14
       });
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd',
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19
       }).addTo(state.mapFullscreen);
 
@@ -1051,14 +1083,31 @@
         .addTo(state.mapFullscreen);
     }
 
+    // Atualizar Filtro do Mapa (chamado pelo selectFiltroMapa)
+    function atualizarMapa() {
+      atualizarMarcadoresMapa();
+    }
+
     // Atualizar Marcadores dos Motoboys no Mapa
     function atualizarMarcadoresMapa() {
       if (!state.motoboysMapa || !state.mapDashboard) return;
+
+      const filtroEl = document.getElementById('selectFiltroMapa');
+      const filtro = filtroEl ? filtroEl.value : 'todos';
 
       state.motoboysMapa.forEach(m => {
         if (!m.latitude || !m.longitude) return;
 
         const isEmRota = m.status_motoboy === 'em_rota';
+
+        if (filtro === 'em_rota' && !isEmRota) {
+          if (state.markersDashboard[m.motoboy_id]) {
+            state.mapDashboard.removeLayer(state.markersDashboard[m.motoboy_id]);
+            delete state.markersDashboard[m.motoboy_id];
+          }
+          return;
+        }
+
         const iconHtml = `<div class="marker-motoboy ${isEmRota ? 'active' : 'idle'}">🛵</div>`;
         const customIcon = L.divIcon({
           className: 'custom-icon',
@@ -1072,7 +1121,7 @@
             <div style="font-weight: 800; font-size: 13px; color: var(--brand-gold-light);">🛵 ${m.nome}</div>
             <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">📞 ${m.telefone} • ⚡ ${Math.round(m.speed || 0)} km/h</div>
             <div style="font-size: 11px; margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1);">
-              ${isEmRota ? `<strong>Em rota:</strong> #${m.pedidos_numeros.join(', #')}` : '<em>Disponível no balcão</em>'}
+              ${isEmRota ? `<strong>Em rota:</strong> #${(m.pedidos_numeros || []).join(', #')}` : '<em>Disponível no balcão</em>'}
             </div>
           </div>
         `;
@@ -1090,17 +1139,34 @@
       });
     }
 
-    // RENDERIZAR KANBAN DE PEDIDOS
-    function renderizarKanban() {
+    // FILTRAR E RENDERIZAR KANBAN DE PEDIDOS
+    function filtrarPedidosKanban() {
+      const termo = (document.getElementById('inputBuscaPedidos')?.value || '').trim().toLowerCase();
+      renderizarKanban(termo);
+    }
+
+    function renderizarKanban(filtroTexto = '') {
       const colAguardando = document.getElementById('colKanbanAguardando');
       const colRota = document.getElementById('colKanbanRota');
       const colEntregues = document.getElementById('colKanbanEntregues');
 
       if (!colAguardando || !colRota || !colEntregues) return;
 
-      const aguardando = state.pedidos.filter(p => (p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto' || p.status === 'em_preparo') && !p.motoboy_id && p.status !== 'entregue');
-      const rota = state.pedidos.filter(p => p.status === 'em_rota');
-      const entregues = state.pedidos.filter(p => p.status === 'entregue');
+      let lista = state.pedidos;
+      if (filtroTexto) {
+        lista = lista.filter(p => 
+          String(p.numero_pedido || '').toLowerCase().includes(filtroTexto) ||
+          String(p.cliente || '').toLowerCase().includes(filtroTexto) ||
+          String(p.endereco || '').toLowerCase().includes(filtroTexto) ||
+          String(p.bairro || '').toLowerCase().includes(filtroTexto) ||
+          String(p.telefone || '').toLowerCase().includes(filtroTexto) ||
+          (p.motoboy && String(p.motoboy.nome || '').toLowerCase().includes(filtroTexto))
+        );
+      }
+
+      const aguardando = lista.filter(p => (p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto' || p.status === 'em_preparo') && !p.motoboy_id && p.status !== 'entregue');
+      const rota = lista.filter(p => p.status === 'em_rota');
+      const entregues = lista.filter(p => p.status === 'entregue');
 
       document.getElementById('countKanbanAguardando').textContent = aguardando.length;
       document.getElementById('countKanbanRota').textContent = rota.length;
@@ -1197,12 +1263,28 @@
       }).join('');
     }
 
-    // RENDERIZAR HISTÓRICO
-    function renderizarHistorico() {
+    // FILTRAR E RENDERIZAR HISTÓRICO
+    function filtrarHistorico() {
+      const termo = (document.getElementById('inputBuscaHistorico')?.value || '').trim().toLowerCase();
+      renderizarHistorico(termo);
+    }
+
+    function renderizarHistorico(filtroTexto = '') {
       const container = document.getElementById('containerHistorico');
       if (!container) return;
 
-      const entregues = state.pedidos.filter(p => p.status === 'entregue');
+      let entregues = state.pedidos.filter(p => p.status === 'entregue');
+      if (filtroTexto) {
+        entregues = entregues.filter(e =>
+          String(e.numero_pedido || '').toLowerCase().includes(filtroTexto) ||
+          String(e.cliente || '').toLowerCase().includes(filtroTexto) ||
+          String(e.endereco || '').toLowerCase().includes(filtroTexto) ||
+          String(e.bairro || '').toLowerCase().includes(filtroTexto) ||
+          String(e.telefone || '').toLowerCase().includes(filtroTexto) ||
+          (e.motoboy && String(e.motoboy.nome || '').toLowerCase().includes(filtroTexto))
+        );
+      }
+
       if (entregues.length === 0) {
         container.innerHTML = `<div class="empty-state"><div class="empty-state-title">Nenhuma entrega no histórico</div></div>`;
         return;

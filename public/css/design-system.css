@@ -596,6 +596,12 @@ h1, h2, h3, h4, h5, h6 {
   background: #12141a;
 }
 
+/* Dark mode tiles for OpenStreetMap (Zero watermarks, Zero API key) */
+.map-dark-tiles .leaflet-tile-pane {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3);
+  -webkit-filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3);
+}
+
 /* Custom Marker Restaurant / Loja (Fogo Ao Ponto) */
 .marker-restaurant {
   width: 44px;

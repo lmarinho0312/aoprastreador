@@ -516,7 +516,7 @@
            ABA 3: MAPA LOCAL DO MOTOBOY
            ==================================================================== -->
       <section id="tabContentMapa" style="display: none; flex: 1; flex-direction: column; min-height: 80vh;">
-        <div id="mapaMobile" style="width: 100%; height: 100%; flex: 1; min-height: 400px; background: #12141a;"></div>
+        <div id="mapaMobile" class="map-container map-dark-tiles" style="width: 100%; height: 100%; flex: 1; min-height: 400px; background: #12141a;"></div>
       </section>
 
       <!-- ====================================================================
@@ -1009,8 +1009,9 @@
         zoomControl: false
       });
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap',
+      // OpenStreetMap Tiles com Dark Theme Filter (Zero Watermark / Zero API Key)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19
       }).addTo(state.mapa);
 
@@ -1042,27 +1043,36 @@
       state.abaAtual = aba;
 
       ['btnNavInicio', 'btnNavBalcao', 'btnNavMapa', 'btnNavPerfil'].forEach(id => {
-        document.getElementById(id).classList.remove('active');
+        const btn = document.getElementById(id);
+        if (btn) btn.classList.remove('active');
       });
 
       ['tabContentInicio', 'tabContentBalcao', 'tabContentMapa', 'tabContentPerfil'].forEach(id => {
-        document.getElementById(id).style.display = 'none';
+        const tab = document.getElementById(id);
+        if (tab) tab.style.display = 'none';
       });
 
       if (aba === 'inicio') {
-        document.getElementById('btnNavInicio').classList.add('active');
-        document.getElementById('tabContentInicio').style.display = 'flex';
+        document.getElementById('btnNavInicio')?.classList.add('active');
+        const tab = document.getElementById('tabContentInicio');
+        if (tab) tab.style.display = 'flex';
       } else if (aba === 'balcao') {
-        document.getElementById('btnNavBalcao').classList.add('active');
-        document.getElementById('tabContentBalcao').style.display = 'flex';
+        document.getElementById('btnNavBalcao')?.classList.add('active');
+        const tab = document.getElementById('tabContentBalcao');
+        if (tab) tab.style.display = 'flex';
       } else if (aba === 'mapa') {
-        document.getElementById('btnNavMapa').classList.add('active');
-        document.getElementById('tabContentMapa').style.display = 'flex';
+        document.getElementById('btnNavMapa')?.classList.add('active');
+        const tab = document.getElementById('tabContentMapa');
+        if (tab) tab.style.display = 'flex';
         if (!state.mapa) iniciarMapaMobile();
-        setTimeout(() => state.mapa && state.mapa.invalidateSize(), 200);
+        setTimeout(() => {
+          if (state.mapa) state.mapa.invalidateSize(true);
+        }, 150);
       } else if (aba === 'perfil') {
-        document.getElementById('btnNavPerfil').classList.add('active');
-        document.getElementById('tabContentPerfil').style.display = 'flex';
+        document.getElementById('btnNavPerfil')?.classList.add('active');
+        const tab = document.getElementById('tabContentPerfil');
+        if (tab) tab.style.display = 'flex';
+        atualizarMétricasPerfil();
       }
     }
 
