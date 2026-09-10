@@ -5,13 +5,24 @@ const http = require('http');
 const { decodeEscPosBuffer } = require('./escpos-decoder');
 const { parseComandaTexto } = require('./comanda-parser');
 
+// ── Sistema de Log Duplo (Console + Arquivo monitor.log) ──────────────────────
+const logFilePath = path.join(__dirname, 'monitor.log');
+function log(msg) {
+  const timestamp = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  const line = `[${timestamp}] ${msg}`;
+  console.log(line);
+  try {
+    fs.appendFileSync(logFilePath, line + '\n', 'utf8');
+  } catch (e) {}
+}
+
 // ── Carregar Configurações ──────────────────────────────────────────────────
 const configPath = path.join(__dirname, 'config.json');
 let config = {
   spool_dir: 'C:\\Windows\\System32\\spool\\PRINTERS',
   api_url: 'https://sistrastreamento.vercel.app/api/pedidos/webhook-spool',
   api_secret: 'balcao_secret_token_aoponto_2026',
-  poll_interval_ms: 1500,
+  poll_interval_ms: 1000,
   delete_processed_files: false,
   archive_dir: path.join(__dirname, 'processados')
 };
@@ -21,7 +32,7 @@ if (fs.existsSync(configPath)) {
     const userConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     config = { ...config, ...userConfig };
   } catch (err) {
-    console.warn('⚠️ Erro ao ler config.json, usando configurações padrão.');
+    log('⚠️ Erro ao ler config.json, usando configurações padrão.');
   }
 }
 
@@ -42,11 +53,10 @@ if (fs.existsSync(cachePath)) {
 
 function salvarCache() {
   try {
-    // Manter últimos 500 registros no arquivo
     const arr = Array.from(processedCache).slice(-500);
     fs.writeFileSync(cachePath, JSON.stringify(arr, null, 2), 'utf8');
   } catch (err) {
-    console.warn('⚠️ Falha ao salvar cache:', err.message);
+    log(`⚠️ Falha ao salvar cache: ${err.message}`);
   }
 }
 
@@ -95,7 +105,7 @@ function enviarPedidoParaApi(pedidoData) {
   });
 }
 
-// ── Monitoramento da Pasta de Spool ──────────────────────────────────────────
+// ── Processamento de Arquivos de Impressão (.SPL) ───────────────────────────
 let isScanning = false;
 
 async function processarArquivoSpool(filePath) {
@@ -108,14 +118,13 @@ async function processarArquivoSpool(filePath) {
 
   let fileBuffer;
   try {
-    // Pequeno atraso caso o Windows ainda esteja escrevendo no arquivo
     fileBuffer = fs.readFileSync(filePath);
   } catch (err) {
     if (err.code === 'EBUSY' || err.code === 'EPERM') {
       // Arquivo ainda em uso pelo spooler do Windows, tentar na próxima rodada
       return;
     }
-    console.warn(`⚠️ Não foi possível ler arquivo ${fileName}:`, err.message);
+    log(`⚠️ Não foi possível ler arquivo ${fileName}: ${err.message}`);
     return;
   }
 
@@ -128,47 +137,45 @@ async function processarArquivoSpool(filePath) {
   // Extrair campos da comanda
   const parsed = parseComandaTexto(textoLimpo);
   if (!parsed || !parsed.pedidoId) {
-    // Não é uma comanda de entrega identificada
     processedCache.add(cacheKeyFile);
     return;
   }
 
   const cacheKeyOrder = `${parsed.origem}_${parsed.pedidoId}`;
   if (processedCache.has(cacheKeyOrder)) {
-    console.log(`ℹ️ Pedido ${parsed.origem} #${parsed.pedidoId} já enviado anteriormente.`);
+    log(`ℹ️ Pedido ${parsed.origem} #${parsed.pedidoId} já enviado anteriormente.`);
     processedCache.add(cacheKeyFile);
     salvarCache();
     return;
   }
 
-  console.log(`\n======================================================`);
-  console.log(`📄 NOVA COMANDA DETECTADA [${fileName}]`);
-  console.log(` Origem:  ${parsed.origem}`);
-  console.log(` Pedido:  #${parsed.pedidoId}`);
-  console.log(` Cliente: ${parsed.cliente || 'Não informado'}`);
-  console.log(` Endereço: ${parsed.endereco || 'Não informado'}`);
-  console.log(` Taxa:    R$ ${parsed.taxaEntrega.toFixed(2)}`);
-  console.log(`======================================================`);
+  log(`======================================================`);
+  log(`📄 NOVA COMANDA DETECTADA [${fileName}]`);
+  log(` Origem:   ${parsed.origem}`);
+  log(` Pedido:   #${parsed.pedidoId}`);
+  log(` Cliente:  ${parsed.cliente || 'Não informado'}`);
+  log(` Endereço: ${parsed.endereco || 'Não informado'}`);
+  log(` Taxa:     R$ ${parsed.taxaEntrega.toFixed(2)}`);
+  log(`======================================================`);
 
   try {
-    console.log(`🚀 Enviando para API (${config.api_url})...`);
+    log(`🚀 Enviando para API (${config.api_url})...`);
     const resp = await enviarPedidoParaApi(parsed);
 
     if (resp.statusCode === 200 || resp.statusCode === 201) {
-      console.log(`✅ Sucesso! Pedido #${parsed.pedidoId} disponível no balcão para os motoboys.`);
+      log(`✅ Sucesso! Pedido #${parsed.pedidoId} liberado automaticamente para os motoboys.`);
       processedCache.add(cacheKeyOrder);
       processedCache.add(cacheKeyFile);
       salvarCache();
 
-      // Arquivar ou limpar arquivo se configurado
       if (config.delete_processed_files) {
         try { fs.unlinkSync(filePath); } catch (e) {}
       }
     } else {
-      console.warn(`⚠️ API retornou status ${resp.statusCode}:`, resp.data || resp.raw);
+      log(`⚠️ API retornou status ${resp.statusCode}: ${JSON.stringify(resp.data || resp.raw)}`);
     }
   } catch (err) {
-    console.error(`❌ Erro ao enviar comanda para API:`, err.message);
+    log(`❌ Erro ao enviar comanda para API: ${err.message}`);
   }
 }
 
@@ -178,7 +185,7 @@ async function varrerSpool() {
 
   try {
     if (!fs.existsSync(config.spool_dir)) {
-      console.warn(`⚠️ Diretório de spool não encontrado: ${config.spool_dir}`);
+      log(`⚠️ Diretório de spool não encontrado: ${config.spool_dir}`);
       isScanning = false;
       return;
     }
@@ -191,31 +198,45 @@ async function varrerSpool() {
       await processarArquivoSpool(fullPath);
     }
   } catch (err) {
-    console.error('Erro na varredura do spool:', err.message);
+    if (err.code === 'EPERM' || err.code === 'EACCES') {
+      log(`❌ ERRO DE PERMISSÃO: Acesso negado à pasta ${config.spool_dir}. O programa PRECISA rodar como Administrador!`);
+    } else {
+      log(`⚠️ Erro na varredura do spool: ${err.message}`);
+    }
   } finally {
     isScanning = false;
   }
 }
 
-// ── Inicialização ────────────────────────────────────────────────────────────
-console.log(`\n=============================================================`);
-console.log(`   🖨️ AGENTE SPOOLER BALCÃO - EPSON TM-T20 (MONITOR ATIVO)   `);
-console.log(`=============================================================`);
-console.log(` Pasta Spool:  ${config.spool_dir}`);
-console.log(` Destino API:  ${config.api_url}`);
-console.log(` Intervalo:    ${config.poll_interval_ms}ms`);
-console.log(` Comandas:     iFood Gestor, 99 Food, Cardápio Web`);
-console.log(`=============================================================\n`);
-console.log(`🟢 Monitorando impressões no balcão... (Pressione Ctrl+C para parar)\n`);
+// ── Inicialização e Teste de Permissões ─────────────────────────────────────
+log(`=============================================================`);
+log(`   🖨️ AGENTE SPOOLER BALCÃO - EPSON TM-T20 (MONITOR ATIVO)   `);
+log(`=============================================================`);
+log(` Pasta Spool:  ${config.spool_dir}`);
+log(` Destino API:  ${config.api_url}`);
+log(` Intervalo:    ${config.poll_interval_ms}ms`);
+log(` Comandas:     iFood Gestor, 99 Food, Cardápio Web`);
+log(`=============================================================`);
+
+// Verificação de Acesso Inicial à Pasta de Impressão do Windows
+try {
+  const testFiles = fs.readdirSync(config.spool_dir);
+  log(`✅ Conexão com Spooler OK! Acesso permitido a: ${config.spool_dir} (${testFiles.length} arquivos no diretório).`);
+  log(`🟢 Monitorando impressões no balcão em tempo real...\n`);
+} catch (err) {
+  log(`❌ ERRO CRÍTICO DE PERMISSÃO NO WINDOWS: ${err.message}`);
+  log(`👉 MOTIVO: O Windows bloqueia o acesso à pasta System32\\spool\\PRINTERS para usuários comuns.`);
+  log(`👉 SOLUÇÃO: Você DEVE executar o programa como Administrador (clique com botão direito -> "Executar como Administrador").\n`);
+}
 
 // Executa primeira varredura imediata
 varrerSpool();
 
-// Mantém o monitor ativo em loop
+// Loop permanente de monitoramento
 setInterval(varrerSpool, config.poll_interval_ms);
 
 process.on('SIGINT', () => {
-  console.log('\n🛑 Encerrando Agente Spooler Balcão...');
+  log('🛑 Encerrando Agente Spooler Balcão...');
   salvarCache();
   process.exit(0);
 });
