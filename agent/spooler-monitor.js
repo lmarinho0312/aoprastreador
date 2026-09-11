@@ -150,9 +150,10 @@ async function processarArquivoSpool(filePath) {
     return;
   }
 
-  const cacheKeyOrder = `${parsed.origem}_${parsed.pedidoId}`;
+  const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  const cacheKeyOrder = `${parsed.origem}_${parsed.pedidoId}_${hojeStr}`;
   if (processedCache.has(cacheKeyOrder)) {
-    log(`ℹ️ Pedido ${parsed.origem} #${parsed.pedidoId} já enviado anteriormente.`);
+    log(`ℹ️ Pedido ${parsed.origem} #${parsed.pedidoId} já enviado anteriormente hoje.`);
     processedCache.add(cacheKeyFile);
     salvarCache();
     return;

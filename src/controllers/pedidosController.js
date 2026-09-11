@@ -40,11 +40,15 @@ async function webhookSpool(req, res) {
 
     const db = getDb();
 
-    // 2. Mecanismo Anti-Duplicação Estrito (origem + pedido_id_origem)
+    // 2. Mecanismo Anti-Duplicação Estrito (origem + pedido_id_origem no mesmo dia)
+    // Permite que plataformas como 99Food reutilizem o mesmo número em dias diferentes (ex: #010 ontem e #010 hoje),
+    // bloqueando duplicatas apenas se já registrado na data de hoje (horário de Brasília UTC-3).
     const pedidoExistente = await db.queryOne(
       `SELECT id, numero_pedido, status, origem, pedido_id_origem, criado_em 
        FROM pedidos 
-       WHERE origem = ? AND pedido_id_origem = ?`,
+       WHERE origem = ? 
+         AND pedido_id_origem = ?
+         AND DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))`,
       [cleanOrigem, cleanPedidoId]
     );
 
@@ -52,7 +56,7 @@ async function webhookSpool(req, res) {
       return res.json(200, {
         success: true,
         duplicado: true,
-        message: `Pedido ${cleanOrigem} #${cleanPedidoId} já registrado anteriormente.`,
+        message: `Pedido ${cleanOrigem} #${cleanPedidoId} já registrado anteriormente hoje.`,
         pedido: pedidoExistente
       });
     }
