@@ -1354,6 +1354,17 @@
         botaoAcao = `<button class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 8px;" onclick="abrirDetalhesPedido(${p.id})">📄 Ver Resumo</button>`;
       }
 
+      let motoboyInfo = '';
+      if (colTipo === 'rota' || colTipo === 'entregue') {
+        const nomeEntregador = p.motoboy ? p.motoboy.nome : (p.motoboy_nome || 'Sem motoboy');
+        motoboyInfo = `
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; display: flex; align-items: center; gap: 5px;">
+            <span>🛵</span>
+            <span>Entregador: <strong style="color: var(--brand-gold-light); font-weight: 700;">${nomeEntregador}</strong></span>
+          </div>
+        `;
+      }
+
       return `
         <div class="order-card" style="margin-bottom: 0;">
           <div class="order-card-row">
@@ -1362,6 +1373,7 @@
           </div>
           <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">${p.cliente}</div>
           <div class="order-address">📍 ${p.endereco}</div>
+          ${motoboyInfo}
           <div class="order-meta">
             <span>⏱️ ${p.tempo_decorrido_minutos} min</span>
             <span class="order-price">${taxaStr}</span>
