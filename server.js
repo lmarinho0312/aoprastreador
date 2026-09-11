@@ -71,6 +71,10 @@ registerRoute('GET', '/api/admin/motoboys', adminController.listarMotoboysAdmin)
 registerRoute('GET', '/api/admin/posicoes-mapa', adminController.getPosicoesMapa);
 registerRoute('GET', '/api/admin/historico', historicoController.listarHistoricoEntregas);
 registerRoute('GET', '/api/admin/historico/rota', historicoController.obterRotaPedido);
+registerRoute('GET', '/api/admin/fechamento', adminController.obterFechamentoEntregas);
+
+// Rendimentos Motoboy
+registerRoute('GET', '/api/motoboy/rendimentos', pedidosController.obterRendimentosMotoboy);
 
 // ── Handler principal (usado pela Vercel e pelo servidor local) ────────────────
 async function requestHandler(req, res) {

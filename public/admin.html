@@ -449,6 +449,10 @@
         <span class="nav-icon">📜</span>
         <span>Histórico</span>
       </div>
+      <div class="nav-item" id="nav-fechamento" onclick="alternarVisao('fechamento')">
+        <span class="nav-icon">💼</span>
+        <span>Fechamento</span>
+      </div>
     </nav>
 
     <div class="sidebar-footer">
@@ -725,6 +729,86 @@
         </div>
       </section>
 
+      <!-- ====================================================================
+           VISÃO 6: FECHAMENTO DE TAXAS & REPASSE
+           ==================================================================== -->
+      <section id="view-fechamento" class="view-section">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h2 class="text-title">💼 Fechamento de Taxas & Repasse</h2>
+            <p class="text-subtitle">Controle de entregas e taxas a pagar para cada entregador. Taxa padrão: <strong style="color: #34d399;">R$ 5,00/entrega</strong> (tabela de bairros em breve).</p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <!-- Filtro de Período -->
+            <div style="display: flex; gap: 4px;">
+              <button class="filter-pill active" id="fpHoje" onclick="selecionarPeriodoFechamento('hoje', this)">Hoje</button>
+              <button class="filter-pill" id="fpOntem" onclick="selecionarPeriodoFechamento('ontem', this)">Ontem</button>
+              <button class="filter-pill" id="fpSemana" onclick="selecionarPeriodoFechamento('semana', this)">Esta Semana</button>
+              <button class="filter-pill" id="fpMes" onclick="selecionarPeriodoFechamento('mes', this)">Este Mês</button>
+              <button class="filter-pill" id="fpTodos" onclick="selecionarPeriodoFechamento('todos', this)">Todos</button>
+            </div>
+            <!-- Filtro por Motoboy -->
+            <select id="selectFiltroMotoboy" class="form-select" style="padding: 4px 10px; font-size: 12px; width: auto;" onchange="carregarFechamento()">
+              <option value="todos">Todos os Motoboys</option>
+            </select>
+            <button class="btn btn-gold btn-sm" onclick="carregarFechamento()">🔄 Atualizar</button>
+          </div>
+        </div>
+
+        <!-- KPI Cards do Fechamento -->
+        <div class="stats-container" style="margin-bottom: 16px;">
+          <div class="stat-box stat-preparo">
+            <div class="stat-icon-wrap">📦</div>
+            <div class="stat-info">
+              <span class="stat-label">Entregas no Período</span>
+              <div class="stat-value"><span id="fechKpiEntregas">0</span></div>
+            </div>
+          </div>
+          <div class="stat-box stat-entregue">
+            <div class="stat-icon-wrap">💰</div>
+            <div class="stat-info">
+              <span class="stat-label">Total a Pagar (R$)</span>
+              <div class="stat-value"><span id="fechKpiTotal" style="color: #34d399;">R$ 0,00</span></div>
+            </div>
+          </div>
+          <div class="stat-box stat-rota">
+            <div class="stat-icon-wrap">🛵</div>
+            <div class="stat-info">
+              <span class="stat-label">Entregadores Ativos</span>
+              <div class="stat-value"><span id="fechKpiAtivos">0</span></div>
+            </div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-icon-wrap">📊</div>
+            <div class="stat-info">
+              <span class="stat-label">Taxa Média por Entrega</span>
+              <div class="stat-value"><span id="fechKpiMedia">R$ 0,00</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resumo por Motoboy -->
+        <div class="panel-card" style="margin-bottom: 16px;">
+          <div class="panel-header">
+            <span class="panel-title">Resumo por Entregador</span>
+          </div>
+          <div id="containerFechamentoMotoboys" style="padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;">
+            <div class="empty-state"><div class="empty-state-title">Selecione um período</div></div>
+          </div>
+        </div>
+
+        <!-- Tabela Analítica de Entregas -->
+        <div class="panel-card" style="flex: 1; overflow-y: auto;">
+          <div class="panel-header">
+            <span class="panel-title">Detalhamento de Entregas</span>
+            <button class="btn btn-secondary btn-sm" onclick="imprimirFechamento()">🖨️ Imprimir</button>
+          </div>
+          <div id="containerFechamentoEntregas" style="padding: 16px;">
+            <div class="empty-state"><div class="empty-state-title">Aguardando seleção de período</div></div>
+          </div>
+        </div>
+      </section>
+
     </div>
   </main>
 
@@ -936,6 +1020,30 @@
       setInterval(atualizar, 1000);
     }
 
+    // ── Normalização de texto para busca sem acento ─────────────────────────
+    function normalizarTexto(str) {
+      return String(str || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+        .replace(/^#+/, '')  // remove # do início
+        .toLowerCase()
+        .trim();
+    }
+
+    function pedidoCorrespondeBusca(p, termo) {
+      if (!termo) return true;
+      const t = normalizarTexto(termo);
+      return (
+        normalizarTexto(p.numero_pedido).includes(t) ||
+        normalizarTexto(p.cliente).includes(t) ||
+        normalizarTexto(p.endereco).includes(t) ||
+        normalizarTexto(p.bairro).includes(t) ||
+        normalizarTexto(p.telefone_cliente).includes(t) ||
+        normalizarTexto(p.texto_bruto).includes(t) ||
+        normalizarTexto(p.origem).includes(t) ||
+        (p.motoboy && normalizarTexto(p.motoboy.nome).includes(t))
+      );
+    }
+
     // Alternar visões da sidebar (Layout estável e sem glitch)
     function alternarVisao(visao) {
       state.visaoAtual = visao;
@@ -946,7 +1054,7 @@
       if (activeNav) activeNav.classList.add('active');
 
       // Alternar seções ativas de forma limpa (sem forçar flex-direction: row)
-      ['inicio', 'pedidos', 'entregas', 'motoboys', 'historico'].forEach(v => {
+      ['inicio', 'pedidos', 'entregas', 'motoboys', 'historico', 'fechamento'].forEach(v => {
         const sec = document.getElementById('view-' + v);
         if (sec) {
           sec.style.display = ''; // Limpa estilo inline para prevalecer .view-section
@@ -970,6 +1078,10 @@
         setTimeout(() => {
           if (state.mapFullscreen) state.mapFullscreen.invalidateSize(true);
         }, 150);
+      } else if (visao === 'fechamento') {
+        // Popular select de motoboys e carregar dados automaticamente
+        popularSelectMotoboys();
+        carregarFechamento();
       }
     }
 
@@ -991,9 +1103,12 @@
 
         if (pedidosRes && pedidosRes.success) {
           state.pedidos = pedidosRes.pedidos || [];
+          // Preservar termos de busca ativos ao recarregar (não resetar filtros durante polling)
+          const termoBuscaKanban = (document.getElementById('inputBuscaPedidos')?.value || '').trim();
+          const termoBuscaHistorico = (document.getElementById('inputBuscaHistorico')?.value || '').trim();
           renderizarListaPedidos();
-          renderizarKanban();
-          renderizarHistorico();
+          renderizarKanban(normalizarTexto(termoBuscaKanban));
+          renderizarHistorico(normalizarTexto(termoBuscaHistorico));
         }
 
         if (mapaRes && mapaRes.success) {
@@ -1296,8 +1411,8 @@
 
     // FILTRAR E RENDERIZAR KANBAN DE PEDIDOS
     function filtrarPedidosKanban() {
-      const termo = (document.getElementById('inputBuscaPedidos')?.value || '').trim().toLowerCase();
-      renderizarKanban(termo);
+      const termo = (document.getElementById('inputBuscaPedidos')?.value || '').trim();
+      renderizarKanban(normalizarTexto(termo));
     }
 
     function renderizarKanban(filtroTexto = '') {
@@ -1309,14 +1424,7 @@
 
       let lista = state.pedidos;
       if (filtroTexto) {
-        lista = lista.filter(p => 
-          String(p.numero_pedido || '').toLowerCase().includes(filtroTexto) ||
-          String(p.cliente || '').toLowerCase().includes(filtroTexto) ||
-          String(p.endereco || '').toLowerCase().includes(filtroTexto) ||
-          String(p.bairro || '').toLowerCase().includes(filtroTexto) ||
-          String(p.telefone || '').toLowerCase().includes(filtroTexto) ||
-          (p.motoboy && String(p.motoboy.nome || '').toLowerCase().includes(filtroTexto))
-        );
+        lista = lista.filter(p => pedidoCorrespondeBusca(p, filtroTexto));
       }
 
       const aguardando = lista.filter(p => (p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto' || p.status === 'em_preparo') && !p.motoboy_id && p.status !== 'entregue');
@@ -1432,8 +1540,8 @@
 
     // FILTRAR E RENDERIZAR HISTÓRICO
     function filtrarHistorico() {
-      const termo = (document.getElementById('inputBuscaHistorico')?.value || '').trim().toLowerCase();
-      renderizarHistorico(termo);
+      const termo = (document.getElementById('inputBuscaHistorico')?.value || '').trim();
+      renderizarHistorico(normalizarTexto(termo));
     }
 
     function renderizarHistorico(filtroTexto = '') {
@@ -1442,14 +1550,7 @@
 
       let entregues = state.pedidos.filter(p => p.status === 'entregue');
       if (filtroTexto) {
-        entregues = entregues.filter(e =>
-          String(e.numero_pedido || '').toLowerCase().includes(filtroTexto) ||
-          String(e.cliente || '').toLowerCase().includes(filtroTexto) ||
-          String(e.endereco || '').toLowerCase().includes(filtroTexto) ||
-          String(e.bairro || '').toLowerCase().includes(filtroTexto) ||
-          String(e.telefone || '').toLowerCase().includes(filtroTexto) ||
-          (e.motoboy && String(e.motoboy.nome || '').toLowerCase().includes(filtroTexto))
-        );
+        entregues = entregues.filter(e => pedidoCorrespondeBusca(e, filtroTexto));
       }
 
       if (entregues.length === 0) {
@@ -1741,6 +1842,133 @@
         btn.textContent = 'SALVAR SENHA';
       }
     }
+
+    // ── FECHAMENTO DE TAXAS & REPASSE ────────────────────────────────────────
+    let periodoFechamentoAtivo = 'hoje';
+
+    function popularSelectMotoboys() {
+      const sel = document.getElementById('selectFiltroMotoboy');
+      if (!sel) return;
+      const motoboys = state.motoboys || [];
+      sel.innerHTML = '<option value="todos">Todos os Motoboys</option>';
+      motoboys.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.nome;
+        sel.appendChild(opt);
+      });
+    }
+
+    function selecionarPeriodoFechamento(periodo, btn) {
+      periodoFechamentoAtivo = periodo;
+      document.querySelectorAll('#view-fechamento .filter-pill').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      carregarFechamento();
+    }
+
+    async function carregarFechamento() {
+      const motoboyId = document.getElementById('selectFiltroMotoboy')?.value || 'todos';
+      const t = Date.now();
+      try {
+        const res = await fetch(`/api/admin/fechamento?periodo=${periodoFechamentoAtivo}&motoboy_id=${motoboyId}&_t=${t}`, { cache: 'no-store' });
+        const data = await res.json();
+        if (data.success) {
+          renderizarFechamento(data);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar fechamento:', err);
+      }
+    }
+
+    function renderizarFechamento(data) {
+      const k = data.kpis || {};
+      // KPIs
+      const kpiEntregas = document.getElementById('fechKpiEntregas');
+      const kpiTotal = document.getElementById('fechKpiTotal');
+      const kpiAtivos = document.getElementById('fechKpiAtivos');
+      const kpiMedia = document.getElementById('fechKpiMedia');
+      if (kpiEntregas) kpiEntregas.textContent = k.total_entregas || 0;
+      if (kpiTotal) kpiTotal.textContent = 'R$ ' + (k.total_taxas || 0).toFixed(2).replace('.', ',');
+      if (kpiAtivos) kpiAtivos.textContent = k.entregadores_ativos || 0;
+      if (kpiMedia) kpiMedia.textContent = 'R$ ' + (k.media_taxa || 0).toFixed(2).replace('.', ',');
+
+      // Cards por Motoboy
+      const contMotoboys = document.getElementById('containerFechamentoMotoboys');
+      if (contMotoboys) {
+        if (!data.por_motoboy || data.por_motoboy.length === 0) {
+          contMotoboys.innerHTML = `<div class="empty-state"><div class="empty-state-title">Nenhuma entrega no período</div></div>`;
+        } else {
+          contMotoboys.innerHTML = data.por_motoboy.map(m => {
+            const totalFmt = m.total_taxas.toFixed(2).replace('.', ',');
+            const msgWhats = encodeURIComponent(
+              `🛵 Fechamento — ${periodoFechamentoAtivo === 'hoje' ? 'Hoje' : periodoFechamentoAtivo === 'ontem' ? 'Ontem' : periodoFechamentoAtivo === 'semana' ? 'Esta Semana' : periodoFechamentoAtivo === 'mes' ? 'Este Mês' : 'Todos'}:\n` +
+              `Entregas: ${m.total_entregas}\n` +
+              `Total a receber: R$ ${totalFmt}\n` +
+              `Ao Ponto Carnes — Teresópolis`
+            );
+            const tel = (m.telefone || '').replace(/\D/g, '');
+            return `
+              <div class="card card-elevated" style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <div>
+                    <strong style="font-size: 15px; display: block;">${m.nome}</strong>
+                    <span style="font-size: 12px; color: var(--text-muted);">📞 ${m.telefone}</span>
+                  </div>
+                  <span style="font-size: 22px; font-weight: 800; color: #34d399;">R$ ${totalFmt}</span>
+                </div>
+                <div style="background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; display: flex; justify-content: space-between;">
+                  <span>📦 <strong>${m.total_entregas}</strong> entregas</span>
+                  <span style="color: var(--text-muted);">R$ 5,00/entrega (padrão)</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <a class="btn btn-success btn-sm" style="flex: 1; text-align: center; text-decoration: none;" href="https://wa.me/55${tel}?text=${msgWhats}" target="_blank">💬 WhatsApp</a>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      // Tabela analítica de entregas
+      const contEntregas = document.getElementById('containerFechamentoEntregas');
+      if (contEntregas) {
+        if (!data.entregas_detalhadas || data.entregas_detalhadas.length === 0) {
+          contEntregas.innerHTML = `<div class="empty-state"><div class="empty-state-title">Nenhuma entrega no período</div></div>`;
+        } else {
+          contEntregas.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--border-subtle); color: var(--text-muted);">
+                  <th style="padding: 8px 4px; text-align: left;">#Pedido</th>
+                  <th style="padding: 8px 4px; text-align: left;">Cliente</th>
+                  <th style="padding: 8px 4px; text-align: left;">Bairro</th>
+                  <th style="padding: 8px 4px; text-align: left;">Motoboy</th>
+                  <th style="padding: 8px 4px; text-align: left;">Horário</th>
+                  <th style="padding: 8px 4px; text-align: right; color: #34d399;">Taxa</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.entregas_detalhadas.map(e => `
+                  <tr style="border-bottom: 1px solid var(--border-subtle);">
+                    <td style="padding: 8px 4px; font-weight: 700;">#${e.numero_pedido}</td>
+                    <td style="padding: 8px 4px;">${e.cliente || '—'}</td>
+                    <td style="padding: 8px 4px; color: var(--text-muted);">${e.bairro || '—'}</td>
+                    <td style="padding: 8px 4px;">${e.motoboy ? e.motoboy.nome : '—'}</td>
+                    <td style="padding: 8px 4px; color: var(--text-muted);">${e.data_fim ? e.data_fim.substring(11, 16) : '—'}</td>
+                    <td style="padding: 8px 4px; text-align: right; font-weight: 700; color: #34d399;">R$ ${e.taxa_repasse.toFixed(2).replace('.', ',')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      }
+    }
+
+    function imprimirFechamento() {
+      window.print();
+    }
+
   </script>
 </body>
 </html>

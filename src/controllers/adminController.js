@@ -301,9 +301,143 @@ async function listarMotoboysAdmin(req, res) {
   }
 }
 
+/**
+ * Fechamento de Entregas e Taxas a Pagar por Período
+ * GET /api/admin/fechamento?periodo=hoje|ontem|semana|mes|todos&motoboy_id=todos|<id>
+ */
+async function obterFechamentoEntregas(req, res) {
+  try {
+    const db = getDb();
+    const { periodo = 'hoje', motoboy_id } = req.query || {};
+
+    let dataFiltro = '';
+    const params = [];
+
+    switch (periodo) {
+      case 'hoje':
+        dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em)) = DATE(DATETIME('now', '-3 hours'))`;
+        break;
+      case 'ontem':
+        dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em)) = DATE(DATETIME('now', '-3 hours', '-1 day'))`;
+        break;
+      case 'semana':
+        dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em)) >= DATE(DATETIME('now', '-3 hours', 'weekday 0', '-7 days'))`;
+        break;
+      case 'mes':
+        dataFiltro = `AND strftime('%Y-%m', COALESCE(p.data_fim, p.data_inicio, p.criado_em)) = strftime('%Y-%m', DATETIME('now', '-3 hours'))`;
+        break;
+      case 'todos':
+      default:
+        dataFiltro = '';
+        break;
+    }
+
+    let motoboyFiltro = '';
+    if (motoboy_id && motoboy_id !== 'todos' && !isNaN(Number(motoboy_id))) {
+      motoboyFiltro = `AND p.motoboy_id = ?`;
+      params.push(Number(motoboy_id));
+    }
+
+    const entregas = await db.query(`
+      SELECT 
+        p.id,
+        p.numero_pedido,
+        p.cliente,
+        p.endereco,
+        p.bairro,
+        p.origem,
+        p.data_inicio,
+        p.data_fim,
+        p.motoboy_id,
+        m.nome as motoboy_nome,
+        m.telefone as motoboy_telefone,
+        COALESCE(tb.taxa, 5.00) as taxa_repasse
+      FROM pedidos p
+      LEFT JOIN motoboys m ON p.motoboy_id = m.id
+      LEFT JOIN taxa_bairro tb ON LOWER(tb.bairro) = LOWER(TRIM(p.bairro))
+      WHERE p.status = 'entregue'
+        AND p.motoboy_id IS NOT NULL
+        ${dataFiltro}
+        ${motoboyFiltro}
+      ORDER BY p.data_fim DESC
+    `, params);
+
+    const porMotoboy = {};
+    let totalGeralEntregas = 0;
+    let totalGeralTaxas = 0;
+
+    const entregasDetalhadas = entregas.map(e => {
+      totalGeralEntregas++;
+      const taxaEfetiva = Number(e.taxa_repasse);
+      totalGeralTaxas += taxaEfetiva;
+
+      if (!porMotoboy[e.motoboy_id]) {
+        porMotoboy[e.motoboy_id] = {
+          motoboy_id: e.motoboy_id,
+          nome: e.motoboy_nome,
+          telefone: e.motoboy_telefone,
+          total_entregas: 0,
+          total_taxas: 0,
+          entregas: []
+        };
+      }
+
+      porMotoboy[e.motoboy_id].total_entregas++;
+      porMotoboy[e.motoboy_id].total_taxas += taxaEfetiva;
+      porMotoboy[e.motoboy_id].entregas.push({
+        id: e.id,
+        numero_pedido: e.numero_pedido,
+        cliente: e.cliente,
+        endereco: e.endereco,
+        bairro: e.bairro,
+        origem: e.origem,
+        data_inicio: e.data_inicio,
+        data_fim: e.data_fim,
+        taxa_repasse: taxaEfetiva
+      });
+
+      return {
+        id: e.id,
+        numero_pedido: e.numero_pedido,
+        cliente: e.cliente,
+        endereco: e.endereco,
+        bairro: e.bairro,
+        origem: e.origem,
+        data_inicio: e.data_inicio,
+        data_fim: e.data_fim,
+        motoboy: { id: e.motoboy_id, nome: e.motoboy_nome, telefone: e.motoboy_telefone },
+        taxa_repasse: taxaEfetiva
+      };
+    });
+
+    const resumoPorMotoboy = Object.values(porMotoboy).map(m => ({
+      ...m,
+      total_taxas: Number(m.total_taxas.toFixed(2))
+    }));
+
+    return res.json(200, {
+      success: true,
+      periodo,
+      taxa_padrao_sem_bairro: 5.00,
+      kpis: {
+        total_entregas: totalGeralEntregas,
+        total_taxas: Number(totalGeralTaxas.toFixed(2)),
+        media_taxa: totalGeralEntregas > 0 ? Number((totalGeralTaxas / totalGeralEntregas).toFixed(2)) : 0,
+        entregadores_ativos: resumoPorMotoboy.length
+      },
+      por_motoboy: resumoPorMotoboy,
+      entregas_detalhadas: entregasDetalhadas
+    });
+  } catch (error) {
+    console.error('❌ Erro ao obter fechamento de entregas:', error);
+    return res.json(500, { success: false, message: 'Erro ao obter fechamento de entregas.', error: error.message });
+  }
+}
+
 module.exports = {
   getPosicoesMapa,
   getDashboardStats,
   listarTodosPedidos,
-  listarMotoboysAdmin
+  listarMotoboysAdmin,
+  obterFechamentoEntregas
 };

@@ -504,6 +504,100 @@ async function obterDetalhesPedido(req, res) {
   }
 }
 
+/**
+ * Rendimentos do Motoboy — Taxas por Bairro (fallback R$5,00)
+ * GET /api/motoboy/rendimentos?motoboy_id=<id>&periodo=hoje|ontem|semana|mes|todos
+ */
+async function obterRendimentosMotoboy(req, res) {
+  try {
+    const { motoboy_id, periodo = 'hoje' } = req.query || {};
+
+    if (!motoboy_id) {
+      return res.json(400, { success: false, message: 'motoboy_id é obrigatório.' });
+    }
+
+    const db = getDb();
+    const motoboyIdNum = Number(motoboy_id);
+    const params = [motoboyIdNum];
+
+    let dataFiltro = '';
+    switch (periodo) {
+      case 'hoje':
+        dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em)) = DATE(DATETIME('now', '-3 hours'))`;
+        break;
+      case 'ontem':
+        dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em)) = DATE(DATETIME('now', '-3 hours', '-1 day'))`;
+        break;
+      case 'semana':
+        dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em)) >= DATE(DATETIME('now', '-3 hours', 'weekday 0', '-7 days'))`;
+        break;
+      case 'mes':
+        dataFiltro = `AND strftime('%Y-%m', COALESCE(p.data_fim, p.data_inicio, p.criado_em)) = strftime('%Y-%m', DATETIME('now', '-3 hours'))`;
+        break;
+      case 'todos':
+      default:
+        dataFiltro = '';
+        break;
+    }
+
+    const entregas = await db.query(`
+      SELECT
+        p.id,
+        p.numero_pedido,
+        p.bairro,
+        p.endereco,
+        p.cliente,
+        p.origem,
+        p.data_inicio,
+        p.data_fim,
+        COALESCE(tb.taxa, 5.00) as taxa_repasse
+      FROM pedidos p
+      LEFT JOIN taxa_bairro tb ON LOWER(tb.bairro) = LOWER(TRIM(p.bairro))
+      WHERE p.motoboy_id = ?
+        AND p.status = 'entregue'
+        ${dataFiltro}
+      ORDER BY p.data_fim DESC
+    `, params);
+
+    let totalTaxas = 0;
+
+    const entregasProcessadas = entregas.map(e => {
+      const taxaEfetiva = Number(e.taxa_repasse);
+      totalTaxas += taxaEfetiva;
+
+      return {
+        id: e.id,
+        numero_pedido: e.numero_pedido,
+        cliente: e.cliente,
+        endereco: e.endereco,
+        bairro: e.bairro || 'Não informado',
+        origem: e.origem,
+        data_inicio: e.data_inicio,
+        data_fim: e.data_fim,
+        taxa_repasse: taxaEfetiva
+      };
+    });
+
+    const totalEntregas = entregasProcessadas.length;
+
+    return res.json(200, {
+      success: true,
+      motoboy_id: motoboyIdNum,
+      periodo,
+      taxa_padrao_sem_bairro: 5.00,
+      resumo: {
+        total_entregas: totalEntregas,
+        total_a_receber: Number(totalTaxas.toFixed(2)),
+        media_taxa: totalEntregas > 0 ? Number((totalTaxas / totalEntregas).toFixed(2)) : 0
+      },
+      entregas: entregasProcessadas
+    });
+  } catch (error) {
+    console.error('❌ Erro ao obter rendimentos do motoboy:', error);
+    return res.json(500, { success: false, message: 'Erro ao obter rendimentos.', error: error.message });
+  }
+}
+
 module.exports = {
   webhookSpool,
   listarPedidosDisponiveis,
@@ -512,5 +606,6 @@ module.exports = {
   finalizarPedido,
   listarPedidosMotoboy,
   atualizarStatusPedido,
-  obterDetalhesPedido
+  obterDetalhesPedido,
+  obterRendimentosMotoboy
 };
