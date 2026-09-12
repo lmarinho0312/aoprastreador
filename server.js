@@ -143,20 +143,7 @@ async function requestHandler(req, res) {
   // Arquivos estáticos
   const publicDir = path.join(__dirname, 'public');
   let targetFile = pathname === '/' ? 'admin.html' : pathname;
-  if (pathname === '/SpoolerMonitor-Balcao.zip') {
-    targetFile = 'download/SpoolerMonitor-Balcao.zip';
-  }
   let filePath = path.join(publicDir, targetFile);
-
-  // Se for diretório (ex: /download), procurar index.html dentro dele
-  if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
-    const indexPath = path.join(filePath, 'index.html');
-    if (fs.existsSync(indexPath) && fs.statSync(indexPath).isFile()) {
-      filePath = indexPath;
-    }
-  } else if (!fs.existsSync(filePath) && fs.existsSync(filePath + '.html')) {
-    filePath = filePath + '.html';
-  }
 
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
     const ext = path.extname(filePath).toLowerCase();
@@ -167,19 +154,10 @@ async function requestHandler(req, res) {
       '.json': 'application/json; charset=utf-8',
       '.png': 'image/png',
       '.jpg': 'image/jpeg',
-      '.svg': 'image/svg+xml',
-      '.zip': 'application/zip'
+      '.svg': 'image/svg+xml'
     };
     const contentType = mimeTypes[ext] || 'application/octet-stream';
-    const stat = fs.statSync(filePath);
-    const headers = {
-      'Content-Type': contentType,
-      'Content-Length': stat.size
-    };
-    if (ext === '.zip') {
-      headers['Content-Disposition'] = `attachment; filename="${path.basename(filePath)}"`;
-    }
-    if (!res.headersSent) res.writeHead(200, headers);
+    if (!res.headersSent) res.writeHead(200, { 'Content-Type': contentType });
     return fs.createReadStream(filePath).pipe(res);
   }
 
