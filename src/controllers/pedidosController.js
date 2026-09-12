@@ -49,10 +49,90 @@ function extrairTelefoneELocalizador(textoBruto) {
 }
 
 /**
+ * Extrai a data impressa na comanda (DD/MM/AAAA ou DD de Mês)
+ * Retorna no formato YYYY-MM-DD
+ */
+function extrairDataComanda(textoBruto) {
+  if (!textoBruto || typeof textoBruto !== 'string') return null;
+  // 1. DD/MM/YYYY
+  const matchSlash = textoBruto.match(/\b([0-3][0-9])\/(0[1-9]|1[0-2])\/(20[2-9][0-9])\b/);
+  if (matchSlash) {
+    return `${matchSlash[3]}-${matchSlash[2]}-${matchSlash[1]}`;
+  }
+  // 2. DD de Mês (ex: "11 de set", "12 de set")
+  const meses = {
+    'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04', 'mai': '05', 'jun': '06',
+    'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12'
+  };
+  const matchMesExtenso = textoBruto.match(/\b([0-3]?[0-9])\s+de\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i);
+  if (matchMesExtenso) {
+    const dia = matchMesExtenso[1].padStart(2, '0');
+    const mes = meses[matchMesExtenso[2].toLowerCase()];
+    const anoAtual = new Date().getFullYear();
+    return `${anoAtual}-${mes}-${dia}`;
+  }
+  return null;
+}
+
+/**
+ * Detecta se uma comanda é destinada para RETIRADA / CONSUMO NO LOCAL (não deve ir para entrega).
+ */
+function isComandaRetirada(textoBruto, endereco = '') {
+  const endLimpo = String(endereco || '').trim().toLowerCase();
+  if (endLimpo && (endLimpo.includes('retirada') || endLimpo.includes('retirar no local') || endLimpo.includes('buscar no local'))) {
+    return true;
+  }
+  if (!textoBruto || typeof textoBruto !== 'string') return false;
+  const textoNorm = String(textoBruto)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+
+  const padroes = [
+    /\bRETIRAR\s+NO\s+LOCAL\b/,
+    /\bRETIRADA\s+NO\s+LOCAL\b/,
+    /\bRETIRAR\s+NA\s+LOJA\b/,
+    /\bRETIRADA\s+NA\s+LOJA\b/,
+    /\bRETIRADA\s+NO\s+(?:ESTABELECIMENTO|RESTAURANTE|BALCAO)\b/,
+    /\bRETIRAR\s+NO\s+(?:ESTABELECIMENTO|RESTAURANTE|BALCAO)\b/,
+    /\bRETIRADA\s+PELO\s+CLIENTE\b/,
+    /\bBUSCAR\s+NO\s+LOCAL\b/,
+    /\bBUSCAR\s+NA\s+LOJA\b/,
+    /\bIFOOD\s+RETIRADA\b/,
+    /\b99\s*(?:FOOD\s*)?RETIRADA\b/,
+    /\bCARDAPIO\s*(?:WEB\s*)?RETIRADA\b/,
+    /\bPARA\s+RETIRAR\b/,
+    /\bPRA\s+RETIRAR\b/,
+    /\bCONSUMO\s+NO\s+LOCAL\b/,
+    /\bCONSUMO\s+LOCAL\b/,
+    /\bPRA\s+VIAGEM\b/,
+    /\bPARA\s+VIAGEM\b/
+  ];
+
+  if (padroes.some(rx => rx.test(textoNorm))) {
+    return true;
+  }
+
+  const linhas = textoNorm.split(/[\r\n]+/).map(l => l.trim());
+  for (const linha of linhas) {
+    if (/^(?:[-*=_#\s]*)(?:RETIRADA|RETIRAR|RETIRA|BALCAO|VIAGEM|RETIRAR\s+NO\s+LOCAL)(?:[-*=_#\s]*)$/.test(linha)) {
+      return true;
+    }
+  }
+
+  const semEnderecoValido = !endLimpo || endLimpo.length < 5 || endLimpo === 'null' || endLimpo.includes('balcao');
+  if (semEnderecoValido && /\b(?:RETIRADA|RETIRAR)\b/.test(textoNorm)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Webhook para recebimento de comandas capturadas pelo Agente Spooler Balcão (Epson TM-T20)
  * POST /api/pedidos/webhook-spool
  * Header: Authorization: Bearer <BALCAO_API_SECRET>
- * Body: { origem, pedidoId, cliente, endereco, bairro, taxaEntrega, telefone, localizador, textoBruto }
+ * Body: { origem, pedidoId, cliente, endereco, bairro, taxaEntrega, telefone, localizador, textoBruto, isRetirada, dataComanda }
  */
 async function webhookSpool(req, res) {
   try {
@@ -67,7 +147,7 @@ async function webhookSpool(req, res) {
       });
     }
 
-    const { origem, pedidoId, cliente, endereco, bairro, taxaEntrega, telefone, localizador, textoBruto } = req.body || {};
+    const { origem, pedidoId, cliente, endereco, bairro, taxaEntrega, telefone, localizador, textoBruto, dataComanda: dataInformada, isRetirada: retiradaInformada } = req.body || {};
 
     if (!origem || !pedidoId) {
       return res.json(400, {
@@ -97,30 +177,55 @@ async function webhookSpool(req, res) {
       }
     }
 
+    // 2. Proteção contra pedidos de RETIRADA / BALCÃO (não devem ir para motoboys)
+    const ehRetirada = Boolean(retiradaInformada) || (cleanTextoBruto ? isComandaRetirada(cleanTextoBruto, cleanEndereco) : false);
+    if (ehRetirada) {
+      console.log(`ℹ️ Pedido ${cleanOrigem} #${cleanPedidoId} identificado como RETIRADA. Descartado da fila de entregas.`);
+      return res.json(200, {
+        success: true,
+        descartado: true,
+        message: `Pedido ${cleanOrigem} #${cleanPedidoId} é para RETIRADA NO LOCAL. Não adicionado à fila de motoboys.`
+      });
+    }
+
+    // 3. Proteção contra Comandas Históricas / Spool Antigo
+    // Se a comanda contém data explícita e for de dia anterior, descartar preventivamente
+    const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    const comandaDate = dataInformada || (cleanTextoBruto ? extrairDataComanda(cleanTextoBruto) : null);
+    if (comandaDate && comandaDate < hojeStr) {
+      console.log(`⏳ Comanda histórica descartada: ${cleanOrigem} #${cleanPedidoId} (${comandaDate} < hoje ${hojeStr}).`);
+      return res.json(200, {
+        success: true,
+        descartado: true,
+        message: `Comanda histórica (${comandaDate}) descartada. Apenas pedidos do dia atual (${hojeStr}) são aceitos.`
+      });
+    }
+
     const db = getDb();
 
-    // 2. Mecanismo Anti-Duplicação Estrito (origem + pedido_id_origem no mesmo dia)
+    // 4. Mecanismo Anti-Duplicação Estrito (origem + pedido_id_origem no mesmo dia)
     // Permite que plataformas como 99Food reutilizem o mesmo número em dias diferentes (ex: #010 ontem e #010 hoje),
     // bloqueando duplicatas apenas se já registrado na data de hoje (horário de Brasília UTC-3).
+    const dataChecagem = comandaDate || hojeStr;
     const pedidoExistente = await db.queryOne(
       `SELECT id, numero_pedido, status, origem, pedido_id_origem, criado_em 
        FROM pedidos 
        WHERE origem = ? 
          AND pedido_id_origem = ?
-         AND DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))`,
-      [cleanOrigem, cleanPedidoId]
+         AND DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) = ?`,
+      [cleanOrigem, cleanPedidoId, dataChecagem]
     );
 
     if (pedidoExistente) {
       return res.json(200, {
         success: true,
         duplicado: true,
-        message: `Pedido ${cleanOrigem} #${cleanPedidoId} já registrado anteriormente hoje.`,
+        message: `Pedido ${cleanOrigem} #${cleanPedidoId} já registrado anteriormente na data ${dataChecagem}.`,
         pedido: pedidoExistente
       });
     }
 
-    // 3. Inserção do pedido com status 'disponivel' (aguardando motoboy retirar)
+    // 5. Inserção do pedido com status 'disponivel' (aguardando motoboy retirar)
     const result = await db.execute(
       `INSERT INTO pedidos 
        (numero_pedido, motoboy_id, status, origem, pedido_id_origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, texto_bruto, criado_em)

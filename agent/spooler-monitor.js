@@ -5,6 +5,7 @@ const http = require('http');
 const { execSync } = require('child_process');
 const { decodeEscPosBuffer } = require('./escpos-decoder');
 const { parseComandaTexto } = require('./comanda-parser');
+const { extrairRasterEpson, executarOcrEmArquivo } = require('./raster-ocr');
 
 // ── Sistema de Log Duplo (Console + Arquivo monitor.log) ──────────────────────
 const logFilePath = path.join(__dirname, 'monitor.log');
@@ -114,14 +115,27 @@ function enviarPedidoParaApi(pedidoData) {
 
 // ── Processamento de Arquivos de Impressão (.SPL) ───────────────────────────
 let isScanning = false;
+// Mutex: impede que dois arquivos com o mesmo pedido sejam processados ao mesmo tempo
+const pedidosEmProcessamento = new Set();
 
 async function processarArquivoSpool(filePath) {
   const fileName = path.basename(filePath);
   const cacheKeyFile = `FILE_${fileName}`;
 
-  if (processedCache.has(cacheKeyFile)) {
-    return;
-  }
+  // Ignorar arquivos .TMP, .SHD e arquivos já processados
+  const ext = path.extname(fileName).toLowerCase();
+  if (ext === '.tmp' || ext === '.shd') return;
+  if (processedCache.has(cacheKeyFile)) return;
+
+  // Ignorar arquivos de impressão criados há mais de 18 horas (segurança contra spool antigo retido)
+  try {
+    const stat = fs.statSync(filePath);
+    const limiteHoras = 18 * 60 * 60 * 1000;
+    if (Date.now() - stat.mtimeMs > limiteHoras) {
+      processedCache.add(cacheKeyFile);
+      return;
+    }
+  } catch (e) {}
 
   // Tentar ler o arquivo aguardando o fim da gravação pelo Windows
   let fileBuffer = null;
@@ -137,27 +151,88 @@ async function processarArquivoSpool(filePath) {
     await new Promise(r => setTimeout(r, 200));
   }
 
-  if (!fileBuffer || fileBuffer.length < 10) return;
+  if (!fileBuffer || fileBuffer.length < 10) {
+    processedCache.add(cacheKeyFile);
+    return;
+  }
 
-  // Decodificar ESC/POS
-  const textoLimpo = decodeEscPosBuffer(fileBuffer);
-  if (!textoLimpo || textoLimpo.length < 10) return;
+  // 1. Tentar decodificar texto ESC/POS direto (iFood Gestor, Cardápio Web)
+  let textoLimpo = decodeEscPosBuffer(fileBuffer);
+  let parsed = parseComandaTexto(textoLimpo);
 
-  // Extrair campos da comanda
-  const parsed = parseComandaTexto(textoLimpo);
+  // 2. Se não encontrou pedido no texto, verificar se é imagem gráfica ou EMF (ex: 99 Food no Edge/Chrome)
+  if (!parsed || !parsed.pedidoId) {
+    const raster = extrairRasterEpson(fileBuffer);
+    if (raster) {
+      const tempPath = raster.isEmf 
+        ? path.join(__dirname, `temp_comanda_${Date.now()}.spl`)
+        : path.join(__dirname, `temp_comanda_${Date.now()}.bmp`);
+
+      if (raster.isEmf) {
+        log(`🖼️ Comanda em formato vetorial Windows EMF detectada em [${fileName}]. Executando OCR...`);
+      } else {
+        log(`🖼️ Comanda gráfica detectada em [${fileName}] (${raster.larguraPixels}x${raster.alturaTotal}px). Executando OCR nativo...`);
+      }
+
+      try {
+        fs.writeFileSync(tempPath, raster.isEmf ? raster.buffer : raster.bmp);
+        const textoOcr = executarOcrEmArquivo(tempPath);
+        if (textoOcr) {
+          const parsedOcr = parseComandaTexto(textoOcr);
+          if (parsedOcr && parsedOcr.pedidoId) {
+            parsed = parsedOcr;
+            textoLimpo = textoOcr;
+            log(`🎯 Pedido identificado via OCR: ${parsed.origem} #${parsed.pedidoId}!`);
+          }
+        }
+      } catch (e) {
+        log(`⚠️ Falha ao executar OCR: ${e.message}`);
+      } finally {
+        try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch (e) {}
+        const pngTemp = tempPath.replace(/\.(spl|bmp)$/, '.rendered.png');
+        try { if (fs.existsSync(pngTemp)) fs.unlinkSync(pngTemp); } catch (e) {}
+      }
+    }
+  }
+
+  // Se ainda assim não encontrou pedidoId, ignora este arquivo
   if (!parsed || !parsed.pedidoId) {
     processedCache.add(cacheKeyFile);
     return;
   }
 
-  const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-  const cacheKeyOrder = `${parsed.origem}_${parsed.pedidoId}_${hojeStr}`;
-  if (processedCache.has(cacheKeyOrder)) {
-    log(`ℹ️ Pedido ${parsed.origem} #${parsed.pedidoId} já enviado anteriormente hoje.`);
+  // ── FILTRO DE RETIRADA / BALCÃO ──────────────────────────────────────
+  if (parsed.isRetirada) {
+    log(`ℹ️ Pedido ${parsed.origem} #${parsed.pedidoId} é para RETIRADA NO LOCAL (não requer motoboy). Ignorando [${fileName}].`);
     processedCache.add(cacheKeyFile);
     salvarCache();
     return;
   }
+
+  // ── ANTI-DUPLICAÇÃO E DESCARTE DE COMANDAS ANTIGAS ────────────────────
+  const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+
+  // Se a comanda contém data explícita e for de dia anterior, descartar preventivamente
+  if (parsed.dataComanda && parsed.dataComanda < hojeStr) {
+    log(`⏳ Comanda histórica descartada: ${parsed.origem} #${parsed.pedidoId} (${parsed.dataComanda} < hoje ${hojeStr}). Ignorando [${fileName}].`);
+    processedCache.add(cacheKeyFile);
+    salvarCache();
+    return;
+  }
+
+  const dataRef = parsed.dataComanda || hojeStr;
+  const cacheKeyOrder = `${parsed.origem}_${parsed.pedidoId}_${dataRef}`;
+
+  // Verificar se já está no cache OU se está sendo processado agora por outro arquivo
+  if (processedCache.has(cacheKeyOrder) || pedidosEmProcessamento.has(cacheKeyOrder)) {
+    log(`ℹ️ Pedido ${parsed.origem} #${parsed.pedidoId} já enviado/em processamento na data ${dataRef}. Ignorando arquivo [${fileName}].`);
+    processedCache.add(cacheKeyFile);
+    salvarCache();
+    return;
+  }
+
+  // Marcar como "em processamento" IMEDIATAMENTE (antes do HTTP)
+  pedidosEmProcessamento.add(cacheKeyOrder);
 
   log(`======================================================`);
   log(`📄 NOVA COMANDA DETECTADA [${fileName}]`);
@@ -186,6 +261,9 @@ async function processarArquivoSpool(filePath) {
     }
   } catch (err) {
     log(`❌ Erro ao enviar comanda para API: ${err.message}`);
+  } finally {
+    // Liberar o mutex após concluir (com ou sem erro)
+    pedidosEmProcessamento.delete(cacheKeyOrder);
   }
 }
 
@@ -200,8 +278,10 @@ async function varrerSpool() {
     }
 
     const files = fs.readdirSync(config.spool_dir);
+    // Filtrar apenas .SPL, ignorar .SHD e .TMP
     const splFiles = files.filter(f => f.toLowerCase().endsWith('.spl'));
 
+    // Processar SEQUENCIALMENTE para garantir anti-duplicação
     for (const file of splFiles) {
       const fullPath = path.join(config.spool_dir, file);
       await processarArquivoSpool(fullPath);
