@@ -209,6 +209,8 @@ async function varrerSpool() {
   } catch (err) {
     if (err.code === 'EPERM' || err.code === 'EACCES') {
       log(`❌ ERRO DE PERMISSÃO: Acesso negado à pasta ${config.spool_dir}. O programa PRECISA rodar como Administrador!`);
+    } else {
+      log(`❌ Erro ao varrer pasta de spool: ${err.message}`);
     }
   } finally {
     isScanning = false;
