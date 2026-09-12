@@ -507,6 +507,13 @@
         </div>
         <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Comandas prontas aguardando motoboy retirar.</p>
 
+        <!-- Campo de Pesquisa Rápida (Nº do Pedido, Cliente, Bairro) -->
+        <div class="search-box" style="margin-bottom: 14px; position: relative;">
+          <span class="search-icon">🔍</span>
+          <input type="search" id="inputBuscaBalcao" class="form-input" placeholder="Buscar pedido nº, cliente ou bairro..." oninput="filtrarBalcao()" onkeydown="if(event.key==='Enter'){this.blur();}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="padding-right: 36px;">
+          <button type="button" id="btnLimparBuscaBalcao" onclick="limparBuscaBalcao()" style="display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 6px;" title="Limpar pesquisa">✕</button>
+        </div>
+
         <div id="containerPedidosBalcao">
           <!-- Renderizado via JavaScript -->
         </div>
@@ -618,6 +625,7 @@
       pedidosAtivos: [],
       pedidosBalcao: [],
       pedidoParaFinalizar: null,
+      filtroBalcao: '',
       abaAtual: 'inicio',
       mapa: null,
       marcadorMotoboy: null,
@@ -907,15 +915,80 @@
       `).join('');
     }
 
+    // ── Normalização e Busca Inteligente no Balcão ───────────────────────
+    function normalizarTexto(str) {
+      return String(str || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+        .replace(/^#+/, '')  // remove # do início
+        .toLowerCase()
+        .trim();
+    }
+
+    function pedidoCorrespondeBusca(p, termo) {
+      if (!termo) return true;
+      const t = normalizarTexto(termo);
+      return (
+        normalizarTexto(p.numero_pedido).includes(t) ||
+        normalizarTexto(p.cliente).includes(t) ||
+        normalizarTexto(p.endereco).includes(t) ||
+        normalizarTexto(p.bairro).includes(t) ||
+        normalizarTexto(p.telefone_cliente).includes(t) ||
+        normalizarTexto(p.texto_bruto).includes(t) ||
+        normalizarTexto(p.origem).includes(t)
+      );
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function filtrarBalcao() {
+      const input = document.getElementById('inputBuscaBalcao');
+      const btnLimpar = document.getElementById('btnLimparBuscaBalcao');
+      const val = input ? input.value : '';
+      state.filtroBalcao = val;
+      if (btnLimpar) {
+        btnLimpar.style.display = val.trim() ? 'block' : 'none';
+      }
+      renderizarBalcao();
+    }
+
+    function limparBuscaBalcao() {
+      const input = document.getElementById('inputBuscaBalcao');
+      const btnLimpar = document.getElementById('btnLimparBuscaBalcao');
+      if (input) {
+        input.value = '';
+      }
+      if (btnLimpar) btnLimpar.style.display = 'none';
+      state.filtroBalcao = '';
+      renderizarBalcao();
+    }
+
     // RENDERIZAR PEDIDOS NO BALCÃO
     function renderizarBalcao() {
       const container = document.getElementById('containerPedidosBalcao');
       const badge = document.getElementById('badgeTotalBalcao');
       if (!container) return;
 
-      if (badge) badge.textContent = state.pedidosBalcao.length;
+      const totalGeral = state.pedidosBalcao.length;
+      const termo = (state.filtroBalcao || '').trim();
+      const pedidosFiltrados = termo
+        ? state.pedidosBalcao.filter(p => pedidoCorrespondeBusca(p, termo))
+        : state.pedidosBalcao;
 
-      if (state.pedidosBalcao.length === 0) {
+      if (badge) {
+        if (termo) {
+          badge.textContent = `${pedidosFiltrados.length} de ${totalGeral}`;
+        } else {
+          badge.textContent = totalGeral;
+        }
+      }
+
+      if (totalGeral === 0) {
         container.innerHTML = `
           <div class="empty-state">
             <div class="empty-state-icon">🍽️</div>
@@ -926,7 +999,19 @@
         return;
       }
 
-      container.innerHTML = state.pedidosBalcao.map(p => {
+      if (pedidosFiltrados.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="padding: 24px 16px;">
+            <div class="empty-state-icon">🔍</div>
+            <div class="empty-state-title">Nenhum pedido encontrado</div>
+            <div class="empty-state-desc">Nenhuma comanda no balcão corresponde a "<strong>${escapeHtml(termo)}</strong>".</div>
+            <button class="btn btn-secondary btn-sm" onclick="limparBuscaBalcao()" style="margin-top: 12px;">Limpar pesquisa</button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = pedidosFiltrados.map(p => {
         const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
         return `
           <div class="card" style="margin-bottom: 12px; border-left: 3px solid #3b82f6;">
@@ -963,6 +1048,7 @@
         const data = await res.json();
         if (res.ok && data.success) {
           showToast(`🚀 Pedido #${numero} retirado com sucesso!`, 'success');
+          limparBuscaBalcao();
           trocarAbaApp('inicio');
           carregarDados();
         } else {
