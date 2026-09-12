@@ -20,8 +20,10 @@ npm-debug.log*
 # Vercel
 # Arquivos temporários e executáveis locais
 scratch/
-SpoolerMonitor-Balcao.zip
-SpoolerMonitor-Balcao/
+/SpoolerMonitor-Balcao/
+/SpoolerMonitor-Balcao.zip
+!public/download/*.zip
+!public/*.zip
 console.error*
 # Spooler Agent local cache
 agent/processed_cache.json
