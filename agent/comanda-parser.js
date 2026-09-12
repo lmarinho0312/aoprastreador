@@ -228,11 +228,42 @@ function parseComandaTexto(textoBruto) {
     }
   }
 
-  // 6. Extrair Telefone
+  // 6. Extrair Localizador e Telefone (0800 iFood, Relay 99Food, WhatsApp ou Direto)
+  let localizador = null;
+  const matchLoc = texto.match(/\b(?:Localizador|ID)\s*[:#\-]?\s*([0-9]{4}\s*[0-9]{4}|[0-9]{6,10})/i);
+  if (matchLoc) {
+    localizador = matchLoc[1].replace(/\s+/g, '').trim();
+  }
+
   let telefone = null;
-  const matchTel = texto.match(/(?:Tel(?:efone)?|Cel(?:ular)?|WhatsApp|Contato)\s*:\s*(\(?[0-9]{2,3}\)?\s*[0-9]{4,5}[-\s]?[0-9]{4})/i);
-  if (matchTel) {
-    telefone = matchTel[1].replace(/\D/g, '');
+  // 6.1 Telefone 0800 (iFood)
+  const match0800 = texto.match(/\b(0800[\s\-]?[0-9]{3}[\s\-]?[0-9]{4})\b/);
+  if (match0800) {
+    telefone = match0800[1].replace(/\D/g, '');
+  }
+
+  // 6.2 Telefone 99Food: "Telefone      (016)23980123"
+  if (!telefone) {
+    const matchTel99 = texto.match(/Telefone\s*[:\-]?\s*(\(?[0-9]{2,3}\)?\s*[0-9]{4,5}[-\s]?[0-9]{4})/i);
+    if (matchTel99) {
+      telefone = matchTel99[1].replace(/\D/g, '');
+    }
+  }
+
+  // 6.3 Telefone convencional / WhatsApp / Cardápio Web
+  if (!telefone) {
+    const matchTelGeral = texto.match(/(?:Tel(?:efone)?|Cel(?:ular)?|WhatsApp|Whats|Contato)\s*[:\-]?\s*(\(?[0-9]{2,3}\)?\s*[0-9]{4,5}[-\s]?[0-9]{4})/i);
+    if (matchTelGeral) {
+      telefone = matchTelGeral[1].replace(/\D/g, '');
+    }
+  }
+
+  // 6.4 Fallback celular com DDD
+  if (!telefone) {
+    const matchCel = texto.match(/\b(?:\+?55\s*)?\(?([1-9]{2})\)?\s*(9[0-9]{4})[-\s]?([0-9]{4})\b/);
+    if (matchCel) {
+      telefone = `${matchCel[1]}${matchCel[2]}${matchCel[3]}`;
+    }
   }
 
   return {
@@ -243,6 +274,7 @@ function parseComandaTexto(textoBruto) {
     bairro: bairro || null,
     taxaEntrega: Number(taxaEntrega || 0),
     telefone: telefone || null,
+    localizador: localizador || null,
     textoBruto: texto
   };
 }

@@ -254,6 +254,163 @@
       transform: scale(0.97);
     }
 
+    /* BLOCO DE CONTATO / CENTRAL / LOCALIZADOR NO CARD ATIVO */
+    .hero-contact-block {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .localizador-box {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1.5px dashed var(--brand-gold);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      text-align: center;
+    }
+
+    .localizador-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .localizador-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--brand-gold-light);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .btn-copiar-pin {
+      background: rgba(245, 158, 11, 0.2);
+      border: 1px solid var(--border-gold);
+      color: var(--brand-gold-light);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all var(--transition-fast);
+    }
+
+    .btn-copiar-pin:active {
+      transform: scale(0.95);
+      background: var(--brand-gold);
+      color: #000;
+    }
+
+    .localizador-codigo {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      color: #ffffff;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 4px 0;
+      user-select: all;
+    }
+
+    .localizador-aviso {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+
+    /* BOTÃO "LIGAR PARA CENTRAL / CLIENTE" */
+    .btn-ligar-master {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 900;
+      padding: 14px 18px;
+      border-radius: var(--radius-lg);
+      border: none;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 52px;
+      text-decoration: none;
+      transition: transform 0.1s ease, filter 0.2s ease;
+      user-select: none;
+    }
+
+    .btn-ligar-master:active {
+      transform: scale(0.97);
+      filter: brightness(0.9);
+    }
+
+    .btn-ligar-icon {
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .btn-ligar-text-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+      line-height: 1.2;
+    }
+
+    .btn-ligar-titulo {
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-ligar-sub {
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0.88;
+    }
+
+    /* BADGES BALCÃO (LOCALIZADOR & TELEFONE) */
+    .badge-balcao-loc {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--brand-gold-light);
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    .badge-balcao-tel {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+    }
+
+    .badge-balcao-tel:active {
+      background: rgba(16, 185, 129, 0.3);
+    }
+
     /* SEÇÃO PRÓXIMAS ENTREGAS */
     .section-proximas {
       padding: 0 16px 20px;
@@ -783,6 +940,99 @@
       }
     }
 
+    // Formatação e Utilitários de Contato e Central
+    function formatarTelefone(tel) {
+      if (!tel) return '';
+      const limpo = String(tel).replace(/\D/g, '');
+      if (limpo.startsWith('0800')) {
+        if (limpo.length >= 11) {
+          return `${limpo.slice(0, 4)} ${limpo.slice(4, 7)} ${limpo.slice(7)}`;
+        }
+        return limpo;
+      }
+      if (limpo.startsWith('0') && limpo.length === 11) {
+        return `(${limpo.slice(0, 3)}) ${limpo.slice(3, 7)}-${limpo.slice(7)}`;
+      }
+      if (limpo.length === 11) {
+        return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 7)}-${limpo.slice(7)}`;
+      }
+      if (limpo.length === 10) {
+        return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 6)}-${limpo.slice(6)}`;
+      }
+      return tel;
+    }
+
+    function copiarTexto(texto, msgSucesso = 'Copiado!') {
+      if (!texto) return;
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(texto).then(() => {
+          showToast(msgSucesso, 'success');
+        }).catch(() => fallbackCopiar(texto, msgSucesso));
+      } else {
+        fallbackCopiar(texto, msgSucesso);
+      }
+    }
+
+    function fallbackCopiar(texto, msgSucesso) {
+      const ta = document.createElement('textarea');
+      ta.value = texto;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast(msgSucesso, 'success');
+      } catch (err) {
+        showToast(`Código: ${texto}`, 'info');
+      }
+      document.body.removeChild(ta);
+    }
+
+    function renderizarBlocoContato(p) {
+      const tel = p.telefone_cliente ? String(p.telefone_cliente).trim() : '';
+      const loc = p.localizador ? String(p.localizador).trim() : '';
+
+      if (!tel && !loc) return '';
+
+      const telLimpo = tel.replace(/\D/g, '');
+      const telFormatado = formatarTelefone(tel);
+      const is0800 = telLimpo.startsWith('0800');
+      const is99 = (p.origem || '').toUpperCase().includes('99');
+      const isIfood = (p.origem || '').toUpperCase().includes('IFOOD');
+
+      let tipoCentral = 'Cliente / Suporte';
+      if (isIfood) tipoCentral = 'Central iFood (0800)';
+      else if (is99) tipoCentral = 'Central Telefônica 99Food';
+      else if (is0800) tipoCentral = 'Central Telefônica (0800)';
+
+      return `
+        <div class="hero-contact-block">
+          ${loc ? `
+            <div class="localizador-box">
+              <div class="localizador-header">
+                <span class="localizador-label">🔑 LOCALIZADOR / PIN DA CENTRAL</span>
+                <button type="button" class="btn-copiar-pin" onclick="copiarTexto('${loc}', 'PIN copiado!')">📋 Copiar</button>
+              </div>
+              <div class="localizador-codigo">${loc}</div>
+              <div class="localizador-aviso">⚠️ Digite este número no teclado do celular quando a central pedir.</div>
+            </div>
+          ` : ''}
+
+          ${tel ? `
+            <a href="tel:${telLimpo}" class="btn-ligar-master">
+              <span class="btn-ligar-icon">📞</span>
+              <div class="btn-ligar-text-wrap">
+                <span class="btn-ligar-titulo">LIGAR: ${telFormatado}</span>
+                <span class="btn-ligar-sub">${tipoCentral}</span>
+              </div>
+            </a>
+          ` : ''}
+        </div>
+      `;
+    }
+
     // RENDERIZAR CARD DOMINANTE DA ENTREGA ATIVA
     function renderizarEntregaAtiva() {
       const container = document.getElementById('containerEntregaAtiva');
@@ -844,6 +1094,9 @@
             <span class="hero-taxa-badge">${taxaStr}</span>
           </div>
 
+          <!-- CONTATO / CENTRAL / LOCALIZADOR -->
+          ${renderizarBlocoContato(p)}
+
           <!-- BOTÃO PRIORITÁRIO "VER ROTA" (INTEGRAÇÃO NATIVA GOOGLE MAPS / APPLE MAPS) -->
           <button class="btn-ver-rota-master" onclick="abrirRotaNativa('${encodeURIComponent(enderecoCompleto)}')">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -898,7 +1151,10 @@
         return;
       }
 
-      container.innerHTML = fila.map(p => `
+      container.innerHTML = fila.map(p => {
+        const tel = p.telefone_cliente ? String(p.telefone_cliente).trim() : '';
+        const loc = p.localizador ? String(p.localizador).trim() : '';
+        return `
         <div class="queue-card">
           <div class="queue-info">
             <div class="queue-num-row">
@@ -907,12 +1163,19 @@
               <span style="font-size: 11px; color: var(--brand-gold);">⏱️ Fila</span>
             </div>
             <div class="queue-address">📍 ${p.endereco}</div>
+            ${(loc || tel) ? `
+              <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 11px;">
+                ${loc ? `<span class="badge-balcao-loc">🔑 PIN: <strong>${loc}</strong></span>` : ''}
+                ${tel ? `<a href="tel:${tel.replace(/\D/g, '')}" class="badge-balcao-tel" onclick="event.stopPropagation()">📞 ${formatarTelefone(tel)}</a>` : ''}
+              </div>
+            ` : ''}
           </div>
           <div style="text-align: right;">
             <span style="font-size: 13px; font-weight: 700; color: #34d399;">R$ ${(p.taxa_entrega || 0).toFixed(2).replace('.', ',')}</span>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
     }
 
     // ── Normalização e Busca Inteligente no Balcão ───────────────────────
@@ -932,6 +1195,7 @@
         normalizarTexto(p.cliente).includes(t) ||
         normalizarTexto(p.endereco).includes(t) ||
         normalizarTexto(p.bairro).includes(t) ||
+        normalizarTexto(p.localizador).includes(t) ||
         normalizarTexto(p.telefone_cliente).includes(t) ||
         normalizarTexto(p.texto_bruto).includes(t) ||
         normalizarTexto(p.origem).includes(t)
@@ -1013,6 +1277,11 @@
 
       container.innerHTML = pedidosFiltrados.map(p => {
         const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
+        const tel = p.telefone_cliente ? String(p.telefone_cliente).trim() : '';
+        const telLimpo = tel.replace(/\D/g, '');
+        const telFormatado = formatarTelefone(tel);
+        const loc = p.localizador ? String(p.localizador).trim() : '';
+
         return `
           <div class="card" style="margin-bottom: 12px; border-left: 3px solid #3b82f6;">
             <div class="order-card-row">
@@ -1020,8 +1289,19 @@
               <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem)}</span>
             </div>
             <div style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin: 4px 0;">${p.cliente || 'Cliente'}</div>
-            <div class="order-address" style="margin-bottom: 10px;">📍 ${p.endereco} ${p.bairro ? '— ' + p.bairro : ''}</div>
+            <div class="order-address" style="margin-bottom: 8px;">📍 ${p.endereco} ${p.bairro ? '— ' + p.bairro : ''}</div>
             
+            ${(tel || loc) ? `
+              <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; align-items: center;">
+                ${loc ? `<span class="badge-balcao-loc" title="Código Localizador / PIN">🔑 PIN: <strong>${loc}</strong></span>` : ''}
+                ${tel ? `
+                  <a href="tel:${telLimpo}" class="badge-balcao-tel" onclick="event.stopPropagation()" title="Ligar para a central ou cliente">
+                    📞 ${telFormatado}
+                  </a>
+                ` : ''}
+              </div>
+            ` : ''}
+
             <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
               <span style="font-size: 13px; font-weight: 700; color: #34d399;">Taxa: ${taxaStr}</span>
               <button class="btn btn-gold btn-sm" onclick="retirarPedidoBalcao(${p.id}, '${p.numero_pedido}')">

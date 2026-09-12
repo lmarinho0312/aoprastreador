@@ -2,10 +2,57 @@ const config = require('../config/env');
 const { getDb } = require('../database/db');
 
 /**
+ * Extrai telefone e código localizador / PIN do texto da comanda
+ */
+function extrairTelefoneELocalizador(textoBruto) {
+  if (!textoBruto) return { telefone: null, localizador: null };
+  const texto = String(textoBruto);
+
+  let localizador = null;
+  const matchLoc = texto.match(/\b(?:Localizador|ID)\s*[:#\-]?\s*([0-9]{4}\s*[0-9]{4}|[0-9]{6,10})/i);
+  if (matchLoc) {
+    localizador = matchLoc[1].replace(/\s+/g, '').trim();
+  }
+
+  let telefone = null;
+  // 1. Telefone 0800 (iFood)
+  const match0800 = texto.match(/\b(0800[\s\-]?[0-9]{3}[\s\-]?[0-9]{4})\b/);
+  if (match0800) {
+    telefone = match0800[1].replace(/\D/g, '');
+  }
+
+  // 2. Telefone 99Food: "Telefone      (016)23980123"
+  if (!telefone) {
+    const matchTel99 = texto.match(/Telefone\s*[:\-]?\s*(\(?[0-9]{2,3}\)?\s*[0-9]{4,5}[-\s]?[0-9]{4})/i);
+    if (matchTel99) {
+      telefone = matchTel99[1].replace(/\D/g, '');
+    }
+  }
+
+  // 3. Telefone convencional / WhatsApp / Cardápio Web
+  if (!telefone) {
+    const matchTelGeral = texto.match(/(?:Tel(?:efone)?|Cel(?:ular)?|WhatsApp|Whats|Contato)\s*[:\-]?\s*(\(?[0-9]{2,3}\)?\s*[0-9]{4,5}[-\s]?[0-9]{4})/i);
+    if (matchTelGeral) {
+      telefone = matchTelGeral[1].replace(/\D/g, '');
+    }
+  }
+
+  // 4. Fallback celular com DDD
+  if (!telefone) {
+    const matchCel = texto.match(/\b(?:\+?55\s*)?\(?([1-9]{2})\)?\s*(9[0-9]{4})[-\s]?([0-9]{4})\b/);
+    if (matchCel) {
+      telefone = `${matchCel[1]}${matchCel[2]}${matchCel[3]}`;
+    }
+  }
+
+  return { telefone, localizador };
+}
+
+/**
  * Webhook para recebimento de comandas capturadas pelo Agente Spooler Balcão (Epson TM-T20)
  * POST /api/pedidos/webhook-spool
  * Header: Authorization: Bearer <BALCAO_API_SECRET>
- * Body: { origem, pedidoId, cliente, endereco, bairro, taxaEntrega, telefone, textoBruto }
+ * Body: { origem, pedidoId, cliente, endereco, bairro, taxaEntrega, telefone, localizador, textoBruto }
  */
 async function webhookSpool(req, res) {
   try {
@@ -20,7 +67,7 @@ async function webhookSpool(req, res) {
       });
     }
 
-    const { origem, pedidoId, cliente, endereco, bairro, taxaEntrega, telefone, textoBruto } = req.body || {};
+    const { origem, pedidoId, cliente, endereco, bairro, taxaEntrega, telefone, localizador, textoBruto } = req.body || {};
 
     if (!origem || !pedidoId) {
       return res.json(400, {
@@ -34,9 +81,21 @@ async function webhookSpool(req, res) {
     const cleanCliente = cliente ? String(cliente).trim() : null;
     const cleanEndereco = endereco ? String(endereco).trim() : null;
     const cleanBairro = bairro ? String(bairro).trim() : null;
-    const cleanTelefone = telefone ? String(telefone).trim() : null;
+    let cleanTelefone = telefone ? String(telefone).trim() : null;
+    let cleanLocalizador = localizador ? String(localizador).trim() : null;
     const cleanTextoBruto = textoBruto ? String(textoBruto).trim() : null;
     const taxa = !isNaN(Number(taxaEntrega)) ? Number(taxaEntrega) : 0.0;
+
+    // Se telefone ou localizador não vieram explicitamente no payload, tenta extrair do texto da comanda
+    if ((!cleanTelefone || !cleanLocalizador) && cleanTextoBruto) {
+      const extraidos = extrairTelefoneELocalizador(cleanTextoBruto);
+      if (!cleanTelefone && extraidos.telefone) {
+        cleanTelefone = extraidos.telefone;
+      }
+      if (!cleanLocalizador && extraidos.localizador) {
+        cleanLocalizador = extraidos.localizador;
+      }
+    }
 
     const db = getDb();
 
@@ -64,9 +123,9 @@ async function webhookSpool(req, res) {
     // 3. Inserção do pedido com status 'disponivel' (aguardando motoboy retirar)
     const result = await db.execute(
       `INSERT INTO pedidos 
-       (numero_pedido, motoboy_id, status, origem, pedido_id_origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, texto_bruto, criado_em)
-       VALUES (?, NULL, 'disponivel', ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now', '-3 hours'))`,
-      [cleanPedidoId, cleanOrigem, cleanPedidoId, cleanCliente, cleanEndereco, cleanBairro, taxa, cleanTelefone, cleanTextoBruto]
+       (numero_pedido, motoboy_id, status, origem, pedido_id_origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, texto_bruto, criado_em)
+       VALUES (?, NULL, 'disponivel', ?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now', '-3 hours'))`,
+      [cleanPedidoId, cleanOrigem, cleanPedidoId, cleanCliente, cleanEndereco, cleanBairro, taxa, cleanTelefone, cleanLocalizador, cleanTextoBruto]
     );
 
     const novoPedidoId = Number(result.lastInsertRowid);
@@ -92,7 +151,7 @@ async function listarPedidosDisponiveis(req, res) {
   try {
     const db = getDb();
     const pedidos = await db.query(`
-      SELECT id, numero_pedido, status, origem, pedido_id_origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, criado_em,
+      SELECT id, numero_pedido, status, origem, pedido_id_origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, criado_em,
              ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(criado_em, DATETIME('now', '-3 hours')))) * 1440) as minutos_aguardando
       FROM pedidos
       WHERE (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL)
@@ -323,7 +382,7 @@ async function listarPedidosMotoboy(req, res) {
 
     const db = getDb();
     const pedidos = await db.query(
-      `SELECT id, numero_pedido, status, origem, cliente, endereco, bairro, taxa_entrega, data_inicio, 
+      `SELECT id, numero_pedido, status, origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, data_inicio, 
               ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(data_inicio)) * 1440) as minutos_em_rota
        FROM pedidos 
        WHERE motoboy_id = ? AND status = 'em_rota' 
@@ -475,9 +534,11 @@ async function obterDetalhesPedido(req, res) {
         numero_pedido: p.numero_pedido,
         status: p.status,
         origem: p.origem || 'MANUAL',
+        localizador: p.localizador || null,
         cliente: {
           nome: p.cliente || 'Cliente Balcão',
-          telefone: p.telefone_cliente || '(21) 99999-9999',
+          telefone: p.telefone_cliente || null,
+          localizador: p.localizador || null,
           endereco: p.endereco || 'Endereço não informado',
           bairro: p.bairro || 'Centro'
         },

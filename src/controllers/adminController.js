@@ -169,6 +169,7 @@ async function listarTodosPedidos(req, res) {
     let query = `
       SELECT p.id, p.numero_pedido, p.status, p.origem, p.pedido_id_origem,
              p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente,
+             p.localizador,
              p.texto_bruto, p.data_inicio, p.data_fim, p.criado_em,
              m.id as motoboy_id, m.nome as motoboy_nome, m.telefone as motoboy_telefone,
              CASE 
@@ -190,7 +191,7 @@ async function listarTodosPedidos(req, res) {
 
     if (status && status !== 'todos' && status !== 'all') {
       if (status === 'aguardando' || status === 'disponivel' || status === 'balcao' || status === 'pronto') {
-        conditions.push(`(p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR p.status IS NULL) AND p.motoboy_id IS NULL AND (p.status != 'entregue' OR p.status IS NULL)`);
+        conditions.push(`(p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL) AND p.motoboy_id IS NULL AND (p.status != 'entregue' OR p.status IS NULL)`);
       } else {
         conditions.push(`p.status = ?`);
         params.push(status);
@@ -199,8 +200,8 @@ async function listarTodosPedidos(req, res) {
 
     if (busca && busca.trim() !== '') {
       const termo = `%${busca.trim()}%`;
-      conditions.push(`(p.numero_pedido LIKE ? OR p.cliente LIKE ? OR p.endereco LIKE ? OR p.bairro LIKE ? OR m.nome LIKE ?)`);
-      params.push(termo, termo, termo, termo, termo);
+      conditions.push(`(p.numero_pedido LIKE ? OR p.cliente LIKE ? OR p.endereco LIKE ? OR p.bairro LIKE ? OR p.localizador LIKE ? OR p.telefone_cliente LIKE ? OR m.nome LIKE ?)`);
+      params.push(termo, termo, termo, termo, termo, termo, termo);
     }
 
     if (conditions.length > 0) {
@@ -224,6 +225,7 @@ async function listarTodosPedidos(req, res) {
         bairro: p.bairro || '',
         taxa_entrega: Number(p.taxa_entrega || 0),
         telefone_cliente: p.telefone_cliente || '',
+        localizador: p.localizador || '',
         texto_bruto: p.texto_bruto || '',
         data_inicio: p.data_inicio,
         data_fim: p.data_fim,

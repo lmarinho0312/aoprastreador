@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS pedidos (
     bairro TEXT,
     taxa_entrega REAL DEFAULT 0.0,
     telefone_cliente TEXT,
+    localizador TEXT,
     texto_bruto TEXT,
     data_inicio DATETIME NULL,
     data_fim DATETIME NULL,

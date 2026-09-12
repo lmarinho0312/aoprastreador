@@ -839,7 +839,10 @@
             </button>
           </div>
           <div style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;" id="dtlClienteNome">--</div>
-          <div style="font-size: 13px; color: var(--brand-gold-light); margin-bottom: 8px;" id="dtlClienteTelefone">📞 --</div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
+            <div style="font-size: 13px; color: var(--brand-gold-light);" id="dtlClienteTelefone">📞 --</div>
+            <div style="font-size: 12px; font-weight: 700; color: #fbbf24; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); padding: 2px 8px; border-radius: var(--radius-sm); font-family: monospace; display: none;" id="dtlClienteLocalizador">🔑 PIN: --</div>
+          </div>
           <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.4;" id="dtlClienteEndereco">📍 --</div>
         </div>
 
@@ -1029,6 +1032,27 @@
         .trim();
     }
 
+    function formatarTelefone(tel) {
+      if (!tel) return '';
+      const limpo = String(tel).replace(/\D/g, '');
+      if (limpo.startsWith('0800')) {
+        if (limpo.length >= 11) {
+          return `${limpo.slice(0, 4)} ${limpo.slice(4, 7)} ${limpo.slice(7)}`;
+        }
+        return limpo;
+      }
+      if (limpo.startsWith('0') && limpo.length === 11) {
+        return `(${limpo.slice(0, 3)}) ${limpo.slice(3, 7)}-${limpo.slice(7)}`;
+      }
+      if (limpo.length === 11) {
+        return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 7)}-${limpo.slice(7)}`;
+      }
+      if (limpo.length === 10) {
+        return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 6)}-${limpo.slice(6)}`;
+      }
+      return tel;
+    }
+
     function pedidoCorrespondeBusca(p, termo) {
       if (!termo) return true;
       const t = normalizarTexto(termo);
@@ -1037,6 +1061,7 @@
         normalizarTexto(p.cliente).includes(t) ||
         normalizarTexto(p.endereco).includes(t) ||
         normalizarTexto(p.bairro).includes(t) ||
+        normalizarTexto(p.localizador).includes(t) ||
         normalizarTexto(p.telefone_cliente).includes(t) ||
         normalizarTexto(p.texto_bruto).includes(t) ||
         normalizarTexto(p.origem).includes(t) ||
@@ -1477,7 +1502,10 @@
         <div class="order-card" style="margin-bottom: 0;">
           <div class="order-card-row">
             <strong class="order-number">#${p.numero_pedido}</strong>
-            <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem)}</span>
+            <div style="display: flex; gap: 4px; align-items: center;">
+              ${p.localizador ? `<span style="font-size: 10px; font-weight: 700; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); padding: 1px 6px; border-radius: 4px; font-family: monospace;">PIN: ${p.localizador}</span>` : ''}
+              <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem)}</span>
+            </div>
           </div>
           <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">${p.cliente}</div>
           <div class="order-address">📍 ${p.endereco}</div>
@@ -1598,7 +1626,18 @@
           document.getElementById('dtlHorario').textContent = p.criado_em ? `Criado às ${p.criado_em.substring(11, 16)}` : 'Horário não informado';
 
           document.getElementById('dtlClienteNome').textContent = p.cliente.nome;
-          document.getElementById('dtlClienteTelefone').textContent = `📞 ${p.cliente.telefone}`;
+          const tel = p.cliente.telefone || p.telefone_cliente;
+          document.getElementById('dtlClienteTelefone').textContent = tel ? `📞 ${formatarTelefone(tel)}` : '📞 Telefone não informado';
+          const loc = p.cliente.localizador || p.localizador;
+          const elLoc = document.getElementById('dtlClienteLocalizador');
+          if (elLoc) {
+            if (loc) {
+              elLoc.textContent = `🔑 PIN: ${loc}`;
+              elLoc.style.display = 'inline-block';
+            } else {
+              elLoc.style.display = 'none';
+            }
+          }
           document.getElementById('dtlClienteEndereco').textContent = `📍 ${p.cliente.endereco}${p.cliente.bairro ? ' — ' + p.cliente.bairro : ''}`;
 
           // Itens
