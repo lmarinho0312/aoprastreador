@@ -84,75 +84,121 @@ function extrairBairroDeTexto(texto) {
  */
 function extrairDataComanda(textoBruto) {
   if (!textoBruto || typeof textoBruto !== 'string') return null;
-  // 1. DD/MM/YYYY
-  const matchSlash = textoBruto.match(/\b([0-3][0-9])\/(0[1-9]|1[0-2])\/(20[2-9][0-9])\b/);
-  if (matchSlash) {
-    return `${matchSlash[3]}-${matchSlash[2]}-${matchSlash[1]}`;
+
+  // 1. Data explícita associada a rótulos do pedido (Data, Horário, Aceite, Emissão, Previsão, Pedido em:)
+  const regexRotuloData = /(?:Data|Hor[aá]rio|Aceite|Emiss[aã]o|Previs[aã]o|Pedido)\s*(?:do\s*pedido|de\s*aceite)?\s*[:\-]?\s*([0-3]?[0-9])[\/\-](0[1-9]|1[0-2])[\/\-](20[2-9][0-9])/i;
+  const matchRotulo = textoBruto.match(regexRotuloData);
+  if (matchRotulo) {
+    const dia = matchRotulo[1].padStart(2, '0');
+    return `${matchRotulo[3]}-${matchRotulo[2]}-${dia}`;
   }
-  // 2. DD de Mês (ex: "11 de set", "12 de set")
+
+  // 2. DD de Mês (ex: "13 de set", "Horário de aceite do pedido: 13 de set 18:38")
   const meses = {
     'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04', 'mai': '05', 'jun': '06',
     'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12'
   };
-  const matchMesExtenso = textoBruto.match(/\b([0-3]?[0-9])\s+de\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i);
+  const matchMesExtenso = textoBruto.match(/(?:Data|Hor[aá]rio|Aceite|Previs[aã]o|Entrega)?.*?([0-3]?[0-9])\s+de\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i);
   if (matchMesExtenso) {
     const dia = matchMesExtenso[1].padStart(2, '0');
     const mes = meses[matchMesExtenso[2].toLowerCase()];
     const anoAtual = new Date().getFullYear();
     return `${anoAtual}-${mes}-${dia}`;
   }
+
+  // 3. DD/MM/YYYY geral (apenas se for do ano atual em diante, evitando datas antigas de CNPJ/cupom)
+  const matchSlash = textoBruto.match(/\b([0-3][0-9])\/(0[1-9]|1[0-2])\/(20[2-9][0-9])\b/);
+  if (matchSlash) {
+    const anoAtual = new Date().getFullYear();
+    const anoEncontrado = Number(matchSlash[3]);
+    if (anoEncontrado >= anoAtual) {
+      return `${matchSlash[3]}-${matchSlash[2]}-${matchSlash[1]}`;
+    }
+  }
+
   return null;
 }
 
 /**
  * Detecta se uma comanda é destinada para RETIRADA / CONSUMO NO LOCAL (não deve ir para entrega).
  */
-function isComandaRetirada(textoBruto, endereco = '') {
+function isComandaRetirada(textoBruto, endereco = '', taxaEntrega = 0) {
+  // REGRA DE OURO 1: Se tem taxa de entrega > 0, NUNCA é retirada! É entrega com motoboy!
+  const taxaNum = Number(taxaEntrega || 0);
+  if (taxaNum > 0) {
+    return false;
+  }
+
   const endLimpo = String(endereco || '').trim().toLowerCase();
+
+  // REGRA DE OURO 2: Se o endereço contém rua/av/travessa com número, é entrega!
+  const temEnderecoRuaComNumero = /\b(?:rua|r\.|av\.|avenida|travessa|trav\.|alameda|estrada|estr\.|pra[çc]a)\b/i.test(endLimpo) && /\d+/.test(endLimpo);
+  if (temEnderecoRuaComNumero && !endLimpo.includes('retirada') && !endLimpo.includes('retirar no local')) {
+    return false;
+  }
+
+  // REGRA DE OURO 3: Se o texto explicitamente indica entrega pela loja/plataforma
+  if (textoBruto && typeof textoBruto === 'string') {
+    const textoUpper = textoBruto.toUpperCase();
+    if (textoUpper.includes('ENTREGA FEITA PELA LOJA') || 
+        textoUpper.includes('ENTREGA PARCEIRA') ||
+        textoUpper.includes('IFOOD ENTREGA') ||
+        textoUpper.includes('99 FOOD DELIVERY') ||
+        textoUpper.includes('TAXA DE ENTREGA') ||
+        textoUpper.includes('TX ENTREGA') ||
+        textoUpper.includes('FRETE:')) {
+      return false;
+    }
+  }
+
+  // Se o endereço explicitamente diz retirada
   if (endLimpo && (endLimpo.includes('retirada') || endLimpo.includes('retirar no local') || endLimpo.includes('buscar no local'))) {
     return true;
   }
+
   if (!textoBruto || typeof textoBruto !== 'string') return false;
   const textoNorm = String(textoBruto)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase();
 
+  // Expressões inequívocas de retirada / consumo no salão
   const padroes = [
     /\bRETIRAR\s+NO\s+LOCAL\b/,
     /\bRETIRADA\s+NO\s+LOCAL\b/,
     /\bRETIRAR\s+NA\s+LOJA\b/,
     /\bRETIRADA\s+NA\s+LOJA\b/,
-    /\bRETIRADA\s+NO\s+(?:ESTABELECIMENTO|RESTAURANTE|BALCAO)\b/,
-    /\bRETIRAR\s+NO\s+(?:ESTABELECIMENTO|RESTAURANTE|BALCAO)\b/,
+    /\bRETIRADA\s+NO\s+ESTABELECIMENTO\b/,
+    /\bRETIRAR\s+NO\s+ESTABELECIMENTO\b/,
     /\bRETIRADA\s+PELO\s+CLIENTE\b/,
+    /\bRETIRAR\s+PELO\s+CLIENTE\b/,
     /\bBUSCAR\s+NO\s+LOCAL\b/,
     /\bBUSCAR\s+NA\s+LOJA\b/,
     /\bIFOOD\s+RETIRADA\b/,
     /\b99\s*(?:FOOD\s*)?RETIRADA\b/,
     /\bCARDAPIO\s*(?:WEB\s*)?RETIRADA\b/,
-    /\bPARA\s+RETIRAR\b/,
-    /\bPRA\s+RETIRAR\b/,
     /\bCONSUMO\s+NO\s+LOCAL\b/,
     /\bCONSUMO\s+LOCAL\b/,
-    /\bPRA\s+VIAGEM\b/,
-    /\bPARA\s+VIAGEM\b/
+    /\bMESA\s*:\s*\d+\b/
   ];
 
   if (padroes.some(rx => rx.test(textoNorm))) {
     return true;
   }
 
-  const linhas = textoNorm.split(/[\r\n]+/).map(l => l.trim());
-  for (const linha of linhas) {
-    if (/^(?:[-*=_#\s]*)(?:RETIRADA|RETIRAR|RETIRA|BALCAO|VIAGEM|RETIRAR\s+NO\s+LOCAL)(?:[-*=_#\s]*)$/.test(linha)) {
-      return true;
-    }
+  // Seção/tipo de entrega explícito como "Tipo: Retirada" ou "Forma: Retirar"
+  if (/\b(?:TIPO|MODO|FORMA)\s*(?:DE\s+ENTREGA)?\s*:\s*(?:RETIRADA|RETIRAR|BALCAO)\b/.test(textoNorm)) {
+    return true;
   }
 
-  const semEnderecoValido = !endLimpo || endLimpo.length < 5 || endLimpo === 'null' || endLimpo.includes('balcao');
-  if (semEnderecoValido && /\b(?:RETIRADA|RETIRAR)\b/.test(textoNorm)) {
-    return true;
+  // Linhas isoladas contendo APENAS "RETIRADA NO LOCAL" ou "RETIRADA"
+  const linhas = textoNorm.split(/[\r\n]+/).map(l => l.trim());
+  for (const linha of linhas) {
+    if (/^(?:[-*=_#\s]*)(?:RETIRADA\s+NO\s+LOCAL|RETIRAR\s+NO\s+LOCAL|RETIRADA)(?:[-*=_#\s]*)$/.test(linha)) {
+      if (!temEnderecoRuaComNumero) {
+        return true;
+      }
+    }
   }
 
   return false;
@@ -216,49 +262,53 @@ async function webhookSpool(req, res) {
     }
 
     // 2. Proteção contra pedidos de RETIRADA / BALCÃO (não devem ir para motoboys)
-    const ehRetirada = Boolean(retiradaInformada) || (cleanTextoBruto ? isComandaRetirada(cleanTextoBruto, cleanEndereco) : false);
+    const ehRetirada = Boolean(retiradaInformada) || (cleanTextoBruto ? isComandaRetirada(cleanTextoBruto, cleanEndereco, taxa) : false);
     if (ehRetirada) {
       console.log(`ℹ️ Pedido ${cleanOrigem} #${cleanPedidoId} identificado como RETIRADA. Descartado da fila de entregas.`);
-      return res.json(200, {
-        success: true,
+      return res.json(202, {
+        success: false,
         descartado: true,
+        motivo: 'retirada_local',
         message: `Pedido ${cleanOrigem} #${cleanPedidoId} é para RETIRADA NO LOCAL. Não adicionado à fila de motoboys.`
       });
     }
 
-    // 3. Proteção contra Comandas Históricas / Spool Antigo
-    // Se a comanda contém data explícita e for de dia anterior, descartar preventivamente
+    // 3. Proteção contra Comandas Históricas / Spool Antigo (apenas descarta se for de mais de 2 dias atrás)
+    // Isso garante que entregas do turno noturno que cruzam a meia-noite (23h as 02h) nunca sejam rejeitadas!
     const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
     const comandaDate = dataInformada || (cleanTextoBruto ? extrairDataComanda(cleanTextoBruto) : null);
-    if (comandaDate && comandaDate < hojeStr) {
-      console.log(`⏳ Comanda histórica descartada: ${cleanOrigem} #${cleanPedidoId} (${comandaDate} < hoje ${hojeStr}).`);
-      return res.json(200, {
-        success: true,
-        descartado: true,
-        message: `Comanda histórica (${comandaDate}) descartada. Apenas pedidos do dia atual (${hojeStr}) são aceitos.`
-      });
+    if (comandaDate) {
+      const dataDiffMs = new Date(`${hojeStr}T12:00:00Z`) - new Date(`${comandaDate}T12:00:00Z`);
+      const diasAtras = Math.floor(dataDiffMs / (1000 * 60 * 60 * 24));
+      if (diasAtras >= 2) {
+        console.log(`⏳ Comanda histórica descartada: ${cleanOrigem} #${cleanPedidoId} (${comandaDate} - ${diasAtras} dias atrás).`);
+        return res.json(202, {
+          success: false,
+          descartado: true,
+          motivo: 'comanda_historica',
+          message: `Comanda histórica (${comandaDate}) descartada. Apenas pedidos recentes são aceitos.`
+        });
+      }
     }
 
     const db = getDb();
 
-    // 4. Mecanismo Anti-Duplicação Estrito (origem + pedido_id_origem no mesmo dia)
-    // Permite que plataformas como 99Food reutilizem o mesmo número em dias diferentes (ex: #010 ontem e #010 hoje),
-    // bloqueando duplicatas apenas se já registrado na data de hoje (horário de Brasília UTC-3).
-    const dataChecagem = comandaDate || hojeStr;
+    // 4. Mecanismo Anti-Duplicação Estrito (origem + pedido_id_origem nas últimas 36 horas)
+    // Permite que plataformas reutilizem numerações após o ciclo operacional, sem bloquear pedidos do mesmo turno
     const pedidoExistente = await db.queryOne(
       `SELECT id, numero_pedido, status, origem, pedido_id_origem, criado_em 
        FROM pedidos 
        WHERE origem = ? 
          AND pedido_id_origem = ?
-         AND DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) = ?`,
-      [cleanOrigem, cleanPedidoId, dataChecagem]
+         AND datetime(criado_em) >= datetime('now', '-3 hours', '-36 hours')`,
+      [cleanOrigem, cleanPedidoId]
     );
 
     if (pedidoExistente) {
       return res.json(200, {
         success: true,
         duplicado: true,
-        message: `Pedido ${cleanOrigem} #${cleanPedidoId} já registrado anteriormente na data ${dataChecagem}.`,
+        message: `Pedido ${cleanOrigem} #${cleanPedidoId} já registrado anteriormente.`,
         pedido: pedidoExistente
       });
     }

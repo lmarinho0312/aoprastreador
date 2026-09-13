@@ -22,7 +22,26 @@ function getDb() {
       authToken: config.TURSO_TOKEN
     });
 
-    // Wrapper que emula a API síncrona do node:sqlite mas usa o Turso async
+    // Função de resiliência com retry exponencial contra oscilações de rede com o Turso
+    async function executeWithRetry(fn, maxRetries = 3, initialDelayMs = 250) {
+      let attempt = 0;
+      while (true) {
+        try {
+          return await fn();
+        } catch (err) {
+          attempt++;
+          if (attempt >= maxRetries) {
+            console.error(`❌ Falha definitiva na operação com Turso após ${attempt} tentativas:`, err.message);
+            throw err;
+          }
+          const delay = initialDelayMs * Math.pow(2, attempt - 1);
+          console.warn(`⚠️ Oscilação na conexão com Turso (tentativa ${attempt}/${maxRetries}): ${err.message}. Retentando em ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+    }
+
+    // Wrapper que emula a API síncrona do node:sqlite mas usa o Turso async com retry automático
     dbInstance = {
       _client: client,
       _isTurso: true,
@@ -37,28 +56,36 @@ function getDb() {
           throw new Error('Turso é assíncrono. Use await db.execute() diretamente nos controllers.');
         }
       }),
-      // API assíncrona real para uso nos controllers
+      // API assíncrona real resiliente para uso nos controllers
       query: async (sql, args = []) => {
-        const result = await client.execute({ sql, args });
-        return result.rows;
+        return executeWithRetry(async () => {
+          const result = await client.execute({ sql, args });
+          return result.rows;
+        });
       },
       queryOne: async (sql, args = []) => {
-        const result = await client.execute({ sql, args });
-        return result.rows[0] || null;
+        return executeWithRetry(async () => {
+          const result = await client.execute({ sql, args });
+          return result.rows[0] || null;
+        });
       },
       execute: async (sql, args = []) => {
-        const result = await client.execute({ sql, args });
-        return {
-          changes: result.rowsAffected,
-          lastInsertRowid: result.lastInsertRowid
-        };
+        return executeWithRetry(async () => {
+          const result = await client.execute({ sql, args });
+          return {
+            changes: result.rowsAffected,
+            lastInsertRowid: result.lastInsertRowid
+          };
+        });
       },
       exec: async (sql) => {
-        await client.executeMultiple(sql);
+        return executeWithRetry(async () => {
+          await client.executeMultiple(sql);
+        });
       }
     };
 
-    console.log('✅ Banco de dados Turso (nuvem) conectado.');
+    console.log('✅ Banco de dados Turso (nuvem) conectado com resiliência ativa.');
     return dbInstance;
   }
 

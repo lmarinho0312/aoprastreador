@@ -55,10 +55,10 @@ function parseComandaTexto(textoBruto) {
 
   // Padrão 1: "#1234", "#10", "#01" ou "PEDIDO: #1234" ou "# 1234"
   const matchIdHash = texto.match(/#\s*([0-9]{1,10})\b/);
-  // Padrão 2: Número isolado entre linhas de traço (muito comum no iFood Expedição: "-----\n 0117 \n-----")
-  const matchCentered = texto.match(/-{5,}[\r\n]+\s*([0-9]{1,10})\s*[\r\n]+-{5,}/);
-  // Padrão 3: "Pedido: 1234", "Pedido 1234", "Ordem: 1234"
-  const matchIdPedido = texto.match(/\b(?:PEDIDO|ORDEM)\s*(?:N[ºo°.]|DO PEDIDO)?\s*[:#\-]?\s*#?\s*([0-9]{1,10})\b/i);
+  // Padrão 2: Número isolado entre linhas de divisórias (muito comum no iFood: "-----\n 0117 \n-----" ou "=====\n 0117 \n=====")
+  const matchCentered = texto.match(/[-=*_]{5,}[\r\n]+\s*(?:ENTREGA[\r\n]+\s*)?([0-9]{1,10})\s*[\r\n]+[-=*_]{5,}/i);
+  // Padrão 3: "Pedido: 1234", "Pedido 1234", "Pedido de Entrega: 1234", "Nº do Pedido: 1234"
+  const matchIdPedido = texto.match(/\b(?:PEDIDO|ORDEM)\s*(?:DE\s+ENTREGA\s*)?(?:N[ºo°.]|DO PEDIDO)?\s*[:#\-]?\s*#?\s*([0-9]{1,10})\b/i);
   // Padrão 4: "Código: 12345" ou "Cód: ABC-123"
   const matchIdCodigo = texto.match(/\b(?:C[ÓOó]DIGO|C[ÓOó]D)\s*[:#]\s*([0-9A-Za-z\-]{1,10})\b/i);
   // Padrão 5: Específico 99 Food isolado
@@ -307,7 +307,7 @@ function parseComandaTexto(textoBruto) {
   }
 
   // 7. Identificar se o Pedido é para RETIRADA / BALCÃO (não deve ir para motoboys)
-  const isRetirada = isComandaRetirada(texto, endereco);
+  const isRetirada = isComandaRetirada(texto, endereco, taxaEntrega);
 
   // 8. Extrair Data da Comanda (DD/MM/AAAA ou DD de Mês)
   const dataComanda = extrairDataComanda(texto);
@@ -333,23 +333,38 @@ function parseComandaTexto(textoBruto) {
  */
 function extrairDataComanda(textoBruto) {
   if (!textoBruto || typeof textoBruto !== 'string') return null;
-  // 1. DD/MM/YYYY
-  const matchSlash = textoBruto.match(/\b([0-3][0-9])\/(0[1-9]|1[0-2])\/(20[2-9][0-9])\b/);
-  if (matchSlash) {
-    return `${matchSlash[3]}-${matchSlash[2]}-${matchSlash[1]}`;
+
+  // 1. Data explícita associada a rótulos do pedido (Data, Horário, Aceite, Emissão, Previsão, Pedido em:)
+  const regexRotuloData = /(?:Data|Hor[aá]rio|Aceite|Emiss[aã]o|Previs[aã]o|Pedido)\s*(?:do\s*pedido|de\s*aceite)?\s*[:\-]?\s*([0-3]?[0-9])[\/\-](0[1-9]|1[0-2])[\/\-](20[2-9][0-9])/i;
+  const matchRotulo = textoBruto.match(regexRotuloData);
+  if (matchRotulo) {
+    const dia = matchRotulo[1].padStart(2, '0');
+    return `${matchRotulo[3]}-${matchRotulo[2]}-${dia}`;
   }
-  // 2. DD de Mês (ex: "11 de set", "12 de set")
+
+  // 2. DD de Mês (ex: "13 de set", "Horário de aceite do pedido: 13 de set 18:38")
   const meses = {
     'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04', 'mai': '05', 'jun': '06',
     'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12'
   };
-  const matchMesExtenso = textoBruto.match(/\b([0-3]?[0-9])\s+de\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i);
+  const matchMesExtenso = textoBruto.match(/(?:Data|Hor[aá]rio|Aceite|Previs[aã]o|Entrega)?.*?([0-3]?[0-9])\s+de\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i);
   if (matchMesExtenso) {
     const dia = matchMesExtenso[1].padStart(2, '0');
     const mes = meses[matchMesExtenso[2].toLowerCase()];
     const anoAtual = new Date().getFullYear();
     return `${anoAtual}-${mes}-${dia}`;
   }
+
+  // 3. DD/MM/YYYY geral (apenas se for do ano atual em diante, evitando datas antigas de CNPJ/cupom)
+  const matchSlash = textoBruto.match(/\b([0-3][0-9])\/(0[1-9]|1[0-2])\/(20[2-9][0-9])\b/);
+  if (matchSlash) {
+    const anoAtual = new Date().getFullYear();
+    const anoEncontrado = Number(matchSlash[3]);
+    if (anoEncontrado >= anoAtual) {
+      return `${matchSlash[3]}-${matchSlash[2]}-${matchSlash[1]}`;
+    }
+  }
+
   return null;
 }
 
@@ -357,70 +372,89 @@ function extrairDataComanda(textoBruto) {
  * Detecta se uma comanda é destinada para RETIRADA / CONSUMO NO LOCAL (não deve ir para entrega).
  * @param {string} textoBruto Texto completo da comanda
  * @param {string} endereco Endereço extraído (se houver)
+ * @param {number} taxaEntrega Taxa de entrega cobrada (se houver)
  * @returns {boolean} true se for retirada, false se for entrega
  */
-function isComandaRetirada(textoBruto, endereco = '') {
+function isComandaRetirada(textoBruto, endereco = '', taxaEntrega = 0) {
+  // REGRA DE OURO 1: Se tem taxa de entrega > 0, NUNCA é retirada! É entrega com motoboy!
+  const taxaNum = Number(taxaEntrega || 0);
+  if (taxaNum > 0) {
+    return false;
+  }
+
   const endLimpo = String(endereco || '').trim().toLowerCase();
+
+  // REGRA DE OURO 2: Se o endereço contém rua/av/travessa com número, é entrega!
+  const temEnderecoRuaComNumero = /\b(?:rua|r\.|av\.|avenida|travessa|trav\.|alameda|estrada|estr\.|pra[çc]a)\b/i.test(endLimpo) && /\d+/.test(endLimpo);
+  if (temEnderecoRuaComNumero && !endLimpo.includes('retirada') && !endLimpo.includes('retirar no local')) {
+    return false;
+  }
+
+  // REGRA DE OURO 3: Se o texto explicitamente indica entrega pela loja/plataforma
+  if (textoBruto && typeof textoBruto === 'string') {
+    const textoUpper = textoBruto.toUpperCase();
+    if (textoUpper.includes('ENTREGA FEITA PELA LOJA') || 
+        textoUpper.includes('ENTREGA PARCEIRA') ||
+        textoUpper.includes('IFOOD ENTREGA') ||
+        textoUpper.includes('99 FOOD DELIVERY') ||
+        textoUpper.includes('TAXA DE ENTREGA') ||
+        textoUpper.includes('TX ENTREGA') ||
+        textoUpper.includes('FRETE:')) {
+      return false;
+    }
+  }
+
+  // Se o endereço explicitamente diz retirada
   if (endLimpo && (endLimpo.includes('retirada') || endLimpo.includes('retirar no local') || endLimpo.includes('buscar no local'))) {
     return true;
   }
 
   if (!textoBruto || typeof textoBruto !== 'string') return false;
-
   const textoNorm = String(textoBruto)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase();
 
-  // 1. Expressões compostas explícitas indicando retirada / consumo local
-  const padroesCompostos = [
+  // Expressões inequívocas de retirada / consumo no salão
+  const padroes = [
     /\bRETIRAR\s+NO\s+LOCAL\b/,
     /\bRETIRADA\s+NO\s+LOCAL\b/,
     /\bRETIRAR\s+NA\s+LOJA\b/,
     /\bRETIRADA\s+NA\s+LOJA\b/,
-    /\bRETIRADA\s+NO\s+(?:ESTABELECIMENTO|RESTAURANTE|BALCAO)\b/,
-    /\bRETIRAR\s+NO\s+(?:ESTABELECIMENTO|RESTAURANTE|BALCAO)\b/,
+    /\bRETIRADA\s+NO\s+ESTABELECIMENTO\b/,
+    /\bRETIRAR\s+NO\s+ESTABELECIMENTO\b/,
     /\bRETIRADA\s+PELO\s+CLIENTE\b/,
     /\bRETIRAR\s+PELO\s+CLIENTE\b/,
     /\bBUSCAR\s+NO\s+LOCAL\b/,
     /\bBUSCAR\s+NA\s+LOJA\b/,
-    /\bPEGA(?:R)?\s+NO\s+LOCAL\b/,
-    /\bPEGA(?:R)?\s+NA\s+LOJA\b/,
     /\bIFOOD\s+RETIRADA\b/,
     /\b99\s*(?:FOOD\s*)?RETIRADA\b/,
     /\bCARDAPIO\s*(?:WEB\s*)?RETIRADA\b/,
-    /\bPARA\s+RETIRAR\b/,
-    /\bPRA\s+RETIRAR\b/,
-    /\bPEDIDO\s+PARA\s+RETIRADA\b/,
-    /\bRETIRADA\s+PROGRAMADA\b/,
-    /\b(?:TIPO|ENTREGA|MODO|FORMA)\s*(?:DE\s+ENTREGA)?\s*:\s*RETIRADA\b/,
-    /\b(?:TIPO|ENTREGA|MODO|FORMA)\s*(?:DE\s+ENTREGA)?\s*:\s*RETIRAR\b/,
-    /\b(?:TIPO|ENTREGA|MODO|FORMA)\s*(?:DE\s+ENTREGA)?\s*:\s*RETIRAR\s+NO\s+LOCAL\b/,
     /\bCONSUMO\s+NO\s+LOCAL\b/,
     /\bCONSUMO\s+LOCAL\b/,
-    /\bPRA\s+VIAGEM\b/,
-    /\bPARA\s+VIAGEM\b/
+    /\bMESA\s*:\s*\d+\b/
   ];
 
-  if (padroesCompostos.some(rx => rx.test(textoNorm))) {
+  if (padroes.some(rx => rx.test(textoNorm))) {
     return true;
   }
 
-  // 2. Linhas isoladas / seções contendo apenas indicação de retirada
+  // Seção/tipo de entrega explícito como "Tipo: Retirada" ou "Forma: Retirar"
+  if (/\b(?:TIPO|MODO|FORMA)\s*(?:DE\s+ENTREGA)?\s*:\s*(?:RETIRADA|RETIRAR|BALCAO)\b/.test(textoNorm)) {
+    return true;
+  }
+
+  // Linhas isoladas contendo APENAS "RETIRADA NO LOCAL" ou "RETIRADA"
   const linhas = textoNorm.split(/[\r\n]+/).map(l => l.trim());
   for (const linha of linhas) {
-    if (/^(?:[-*=_#\s]*)(?:RETIRADA|RETIRAR|RETIRA|BALCAO|VIAGEM|RETIRAR\s+NO\s+LOCAL)(?:[-*=_#\s]*)$/.test(linha)) {
-      return true;
+    if (/^(?:[-*=_#\s]*)(?:RETIRADA\s+NO\s+LOCAL|RETIRAR\s+NO\s+LOCAL|RETIRADA)(?:[-*=_#\s]*)$/.test(linha)) {
+      if (!temEnderecoRuaComNumero) {
+        return true;
+      }
     }
-  }
-
-  // 3. Ausência de endereço de entrega válido combinada com presença de "RETIRADA" ou "RETIRAR"
-  const semEnderecoValido = !endLimpo || endLimpo.length < 5 || endLimpo === 'null' || endLimpo.includes('balcao');
-  if (semEnderecoValido && /\b(?:RETIRADA|RETIRAR)\b/.test(textoNorm)) {
-    return true;
   }
 
   return false;
 }
 
-module.exports = { parseComandaTexto, isComandaRetirada, extrairBairroDeTexto, BAIRROS_OFICIAIS };
+module.exports = { parseComandaTexto, isComandaRetirada, extrairDataComanda, extrairBairroDeTexto, BAIRROS_OFICIAIS };

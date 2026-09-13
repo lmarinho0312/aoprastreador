@@ -117,12 +117,14 @@ function enviarPedidoParaApi(pedidoData) {
 let isScanning = false;
 // Mutex: impede que dois arquivos com o mesmo pedido sejam processados ao mesmo tempo
 const pedidosEmProcessamento = new Set();
+// Rastreamento de tentativas por arquivo para evitar cache prematuro de arquivos sendo gravados
+const arquivosPendentes = new Map(); // fileName -> { tentativas: number, ultimoTamanho: number }
 
 async function processarArquivoSpool(filePath) {
   const fileName = path.basename(filePath);
   const cacheKeyFile = `FILE_${fileName}`;
 
-  // Ignorar arquivos .TMP, .SHD e arquivos já processados
+  // Ignorar arquivos .TMP, .SHD e arquivos já processados definitivamente
   const ext = path.extname(fileName).toLowerCase();
   if (ext === '.tmp' || ext === '.shd') return;
   if (processedCache.has(cacheKeyFile)) return;
@@ -133,6 +135,7 @@ async function processarArquivoSpool(filePath) {
     const limiteHoras = 18 * 60 * 60 * 1000;
     if (Date.now() - stat.mtimeMs > limiteHoras) {
       processedCache.add(cacheKeyFile);
+      arquivosPendentes.delete(fileName);
       return;
     }
   } catch (e) {}
@@ -146,17 +149,27 @@ async function processarArquivoSpool(filePath) {
         if (fileBuffer && fileBuffer.length > 0) break;
       }
     } catch (err) {
-      // EBUSY ou EPERM temporário enquanto grava
+      // EBUSY ou EPERM temporário enquanto o Windows Spooler grava
     }
     await new Promise(r => setTimeout(r, 200));
   }
 
+  // Se não conseguiu ler ou arquivo tem menos de 10 bytes, NÃO descartar imediatamente!
+  // O Windows pode estar iniciando o spooling do documento agora.
   if (!fileBuffer || fileBuffer.length < 10) {
-    processedCache.add(cacheKeyFile);
+    const pendente = arquivosPendentes.get(fileName) || { tentativas: 0, ultimoTamanho: 0 };
+    pendente.tentativas++;
+    arquivosPendentes.set(fileName, pendente);
+
+    // Só descarta se passou de 10 ciclos completos (5 segundos) sem nenhum byte gravado
+    if (pendente.tentativas >= 10) {
+      processedCache.add(cacheKeyFile);
+      arquivosPendentes.delete(fileName);
+    }
     return;
   }
 
-  // 1. Tentar decodificar texto ESC/POS direto (iFood Gestor, Cardápio Web)
+  // 1. Tentar decodificar texto ESC/POS direto (iFood Gestor, Cardápio Web, 99Food texto)
   let textoLimpo = decodeEscPosBuffer(fileBuffer);
   let parsed = parseComandaTexto(textoLimpo);
 
@@ -195,9 +208,24 @@ async function processarArquivoSpool(filePath) {
     }
   }
 
-  // Se ainda assim não encontrou pedidoId, ignora este arquivo
+  // Se ainda assim não encontrou pedidoId, verificar se o arquivo ainda está crescendo
   if (!parsed || !parsed.pedidoId) {
+    const pendente = arquivosPendentes.get(fileName) || { tentativas: 0, ultimoTamanho: 0 };
+    pendente.tentativas++;
+
+    const tamanhoAtual = fileBuffer.length;
+    const aindaCrescendo = tamanhoAtual !== pendente.ultimoTamanho;
+    pendente.ultimoTamanho = tamanhoAtual;
+    arquivosPendentes.set(fileName, pendente);
+
+    // Se o arquivo ainda está recebendo bytes ou ainda não deu 10 ciclos de tentativas, aguarda
+    if (aindaCrescendo || pendente.tentativas < 10) {
+      return;
+    }
+
+    // Após 10 ciclos sem mudança de tamanho e sem pedido detectado, ignora definitivamente
     processedCache.add(cacheKeyFile);
+    arquivosPendentes.delete(fileName);
     return;
   }
 
@@ -205,6 +233,7 @@ async function processarArquivoSpool(filePath) {
   if (parsed.isRetirada) {
     log(`ℹ️ Pedido ${parsed.origem} #${parsed.pedidoId} é para RETIRADA NO LOCAL (não requer motoboy). Ignorando [${fileName}].`);
     processedCache.add(cacheKeyFile);
+    arquivosPendentes.delete(fileName);
     salvarCache();
     return;
   }
@@ -212,12 +241,17 @@ async function processarArquivoSpool(filePath) {
   // ── ANTI-DUPLICAÇÃO E DESCARTE DE COMANDAS ANTIGAS ────────────────────
   const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
-  // Se a comanda contém data explícita e for de dia anterior, descartar preventivamente
-  if (parsed.dataComanda && parsed.dataComanda < hojeStr) {
-    log(`⏳ Comanda histórica descartada: ${parsed.origem} #${parsed.pedidoId} (${parsed.dataComanda} < hoje ${hojeStr}). Ignorando [${fileName}].`);
-    processedCache.add(cacheKeyFile);
-    salvarCache();
-    return;
+  // Se a comanda contém data explícita e for de mais de 2 dias atrás, descartar preventivamente
+  if (parsed.dataComanda) {
+    const dataDiffMs = new Date(`${hojeStr}T12:00:00Z`) - new Date(`${parsed.dataComanda}T12:00:00Z`);
+    const diasAtras = Math.floor(dataDiffMs / (1000 * 60 * 60 * 24));
+    if (diasAtras >= 2) {
+      log(`⏳ Comanda histórica descartada: ${parsed.origem} #${parsed.pedidoId} (${parsed.dataComanda} - ${diasAtras} dias atrás). Ignorando [${fileName}].`);
+      processedCache.add(cacheKeyFile);
+      arquivosPendentes.delete(fileName);
+      salvarCache();
+      return;
+    }
   }
 
   const dataRef = parsed.dataComanda || hojeStr;
@@ -227,6 +261,7 @@ async function processarArquivoSpool(filePath) {
   if (processedCache.has(cacheKeyOrder) || pedidosEmProcessamento.has(cacheKeyOrder)) {
     log(`ℹ️ Pedido ${parsed.origem} #${parsed.pedidoId} já enviado/em processamento na data ${dataRef}. Ignorando arquivo [${fileName}].`);
     processedCache.add(cacheKeyFile);
+    arquivosPendentes.delete(fileName);
     salvarCache();
     return;
   }
@@ -247,17 +282,31 @@ async function processarArquivoSpool(filePath) {
     log(`🚀 Enviando para API (${config.api_url})...`);
     const resp = await enviarPedidoParaApi(parsed);
 
-    if (resp.statusCode === 200 || resp.statusCode === 201) {
+    if (resp.statusCode === 201) {
       log(`✅ Sucesso! Pedido #${parsed.pedidoId} liberado automaticamente para os motoboys.`);
       processedCache.add(cacheKeyOrder);
       processedCache.add(cacheKeyFile);
+      arquivosPendentes.delete(fileName);
       salvarCache();
 
       if (config.delete_processed_files) {
         try { fs.unlinkSync(filePath); } catch (e) {}
       }
+    } else if (resp.statusCode === 200 && resp.data && resp.data.duplicado) {
+      log(`ℹ️ Pedido #${parsed.pedidoId} já constava no banco de dados. Sincronizado.`);
+      processedCache.add(cacheKeyOrder);
+      processedCache.add(cacheKeyFile);
+      arquivosPendentes.delete(fileName);
+      salvarCache();
+    } else if (resp.statusCode === 202 || (resp.data && resp.data.descartado)) {
+      log(`⚠️ Aviso: Pedido #${parsed.pedidoId} descartado pela API (${resp.data?.motivo || 'regra de negócio'}): ${resp.data?.message}`);
+      processedCache.add(cacheKeyOrder);
+      processedCache.add(cacheKeyFile);
+      arquivosPendentes.delete(fileName);
+      salvarCache();
     } else {
       log(`⚠️ API retornou status ${resp.statusCode}: ${JSON.stringify(resp.data || resp.raw)}`);
+      // Em erro de rede/servidor, não marca no cache para retentar no próximo ciclo
     }
   } catch (err) {
     log(`❌ Erro ao enviar comanda para API: ${err.message}`);
