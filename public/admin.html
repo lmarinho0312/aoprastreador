@@ -736,7 +736,7 @@
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
           <div>
             <h2 class="text-title">💼 Fechamento de Taxas & Repasse</h2>
-            <p class="text-subtitle">Controle de entregas e taxas a pagar para cada entregador. Taxa padrão: <strong style="color: #34d399;">R$ 5,00/entrega</strong> (tabela de bairros em breve).</p>
+            <p class="text-subtitle">Controle de entregas e repasses calculados pela <strong style="color: #34d399;">Tabela Oficial Ao Ponto por Bairro</strong> (58 bairros cadastrados).</p>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <!-- Filtro de Período -->
@@ -1599,7 +1599,7 @@
           <div style="font-size: 13px; color: var(--text-secondary);">👤 <strong>${e.cliente}</strong> — 📍 ${e.endereco}</div>
           <div class="order-meta">
             <span>🛵 Entregador: <strong>${e.motoboy ? e.motoboy.nome : 'Sem motoboy'}</strong></span>
-            <span class="order-price">Taxa: R$ ${e.taxa_entrega.toFixed(2).replace('.', ',')}</span>
+            <span class="order-price">Taxa: R$ ${(e.taxa_repasse !== undefined ? e.taxa_repasse : (e.taxa_entrega || 10)).toFixed(2).replace('.', ',')}</span>
           </div>
         </div>
       `).join('');
@@ -1957,7 +1957,7 @@
                 </div>
                 <div style="background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; display: flex; justify-content: space-between;">
                   <span>📦 <strong>${m.total_entregas}</strong> entregas</span>
-                  <span style="color: var(--text-muted);">R$ 5,00/entrega (padrão)</span>
+                  <span style="color: var(--text-muted);">Tabela Oficial por Bairro</span>
                 </div>
                 <div style="display: flex; gap: 8px;">
                   <a class="btn btn-success btn-sm" style="flex: 1; text-align: center; text-decoration: none;" href="https://wa.me/55${tel}?text=${msgWhats}" target="_blank">💬 WhatsApp</a>

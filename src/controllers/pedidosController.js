@@ -48,6 +48,36 @@ function extrairTelefoneELocalizador(textoBruto) {
   return { telefone, localizador };
 }
 
+const BAIRROS_OFICIAIS = [
+  'Quinta da Barra', 'Granja Florestal', 'Parque do Imbuí', 'Parque do Imbui',
+  'Cascata dos Amores', 'C. das Amores', 'Cascata do Imbuí', 'Cascata do Imbui',
+  'C. do Imbuí', 'Fazenda Ermitage', 'F. Ermitage', 'Parque São Luiz', 'Parque Sao Luiz',
+  'Parque São Luís', 'Parque Sao Luis', 'Granja Guarani', 'Jardim Serrano', 'Vale do Paraíso',
+  'Vale do Paraiso', 'Quebra Frascos', 'Quinta Lebrão', 'Quinta Lebrao', 'Santa Cecília',
+  'Santa Cecilia', 'Três Córregos', 'Tres Corregos', 'Vargem Grande', 'Barra do Imbuí',
+  'Barra do Imbui', 'Jardim Cascata', 'Jardim Meudon', 'Campo Grande', 'Corta Vento',
+  'Fonte Santa', 'Possegueiros', 'Passegueiros', 'Pimenteiras', 'Vale Feliz',
+  'Beira Linha', 'Bom Retiro', 'Fazendinha', 'Rio Lucas', 'Montanhas', 'Paineiras',
+  'Panorama', 'Parque Engá', 'Parque Enga', 'Pinheiros', 'São Pedro', 'Sao Pedro',
+  'Vila Muqui', 'Albuquerque', 'Artistas', 'Pimentel', 'Talmaturgo', 'Taumaturgo',
+  'Fischer', 'Pedreira', 'Rosário', 'Rosario', 'Soberbo', '40 Casas', 'Quarenta Casas',
+  'Agriões', 'Agrioes', 'Araras', 'Caleme', 'Comary', 'Comari', 'Coréia', 'Coreia',
+  'Meudon', 'Salaco', 'Tijuca', 'Várzea', 'Varzea', 'Ermitage', 'Prata', 'Posse',
+  'Barra', 'Alto', 'Golf', 'Golfe'
+];
+
+function extrairBairroDeTexto(texto) {
+  if (!texto || typeof texto !== 'string') return null;
+  for (const b of BAIRROS_OFICIAIS) {
+    const escaped = b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const rx = new RegExp(`(?:^|[\\s,.-])${escaped}(?=[\\s,.-]|$)`, 'i');
+    if (rx.test(texto)) {
+      return b;
+    }
+  }
+  return null;
+}
+
 /**
  * Extrai a data impressa na comanda (DD/MM/AAAA ou DD de Mês)
  * Retorna no formato YYYY-MM-DD
@@ -160,11 +190,19 @@ async function webhookSpool(req, res) {
     const cleanPedidoId = String(pedidoId).trim();
     const cleanCliente = cliente ? String(cliente).trim() : null;
     const cleanEndereco = endereco ? String(endereco).trim() : null;
-    const cleanBairro = bairro ? String(bairro).trim() : null;
+    let cleanBairro = bairro ? String(bairro).trim() : null;
     let cleanTelefone = telefone ? String(telefone).trim() : null;
     let cleanLocalizador = localizador ? String(localizador).trim() : null;
     const cleanTextoBruto = textoBruto ? String(textoBruto).trim() : null;
     const taxa = !isNaN(Number(taxaEntrega)) ? Number(taxaEntrega) : 0.0;
+
+    // Se bairro não veio ou precisa ser complementado, busca na lista de bairros oficiais de Teresópolis
+    if (!cleanBairro || cleanBairro.length < 2) {
+      const bExtraido = extrairBairroDeTexto(cleanEndereco || cleanTextoBruto);
+      if (bExtraido) {
+        cleanBairro = bExtraido;
+      }
+    }
 
     // Se telefone ou localizador não vieram explicitamente no payload, tenta extrair do texto da comanda
     if ((!cleanTelefone || !cleanLocalizador) && cleanTextoBruto) {
@@ -256,23 +294,29 @@ async function listarPedidosDisponiveis(req, res) {
   try {
     const db = getDb();
     const pedidos = await db.query(`
-      SELECT id, numero_pedido, status, origem, pedido_id_origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, criado_em,
-             ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(criado_em, DATETIME('now', '-3 hours')))) * 1440) as minutos_aguardando
-      FROM pedidos
-      WHERE (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL)
-        AND (motoboy_id IS NULL OR status != 'em_rota')
-        AND (status != 'entregue')
-      ORDER BY id DESC
+      SELECT p.id, p.numero_pedido, p.status, p.origem, p.pedido_id_origem, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.criado_em,
+             COALESCE(tb.taxa, 10.00) as taxa_repasse,
+             ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(p.criado_em, DATETIME('now', '-3 hours')))) * 1440) as minutos_aguardando
+      FROM pedidos p
+      LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
+      WHERE (p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR p.status IS NULL)
+        AND (p.motoboy_id IS NULL OR p.status != 'em_rota')
+        AND (p.status != 'entregue')
+      ORDER BY p.id DESC
     `);
 
     return res.json(200, {
       success: true,
       total: pedidos.length,
-      pedidos: pedidos.map(p => ({
-        ...p,
-        taxa_entrega: Number(p.taxa_entrega || 0),
-        minutos_aguardando: Math.max(0, Math.round(Number(p.minutos_aguardando || 0)))
-      }))
+      pedidos: pedidos.map(p => {
+        const repasse = Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : 10.00);
+        return {
+          ...p,
+          taxa_repasse: repasse,
+          taxa_entrega: repasse, // Garantir que a taxa exibida para o motoboy seja sempre o repasse oficial Ao Ponto
+          minutos_aguardando: Math.max(0, Math.round(Number(p.minutos_aguardando || 0)))
+        };
+      })
     });
   } catch (error) {
     console.error('❌ Erro ao listar pedidos disponíveis:', error);
@@ -487,21 +531,27 @@ async function listarPedidosMotoboy(req, res) {
 
     const db = getDb();
     const pedidos = await db.query(
-      `SELECT id, numero_pedido, status, origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, data_inicio, 
-              ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(data_inicio)) * 1440) as minutos_em_rota
-       FROM pedidos 
-       WHERE motoboy_id = ? AND status = 'em_rota' 
-       ORDER BY data_inicio DESC`,
+      `SELECT p.id, p.numero_pedido, p.status, p.origem, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.data_inicio, 
+              COALESCE(tb.taxa, 10.00) as taxa_repasse,
+              ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(p.data_inicio)) * 1440) as minutos_em_rota
+       FROM pedidos p 
+       LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
+       WHERE p.motoboy_id = ? AND p.status = 'em_rota' 
+       ORDER BY p.data_inicio DESC`,
       [Number(motoboy_id)]
     );
 
     return res.json(200, {
       success: true,
-      pedidos: pedidos.map(p => ({
-        ...p,
-        taxa_entrega: Number(p.taxa_entrega || 0),
-        minutos_em_rota: Math.max(0, Math.round(Number(p.minutos_em_rota || 0)))
-      }))
+      pedidos: pedidos.map(p => {
+        const repasse = Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : 10.00);
+        return {
+          ...p,
+          taxa_repasse: repasse,
+          taxa_entrega: repasse, // Sempre mostrar para o motoboy o repasse oficial Ao Ponto
+          minutos_em_rota: Math.max(0, Math.round(Number(p.minutos_em_rota || 0)))
+        };
+      })
     });
   } catch (error) {
     console.error('❌ Erro ao listar pedidos do motoboy:', error);
@@ -586,9 +636,11 @@ async function obterDetalhesPedido(req, res) {
 
     const db = getDb();
     const p = await db.queryOne(
-      `SELECT p.*, m.nome as motoboy_nome, m.telefone as motoboy_telefone, m.latitude as motoboy_lat, m.longitude as motoboy_lng
+      `SELECT p.*, m.nome as motoboy_nome, m.telefone as motoboy_telefone, m.latitude as motoboy_lat, m.longitude as motoboy_lng,
+              COALESCE(tb.taxa, 10.00) as taxa_repasse
        FROM pedidos p
        LEFT JOIN motoboys m ON p.motoboy_id = m.id
+       LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
        WHERE p.id = ? OR p.numero_pedido = ?`,
       [Number(pedidoId) || 0, String(pedidoId).trim()]
     );
@@ -623,7 +675,7 @@ async function obterDetalhesPedido(req, res) {
     }
 
     const subtotal = itens.reduce((acc, it) => acc + (it.preco * it.qtd), 0);
-    const taxa = Number(p.taxa_entrega || 0);
+    const taxa = Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : (p.taxa_entrega || 10.00));
     const total = subtotal + taxa;
 
     // Buscar últimos pontos de GPS da rota
@@ -657,6 +709,7 @@ async function obterDetalhesPedido(req, res) {
         financeiro: {
           subtotal: Number(subtotal.toFixed(2)),
           taxa_entrega: taxa,
+          taxa_repasse: taxa,
           total: Number(total.toFixed(2))
         },
         itens: itens,
@@ -720,9 +773,9 @@ async function obterRendimentosMotoboy(req, res) {
         p.origem,
         p.data_inicio,
         p.data_fim,
-        COALESCE(tb.taxa, 5.00) as taxa_repasse
+        COALESCE(tb.taxa, 10.00) as taxa_repasse
       FROM pedidos p
-      LEFT JOIN taxa_bairro tb ON LOWER(tb.bairro) = LOWER(TRIM(p.bairro))
+      LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
       WHERE p.motoboy_id = ?
         AND p.status = 'entregue'
         ${dataFiltro}
@@ -754,7 +807,7 @@ async function obterRendimentosMotoboy(req, res) {
       success: true,
       motoboy_id: motoboyIdNum,
       periodo,
-      taxa_padrao_sem_bairro: 5.00,
+      taxa_padrao_sem_bairro: 10.00,
       resumo: {
         total_entregas: totalEntregas,
         total_a_receber: Number(totalTaxas.toFixed(2)),

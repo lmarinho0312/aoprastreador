@@ -17,6 +17,7 @@ async function listarHistoricoEntregas(req, res) {
              p.endereco,
              p.bairro,
              p.taxa_entrega,
+             COALESCE(tb.taxa, 10.00) as taxa_repasse,
              p.data_inicio,
              p.data_fim,
              m.id as motoboy_id,
@@ -29,6 +30,7 @@ async function listarHistoricoEntregas(req, res) {
              (SELECT COUNT(*) FROM pedido_rotas pr WHERE pr.pedido_id = p.id) as total_pontos_gps
       FROM pedidos p
       LEFT JOIN motoboys m ON p.motoboy_id = m.id
+      LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
       ORDER BY p.id DESC
     `);
 
@@ -43,7 +45,8 @@ async function listarHistoricoEntregas(req, res) {
         cliente: e.cliente || null,
         endereco: e.endereco || null,
         bairro: e.bairro || null,
-        taxa_entrega: Number(e.taxa_entrega || 0),
+        taxa_repasse: Number(e.taxa_repasse !== undefined ? e.taxa_repasse : 10.00),
+        taxa_entrega: Number(e.taxa_repasse !== undefined ? e.taxa_repasse : (e.taxa_entrega || 10.00)),
         data_inicio: e.data_inicio,
         data_fim: e.data_fim,
         duracao_minutos: e.duracao_minutos !== null ? Math.max(0, Math.round(e.duracao_minutos)) : 0,

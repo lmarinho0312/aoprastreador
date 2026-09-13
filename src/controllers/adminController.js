@@ -171,6 +171,7 @@ async function listarTodosPedidos(req, res) {
              p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente,
              p.localizador,
              p.texto_bruto, p.data_inicio, p.data_fim, p.criado_em,
+             COALESCE(tb.taxa, 10.00) as taxa_repasse,
              m.id as motoboy_id, m.nome as motoboy_nome, m.telefone as motoboy_telefone,
              CASE 
                WHEN p.status = 'em_rota' AND p.data_inicio IS NOT NULL THEN
@@ -184,6 +185,7 @@ async function listarTodosPedidos(req, res) {
              (SELECT COUNT(*) FROM pedido_rotas pr WHERE pr.pedido_id = p.id) as total_pontos_gps
       FROM pedidos p
       LEFT JOIN motoboys m ON p.motoboy_id = m.id
+      LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
     `;
 
     const conditions = [];
@@ -215,29 +217,33 @@ async function listarTodosPedidos(req, res) {
     return res.json(200, {
       success: true,
       total: pedidos.length,
-      pedidos: pedidos.map(p => ({
-        id: p.id,
-        numero_pedido: p.numero_pedido,
-        status: p.status,
-        origem: p.origem || 'MANUAL',
-        cliente: p.cliente || 'Cliente Balcão',
-        endereco: p.endereco || 'Retirada no balcão',
-        bairro: p.bairro || '',
-        taxa_entrega: Number(p.taxa_entrega || 0),
-        telefone_cliente: p.telefone_cliente || '',
-        localizador: p.localizador || '',
-        texto_bruto: p.texto_bruto || '',
-        data_inicio: p.data_inicio,
-        data_fim: p.data_fim,
-        criado_em: p.criado_em,
-        tempo_decorrido_minutos: Math.max(0, Math.round(Number(p.tempo_decorrido_minutos || 0))),
-        motoboy: p.motoboy_id ? {
-          id: p.motoboy_id,
-          nome: p.motoboy_nome,
-          telefone: p.motoboy_telefone
-        } : null,
-        total_pontos_gps: Number(p.total_pontos_gps || 0)
-      }))
+      pedidos: pedidos.map(p => {
+        const repasse = Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : 10.00);
+        return {
+          id: p.id,
+          numero_pedido: p.numero_pedido,
+          status: p.status,
+          origem: p.origem || 'MANUAL',
+          cliente: p.cliente || 'Cliente Balcão',
+          endereco: p.endereco || 'Retirada no balcão',
+          bairro: p.bairro || '',
+          taxa_repasse: repasse,
+          taxa_entrega: repasse, // Reflete a taxa oficial por bairro da Ao Ponto
+          telefone_cliente: p.telefone_cliente || '',
+          localizador: p.localizador || '',
+          texto_bruto: p.texto_bruto || '',
+          data_inicio: p.data_inicio,
+          data_fim: p.data_fim,
+          criado_em: p.criado_em,
+          tempo_decorrido_minutos: Math.max(0, Math.round(Number(p.tempo_decorrido_minutos || 0))),
+          motoboy: p.motoboy_id ? {
+            id: p.motoboy_id,
+            nome: p.motoboy_nome,
+            telefone: p.motoboy_telefone
+          } : null,
+          total_pontos_gps: Number(p.total_pontos_gps || 0)
+        };
+      })
     });
   } catch (error) {
     console.error('❌ Erro ao listar todos os pedidos:', error);
@@ -353,10 +359,10 @@ async function obterFechamentoEntregas(req, res) {
         p.motoboy_id,
         m.nome as motoboy_nome,
         m.telefone as motoboy_telefone,
-        COALESCE(tb.taxa, 5.00) as taxa_repasse
+        COALESCE(tb.taxa, 10.00) as taxa_repasse
       FROM pedidos p
       LEFT JOIN motoboys m ON p.motoboy_id = m.id
-      LEFT JOIN taxa_bairro tb ON LOWER(tb.bairro) = LOWER(TRIM(p.bairro))
+      LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
       WHERE p.status = 'entregue'
         AND p.motoboy_id IS NOT NULL
         ${dataFiltro}
@@ -420,7 +426,7 @@ async function obterFechamentoEntregas(req, res) {
     return res.json(200, {
       success: true,
       periodo,
-      taxa_padrao_sem_bairro: 5.00,
+      taxa_padrao_sem_bairro: 10.00,
       kpis: {
         total_entregas: totalGeralEntregas,
         total_taxas: Number(totalGeralTaxas.toFixed(2)),

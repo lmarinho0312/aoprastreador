@@ -714,7 +714,7 @@
             </div>
           </div>
           <div style="margin-top: 10px; text-align: center; font-size: 11px; color: var(--text-faint);">
-            Taxa padrão: R$ 5,00/entrega por bairro
+            Taxas Oficiais Ao Ponto por Bairro (Tabela Oficial)
           </div>
         </div>
 
@@ -1056,7 +1056,8 @@
 
       // O primeiro pedido é a entrega dominante ativa
       const p = state.pedidosAtivos[0];
-      const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
+      const taxaRepasse = Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : (p.taxa_entrega || 10.00));
+      const taxaStr = `R$ ${taxaRepasse.toFixed(2).replace('.', ',')}`;
       const enderecoCompleto = `${p.endereco}${p.bairro ? ' — ' + p.bairro : ''}`;
 
       container.innerHTML = `
@@ -1090,7 +1091,7 @@
 
           <!-- Meta (Taxa) -->
           <div class="hero-meta-row">
-            <span style="font-size: 13px; color: var(--text-muted);">Taxa do entregador:</span>
+            <span style="font-size: 13px; color: var(--text-muted);">Taxa oficial de repasse:</span>
             <span class="hero-taxa-badge">${taxaStr}</span>
           </div>
 
@@ -1171,7 +1172,7 @@
             ` : ''}
           </div>
           <div style="text-align: right;">
-            <span style="font-size: 13px; font-weight: 700; color: #34d399;">R$ ${(p.taxa_entrega || 0).toFixed(2).replace('.', ',')}</span>
+            <span style="font-size: 13px; font-weight: 700; color: #34d399;">R$ ${(Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : (p.taxa_entrega || 10.00))).toFixed(2).replace('.', ',')}</span>
           </div>
         </div>
       `;
@@ -1276,7 +1277,8 @@
       }
 
       container.innerHTML = pedidosFiltrados.map(p => {
-        const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
+        const taxaRepasse = Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : (p.taxa_entrega || 10.00));
+        const taxaStr = `R$ ${taxaRepasse.toFixed(2).replace('.', ',')}`;
         const tel = p.telefone_cliente ? String(p.telefone_cliente).trim() : '';
         const telLimpo = tel.replace(/\D/g, '');
         const telFormatado = formatarTelefone(tel);
@@ -1303,7 +1305,7 @@
             ` : ''}
 
             <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
-              <span style="font-size: 13px; font-weight: 700; color: #34d399;">Taxa: ${taxaStr}</span>
+              <span style="font-size: 13px; font-weight: 700; color: #34d399;">Taxa repasse: ${taxaStr}</span>
               <button class="btn btn-gold btn-sm" onclick="retirarPedidoBalcao(${p.id}, '${p.numero_pedido}')">
                 🚀 RETIRAR PEDIDO
               </button>

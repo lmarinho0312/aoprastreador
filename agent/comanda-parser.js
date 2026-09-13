@@ -3,6 +3,36 @@
  * Suporta extração de endereço multilinha completo para GPS de alta precisão.
  */
 
+const BAIRROS_OFICIAIS = [
+  'Quinta da Barra', 'Granja Florestal', 'Parque do Imbuí', 'Parque do Imbui',
+  'Cascata dos Amores', 'C. das Amores', 'Cascata do Imbuí', 'Cascata do Imbui',
+  'C. do Imbuí', 'Fazenda Ermitage', 'F. Ermitage', 'Parque São Luiz', 'Parque Sao Luiz',
+  'Parque São Luís', 'Parque Sao Luis', 'Granja Guarani', 'Jardim Serrano', 'Vale do Paraíso',
+  'Vale do Paraiso', 'Quebra Frascos', 'Quinta Lebrão', 'Quinta Lebrao', 'Santa Cecília',
+  'Santa Cecilia', 'Três Córregos', 'Tres Corregos', 'Vargem Grande', 'Barra do Imbuí',
+  'Barra do Imbui', 'Jardim Cascata', 'Jardim Meudon', 'Campo Grande', 'Corta Vento',
+  'Fonte Santa', 'Possegueiros', 'Passegueiros', 'Pimenteiras', 'Vale Feliz',
+  'Beira Linha', 'Bom Retiro', 'Fazendinha', 'Rio Lucas', 'Montanhas', 'Paineiras',
+  'Panorama', 'Parque Engá', 'Parque Enga', 'Pinheiros', 'São Pedro', 'Sao Pedro',
+  'Vila Muqui', 'Albuquerque', 'Artistas', 'Pimentel', 'Talmaturgo', 'Taumaturgo',
+  'Fischer', 'Pedreira', 'Rosário', 'Rosario', 'Soberbo', '40 Casas', 'Quarenta Casas',
+  'Agriões', 'Agrioes', 'Araras', 'Caleme', 'Comary', 'Comari', 'Coréia', 'Coreia',
+  'Meudon', 'Salaco', 'Tijuca', 'Várzea', 'Varzea', 'Ermitage', 'Prata', 'Posse',
+  'Barra', 'Alto', 'Golf', 'Golfe'
+];
+
+function extrairBairroDeTexto(texto) {
+  if (!texto || typeof texto !== 'string') return null;
+  for (const b of BAIRROS_OFICIAIS) {
+    const escaped = b.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&');
+    const rx = new RegExp(`(?:^|[\\s,.-])${escaped}(?=[\\s,.-]|$)`, 'i');
+    if (rx.test(texto)) {
+      return b;
+    }
+  }
+  return null;
+}
+
 function parseComandaTexto(textoBruto) {
   if (!textoBruto || typeof textoBruto !== 'string') return null;
 
@@ -160,10 +190,10 @@ function parseComandaTexto(textoBruto) {
 
       endereco = rawEnd;
 
-      // Tentar extrair Bairro conhecido ou padrão (usando boundary compatível com acentos)
-      const matchBairro99 = endereco.match(/(?:^|[\s,])(V[aá]rzea|Barra\s+do\s+Imbu[íi]|Alto|Taumaturgo|S[aã]o\s+Pedro|Tijuca|Agri[õo]es|Meudon|Golfe|Ermitage|Comari|Cascata\s+dos\s+Amores|Quebra\s+Frascos|Fazendinha|Granja\s+Guarani|Araras|Posse|Bonsucesso)(?=$|[\s,.\-!?;:])/i);
-      if (matchBairro99) {
-        bairro = matchBairro99[1].trim();
+      // Tentar extrair Bairro conhecido da tabela oficial
+      const bairroDetectado = extrairBairroDeTexto(endereco);
+      if (bairroDetectado) {
+        bairro = bairroDetectado;
       }
 
       // Garantir que a cidade Teresópolis esteja no endereço para o GPS
@@ -220,6 +250,11 @@ function parseComandaTexto(textoBruto) {
     const matchB = texto.match(/\b(?:Bairro|Regi[ãa]o):\s*([^\n\r]+)/i);
     if (matchB) {
       bairro = matchB[1].trim().split('\n')[0].split('-')[0].trim();
+    }
+    // Se ainda não achou ou não é reconhecido, tenta pela lista de bairros oficiais
+    const bOficial = extrairBairroDeTexto(bairro || endereco || texto);
+    if (bOficial) {
+      bairro = bOficial;
     }
   }
 
@@ -388,4 +423,4 @@ function isComandaRetirada(textoBruto, endereco = '') {
   return false;
 }
 
-module.exports = { parseComandaTexto, isComandaRetirada };
+module.exports = { parseComandaTexto, isComandaRetirada, extrairBairroDeTexto, BAIRROS_OFICIAIS };
