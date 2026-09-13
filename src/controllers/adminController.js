@@ -442,10 +442,60 @@ async function obterFechamentoEntregas(req, res) {
   }
 }
 
+/**
+ * Criação manual de pedido diretamente pelo Painel Admin
+ * POST /api/admin/pedidos/manual
+ */
+async function criarPedidoManual(req, res) {
+  try {
+    const { numero_pedido, origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, itens, observacoes } = req.body || {};
+
+    if (!numero_pedido) {
+      return res.json(400, { success: false, message: 'Número do pedido é obrigatório.' });
+    }
+
+    const cleanOrigem = (origem || 'MANUAL').trim().toUpperCase();
+    const cleanPedidoId = String(numero_pedido).trim();
+    const cleanCliente = cliente ? String(cliente).trim() : 'Cliente';
+    const cleanEndereco = endereco ? String(endereco).trim() : null;
+    let cleanBairro = bairro ? String(bairro).trim() : null;
+    const cleanTelefone = telefone_cliente ? String(telefone_cliente).trim() : null;
+    const cleanLocalizador = localizador ? String(localizador).trim() : null;
+    const taxa = !isNaN(Number(taxa_entrega)) ? Number(taxa_entrega) : 10.0;
+
+    let textoBrutoParts = [];
+    if (itens) textoBrutoParts.push(String(itens).trim());
+    if (observacoes) textoBrutoParts.push(`Obs: ${String(observacoes).trim()}`);
+    const cleanTextoBruto = textoBrutoParts.length > 0 ? textoBrutoParts.join('\n') : null;
+
+    const db = getDb();
+
+    const result = await db.execute(
+      `INSERT INTO pedidos 
+       (numero_pedido, motoboy_id, status, origem, pedido_id_origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, texto_bruto, criado_em)
+       VALUES (?, NULL, 'disponivel', ?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now', '-3 hours'))`,
+      [cleanPedidoId, cleanOrigem, cleanPedidoId, cleanCliente, cleanEndereco, cleanBairro, taxa, cleanTelefone, cleanLocalizador, cleanTextoBruto]
+    );
+
+    const novoPedidoId = Number(result.lastInsertRowid);
+    const novoPedido = await db.queryOne(`SELECT * FROM pedidos WHERE id = ?`, [novoPedidoId]);
+
+    return res.json(201, {
+      success: true,
+      message: `Pedido #${cleanPedidoId} cadastrado com sucesso!`,
+      pedido: novoPedido
+    });
+  } catch (error) {
+    console.error('❌ Erro ao criar pedido manual:', error);
+    return res.json(500, { success: false, message: 'Erro ao cadastrar pedido manual.', error: error.message });
+  }
+}
+
 module.exports = {
   getPosicoesMapa,
   getDashboardStats,
   listarTodosPedidos,
   listarMotoboysAdmin,
-  obterFechamentoEntregas
+  obterFechamentoEntregas,
+  criarPedidoManual
 };

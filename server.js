@@ -72,6 +72,7 @@ registerRoute('GET', '/api/admin/posicoes-mapa', adminController.getPosicoesMapa
 registerRoute('GET', '/api/admin/historico', historicoController.listarHistoricoEntregas);
 registerRoute('GET', '/api/admin/historico/rota', historicoController.obterRotaPedido);
 registerRoute('GET', '/api/admin/fechamento', adminController.obterFechamentoEntregas);
+registerRoute('POST', '/api/admin/pedidos/manual', adminController.criarPedidoManual);
 
 // Rendimentos Motoboy
 registerRoute('GET', '/api/motoboy/rendimentos', pedidosController.obterRendimentosMotoboy);

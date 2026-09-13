@@ -500,6 +500,10 @@
           <span id="badgeAdminNome">Cozinha</span>
         </div>
 
+        <button class="btn btn-gold btn-sm" onclick="abrirModalNovoPedido()" title="Lançar Novo Pedido Manualmente" style="font-weight: 800; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);">
+          <span>➕ Novo Pedido</span>
+        </button>
+
         <button class="btn btn-secondary btn-sm" onclick="abrirModalAlterarSenha()" title="Alterar Senha de Acesso">
           <span>🔑 Senha</span>
         </button>
@@ -637,9 +641,14 @@
             <h2 class="text-title">Fluxo Operacional de Pedidos</h2>
             <p class="text-subtitle">Acompanhe o ciclo de produção e saída das comandas em tempo real.</p>
           </div>
-          <div class="search-box" style="width: 320px;">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="inputBuscaPedidos" class="form-input" placeholder="Buscar pedido, cliente ou endereço..." oninput="filtrarPedidosKanban()">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button class="btn btn-gold btn-sm" onclick="abrirModalNovoPedido()" title="Lançar Novo Pedido Manualmente" style="font-weight: 800;">
+              <span>➕ Novo Pedido</span>
+            </button>
+            <div class="search-box" style="width: 280px;">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="inputBuscaPedidos" class="form-input" placeholder="Buscar pedido, cliente ou endereço..." oninput="filtrarPedidosKanban()">
+            </div>
           </div>
         </div>
 
@@ -904,6 +913,92 @@
         <div style="display: flex; gap: 10px;">
           <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="fecharModalAlterarSenha()">Cancelar</button>
           <button type="submit" class="btn btn-gold" id="btnSalvarSenhaAdmin" style="flex: 1;">SALVAR SENHA</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE LANÇAR NOVO PEDIDO MANUAL -->
+  <div class="modal-confirm-overlay" id="modalNovoPedido" style="display: none; align-items: center; justify-content: center; z-index: 99990;">
+    <div class="modal-confirm-box" style="max-width: 540px; text-align: left; max-height: 90vh; overflow-y: auto;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <h3 style="font-size: 17px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <span>➕</span> Lançar Novo Pedido
+        </h3>
+        <button class="btn btn-secondary btn-icon" onclick="fecharModalNovoPedido()">✕</button>
+      </div>
+
+      <form id="formNovoPedidoManual" onsubmit="salvarNovoPedidoManual(event)">
+        <!-- Linha 1: Origem e Número -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div>
+            <label class="form-label" for="inpNovoOrigem" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Origem</label>
+            <select id="inpNovoOrigem" class="form-input" style="width: 100%;">
+              <option value="WHATSAPP" selected>WhatsApp</option>
+              <option value="IFOOD">iFood</option>
+              <option value="99FOOD">99Food</option>
+              <option value="BALCAO">Balcão / Telefone</option>
+              <option value="OUTRO">Outro</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" for="inpNovoNumero" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Nº Pedido / Comanda *</label>
+            <input type="text" id="inpNovoNumero" class="form-input" placeholder="Ex: 506031 ou 118" required style="width: 100%;">
+          </div>
+        </div>
+
+        <!-- Linha 2: Cliente e Telefone -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div>
+            <label class="form-label" for="inpNovoCliente" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Nome do Cliente *</label>
+            <input type="text" id="inpNovoCliente" class="form-input" placeholder="Ex: Mariana Silva" required style="width: 100%;">
+          </div>
+          <div>
+            <label class="form-label" for="inpNovoTelefone" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Telefone / WhatsApp</label>
+            <input type="text" id="inpNovoTelefone" class="form-input" placeholder="(73) 99999-9999" style="width: 100%;">
+          </div>
+        </div>
+
+        <!-- Linha 3: Endereço -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="inpNovoEndereco" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Endereço de Entrega (Rua, Nº, Compl.) *</label>
+          <input type="text" id="inpNovoEndereco" class="form-input" placeholder="Ex: Av. ACM, 123, Apto 201" required style="width: 100%;">
+        </div>
+
+        <!-- Linha 4: Bairro e Taxa de Entrega -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div>
+            <label class="form-label" for="inpNovoBairro" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Bairro *</label>
+            <input type="text" id="inpNovoBairro" class="form-input" placeholder="Ex: Centro, Barra" required style="width: 100%;">
+          </div>
+          <div>
+            <label class="form-label" for="inpNovoTaxa" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Taxa Entrega (R$)</label>
+            <input type="number" id="inpNovoTaxa" class="form-input" placeholder="6.00" step="0.50" min="0" value="6.00" style="width: 100%;">
+          </div>
+        </div>
+
+        <!-- Linha 5: Código Localizador / PIN (Opcional) -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="inpNovoLocalizador" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Código de Confirmação / PIN (se houver no app)</label>
+          <input type="text" id="inpNovoLocalizador" class="form-input" placeholder="Ex: 4892 (opcional)" style="width: 100%;">
+        </div>
+
+        <!-- Linha 6: Itens e Observações -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="inpNovoItens" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Itens do Pedido (opcional)</label>
+          <textarea id="inpNovoItens" class="form-input" rows="2" placeholder="1x Picanha na Brasa&#10;1x Refrigerante Lata" style="width: 100%; resize: vertical;"></textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" for="inpNovoObservacoes" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Observações da Entrega (opcional)</label>
+          <input type="text" id="inpNovoObservacoes" class="form-input" placeholder="Ex: Deixar na portaria, troco para 50" style="width: 100%;">
+        </div>
+
+        <div id="msgErroNovoPedido" style="display: none; padding: 8px; border-radius: var(--radius-sm); background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; font-size: 12px; margin-bottom: 12px; text-align: center;"></div>
+
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="fecharModalNovoPedido()">Cancelar</button>
+          <button type="submit" class="btn btn-gold" id="btnSalvarNovoPedido" style="flex: 1; font-weight: 800;">➕ LANÇAR PEDIDO</button>
         </div>
       </form>
     </div>
@@ -1879,6 +1974,94 @@
       } finally {
         btn.disabled = false;
         btn.textContent = 'SALVAR SENHA';
+      }
+    }
+
+    // ── NOVO PEDIDO MANUAL ───────────────────────────────────────────────────
+    function abrirModalNovoPedido() {
+      const modal = document.getElementById('modalNovoPedido');
+      if (modal) {
+        modal.style.display = 'flex';
+        document.getElementById('inpNovoNumero').value = '';
+        document.getElementById('inpNovoCliente').value = '';
+        document.getElementById('inpNovoTelefone').value = '';
+        document.getElementById('inpNovoEndereco').value = '';
+        document.getElementById('inpNovoBairro').value = '';
+        document.getElementById('inpNovoTaxa').value = '6.00';
+        document.getElementById('inpNovoLocalizador').value = '';
+        document.getElementById('inpNovoItens').value = '';
+        document.getElementById('inpNovoObservacoes').value = '';
+        document.getElementById('msgErroNovoPedido').style.display = 'none';
+        setTimeout(() => {
+          document.getElementById('inpNovoNumero').focus();
+        }, 100);
+      }
+    }
+
+    function fecharModalNovoPedido() {
+      const modal = document.getElementById('modalNovoPedido');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function salvarNovoPedidoManual(event) {
+      event.preventDefault();
+      const btn = document.getElementById('btnSalvarNovoPedido');
+      const msgErro = document.getElementById('msgErroNovoPedido');
+
+      const payload = {
+        origem: document.getElementById('inpNovoOrigem').value,
+        numero_pedido: document.getElementById('inpNovoNumero').value.trim(),
+        cliente: document.getElementById('inpNovoCliente').value.trim(),
+        telefone_cliente: document.getElementById('inpNovoTelefone').value.trim(),
+        endereco: document.getElementById('inpNovoEndereco').value.trim(),
+        bairro: document.getElementById('inpNovoBairro').value.trim(),
+        taxa_entrega: parseFloat(document.getElementById('inpNovoTaxa').value) || 0,
+        localizador: document.getElementById('inpNovoLocalizador').value.trim(),
+        itens: document.getElementById('inpNovoItens').value.trim(),
+        observacoes: document.getElementById('inpNovoObservacoes').value.trim()
+      };
+
+      if (!payload.numero_pedido) {
+        msgErro.textContent = 'Informe o número do pedido ou comanda.';
+        msgErro.style.display = 'block';
+        return;
+      }
+      if (!payload.cliente) {
+        msgErro.textContent = 'Informe o nome do cliente.';
+        msgErro.style.display = 'block';
+        return;
+      }
+      if (!payload.endereco) {
+        msgErro.textContent = 'Informe o endereço de entrega.';
+        msgErro.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Lançando...';
+      msgErro.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/admin/pedidos/manual', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(`Pedido #${payload.numero_pedido} lançado com sucesso!`, 'success');
+          fecharModalNovoPedido();
+          carregarTudo(true);
+        } else {
+          msgErro.textContent = data.message || 'Erro ao lançar pedido manual.';
+          msgErro.style.display = 'block';
+        }
+      } catch (err) {
+        msgErro.textContent = 'Erro ao conectar ao servidor.';
+        msgErro.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '➕ LANÇAR PEDIDO';
       }
     }
 
