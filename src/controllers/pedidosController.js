@@ -315,7 +315,20 @@ async function webhookSpool(req, res) {
     }
 
     // 2. Proteção contra pedidos de RETIRADA / BALCÃO (não devem ir para motoboys)
-    const ehRetirada = Boolean(retiradaInformada) || (cleanTextoBruto ? isComandaRetirada(cleanTextoBruto, cleanEndereco, taxa) : false);
+    let ehRetirada = false;
+    if (cleanTextoBruto) {
+      ehRetirada = isComandaRetirada(cleanTextoBruto, cleanEndereco, taxa);
+    } else {
+      ehRetirada = Boolean(retiradaInformada);
+    }
+
+    // Regra de Ouro Absoluta: 99Food delivery / entrega pela loja NUNCA é retirada
+    if (cleanOrigem === '99FOOD' && cleanTextoBruto) {
+      const tbUpper = cleanTextoBruto.toUpperCase();
+      if (tbUpper.includes('ENTREGA FEITA PELA LOJA') || tbUpper.includes('PREVISAO') || tbUpper.includes('PREVISÃO') || tbUpper.includes('PREVISÄO')) {
+        ehRetirada = false;
+      }
+    }
     if (ehRetirada) {
       console.log(`ℹ️ Pedido ${cleanOrigem} #${cleanPedidoId} identificado como RETIRADA. Descartado da fila de entregas.`);
       return res.json(202, {
