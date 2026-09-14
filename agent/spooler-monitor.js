@@ -2,10 +2,22 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
+const net = require('net');
 const { execSync } = require('child_process');
 const { decodeEscPosBuffer } = require('./escpos-decoder');
 const { parseComandaTexto } = require('./comanda-parser');
 const { extrairRasterEpson, executarOcrEmArquivo } = require('./raster-ocr');
+
+// ── Garantir Instância Única (Evita 2 instâncias simultâneas do monitor) ─────
+const LOCK_PORT = 54321;
+const lockServer = net.createServer();
+lockServer.once('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log('⚠️ Já existe uma instância do Spooler Monitor em execução neste computador. Encerrando para evitar duplicação.');
+    process.exit(0);
+  }
+});
+lockServer.listen(LOCK_PORT, '127.0.0.1');
 
 // ── Sistema de Log Duplo (Console + Arquivo monitor.log) ──────────────────────
 const logFilePath = path.join(__dirname, 'monitor.log');
