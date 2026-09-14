@@ -40,11 +40,45 @@ function parseComandaTexto(textoBruto) {
   const textoUpper = texto.toUpperCase();
   const linhas = texto.split(/[\r\n]+/).map(l => l.trim()).filter(l => l.length > 0);
 
-  // 1. Identificar a Origem
+  // 1. Identificar a Origem e Loja
   let origem = 'BALCAO';
+  let loja = null;
+
+  // Detecção de Lojas do Ao Ponto (Comidas Brasileiras, Burgers e Carnes)
+  if (textoUpper.includes('COMIDAS BRASILEIRAS') || textoUpper.includes('COMIDA BRASILEIRA')) {
+    loja = 'Ao Ponto Comidas Brasileiras';
+  } else if (textoUpper.includes('BURGER') || textoUpper.includes('SANDUICH') || textoUpper.includes('SANDUÏCH')) {
+    loja = 'Ao Ponto Burgers & Sanduíches';
+  } else if (textoUpper.includes('AO PONTO CARNES') || textoUpper.includes('AO PONTO CARNE')) {
+    loja = 'Ao Ponto Carnes';
+  }
+
+  // Assinatura Inequívoca da 99Food (cobre cabeçalho gráfico, app store ou navegador)
+  const is99FoodPattern = 
+    /\b99\s*(?:FOOD|ENTREGA|DELIVERY|STORE|APP)\b/i.test(texto) ||
+    /\b99FOOD\b/i.test(texto) ||
+    /\b99STORE\b/i.test(texto) ||
+    textoUpper.includes('NOVE NOVE') ||
+    textoUpper.includes('ENTREGA FEITA PELA LOJA') ||
+    textoUpper.includes('PREVISAO DE ENTREGA') ||
+    textoUpper.includes('PREVISÃO DE ENTREGA') ||
+    textoUpper.includes('PREVISÄO DE ENTREGA') ||
+    textoUpper.includes('CANCELAR APENAS O QUE ESTÁ EM FALTA') ||
+    textoUpper.includes('CANCELAR APENAS O QUE ESTA EM FALTA') ||
+    textoUpper.includes('CANCELAR TODO O PEDIDO') ||
+    textoUpper.includes('O CLIENTE PRECISA DE TALHERES') ||
+    textoUpper.includes('O CLIENTE NÃO PRECISA DE TALHERES') ||
+    textoUpper.includes('O CLIENTE NAO PRECISA DE TALHERES') ||
+    textoUpper.includes('ENTREGA PROMOCIONAL PARA CLIENTE') ||
+    textoUpper.includes('PAGAMENTO VIA 99FOOD') ||
+    textoUpper.includes('PAGAMENTO VIA 99 FOOD') ||
+    /\bTELEFONE\s*(?:\(0?16\)|\(16\)|016)\b/i.test(texto) ||
+    /\bLOCALIZADOR\s*:\s*[0-9]{6,10}\b/i.test(texto) ||
+    (loja !== null && !textoUpper.includes('IFOOD') && !textoUpper.includes('CARDAPIO WEB'));
+
   if (textoUpper.includes('IFOOD')) {
     origem = 'IFOOD';
-  } else if (/\b99\s*(?:FOOD|ENTREGA|DELIVERY|STORE)\b/i.test(texto) || /\b99FOOD\b/i.test(texto) || /\b99STORE\b/i.test(texto) || textoUpper.includes('NOVE NOVE')) {
+  } else if (is99FoodPattern) {
     origem = '99FOOD';
   } else if (textoUpper.includes('CARDAPIO WEB') || textoUpper.includes('CARDÁPIO WEB') || textoUpper.includes('CARDAPIOWEB')) {
     origem = 'CARDAPIO_WEB';
@@ -179,6 +213,8 @@ function parseComandaTexto(textoBruto) {
       // Corrigir quebras de palavras feitas pela impressora térmica (ex: "Tere sópolis" -> "Teresópolis")
       rawEnd = rawEnd
         .replace(/Tere\s+s[oó]polis/gi, 'Teresópolis')
+        .replace(/\bT\s+eres[oó]polis\b/gi, 'Teresópolis')
+        .replace(/\bI\s+mbui\b/gi, 'Imbui')
         .replace(/Barr\s+a\s+do\s+Imbu[íi]/gi, 'Barra do Imbuí')
         .replace(/farma\s+cia/gi, 'farmácia')
         .replace(/\(\s+/g, '(')
@@ -314,6 +350,7 @@ function parseComandaTexto(textoBruto) {
 
   return {
     origem,
+    loja,
     pedidoId: String(pedidoId).trim(),
     cliente: cliente || null,
     endereco: endereco || null,
@@ -394,6 +431,9 @@ function isComandaRetirada(textoBruto, endereco = '', taxaEntrega = 0) {
   if (textoBruto && typeof textoBruto === 'string') {
     const textoUpper = textoBruto.toUpperCase();
     if (textoUpper.includes('ENTREGA FEITA PELA LOJA') || 
+        textoUpper.includes('PREVISAO DE ENTREGA') ||
+        textoUpper.includes('PREVISÃO DE ENTREGA') ||
+        textoUpper.includes('PREVISÄO DE ENTREGA') ||
         textoUpper.includes('ENTREGA PARCEIRA') ||
         textoUpper.includes('IFOOD ENTREGA') ||
         textoUpper.includes('99 FOOD DELIVERY') ||

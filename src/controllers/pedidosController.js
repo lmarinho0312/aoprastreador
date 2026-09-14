@@ -141,6 +141,9 @@ function isComandaRetirada(textoBruto, endereco = '', taxaEntrega = 0) {
   if (textoBruto && typeof textoBruto === 'string') {
     const textoUpper = textoBruto.toUpperCase();
     if (textoUpper.includes('ENTREGA FEITA PELA LOJA') || 
+        textoUpper.includes('PREVISAO DE ENTREGA') ||
+        textoUpper.includes('PREVISÃO DE ENTREGA') ||
+        textoUpper.includes('PREVISÄO DE ENTREGA') ||
         textoUpper.includes('ENTREGA PARCEIRA') ||
         textoUpper.includes('IFOOD ENTREGA') ||
         textoUpper.includes('99 FOOD DELIVERY') ||
@@ -232,15 +235,65 @@ async function webhookSpool(req, res) {
       });
     }
 
-    const cleanOrigem = String(origem).trim().toUpperCase();
+    let cleanOrigem = String(origem).trim().toUpperCase();
     const cleanPedidoId = String(pedidoId).trim();
-    const cleanCliente = cliente ? String(cliente).trim() : null;
-    const cleanEndereco = endereco ? String(endereco).trim() : null;
+    let cleanCliente = cliente ? String(cliente).trim() : null;
+    let cleanEndereco = endereco ? String(endereco).trim() : null;
     let cleanBairro = bairro ? String(bairro).trim() : null;
     let cleanTelefone = telefone ? String(telefone).trim() : null;
     let cleanLocalizador = localizador ? String(localizador).trim() : null;
     const cleanTextoBruto = textoBruto ? String(textoBruto).trim() : null;
     const taxa = !isNaN(Number(taxaEntrega)) ? Number(taxaEntrega) : 0.0;
+
+    // Autocorreção e Detecção Robusta de 99Food para todas as 3 lojas (Brasileira, Burgers e Carnes)
+    if (cleanTextoBruto) {
+      const tbUpper = cleanTextoBruto.toUpperCase();
+      const is99Food = 
+        /\b99\s*(?:FOOD|ENTREGA|DELIVERY|STORE|APP)\b/i.test(cleanTextoBruto) ||
+        tbUpper.includes('ENTREGA FEITA PELA LOJA') ||
+        tbUpper.includes('PREVISAO DE ENTREGA') ||
+        tbUpper.includes('PREVISÃO DE ENTREGA') ||
+        tbUpper.includes('PREVISÄO DE ENTREGA') ||
+        tbUpper.includes('CANCELAR APENAS O QUE ESTÁ EM FALTA') ||
+        tbUpper.includes('CANCELAR APENAS O QUE ESTA EM FALTA') ||
+        tbUpper.includes('O CLIENTE PRECISA DE TALHERES') ||
+        tbUpper.includes('PAGAMENTO VIA 99FOOD') ||
+        tbUpper.includes('AO PONTO BURGERS') ||
+        tbUpper.includes('AO PONTO COMIDAS BRASILEIRAS') ||
+        (tbUpper.includes('AO PONTO CARNES') && !tbUpper.includes('IFOOD')) ||
+        /\bTELEFONE\s*(?:\(0?16\)|\(16\)|016)\b/i.test(cleanTextoBruto) ||
+        /\bLOCALIZADOR\s*:\s*[0-9]{6,10}\b/i.test(cleanTextoBruto);
+
+      if (is99Food && cleanOrigem !== 'IFOOD') {
+        cleanOrigem = '99FOOD';
+      }
+
+      // Se cliente não veio, extrai da linha após o número do pedido (#ID)
+      if ((!cleanCliente || cleanCliente === 'Cliente') && cleanOrigem === '99FOOD') {
+        const linhas = cleanTextoBruto.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+        for (let i = 0; i < linhas.length; i++) {
+          if (linhas[i].includes(`#${cleanPedidoId}`) || linhas[i].match(new RegExp(`#\\s*${cleanPedidoId}\\b`))) {
+            for (let j = i + 1; j < Math.min(i + 5, linhas.length); j++) {
+              const cand = linhas[j].trim();
+              if (cand.length >= 2 && !cand.startsWith('-') && !cand.startsWith('=') && !cand.startsWith('#') && !cand.match(/^(?:Entrega|Previs|Telefone|Localizador|Endere|Obs|O cliente|Subtotal|Total)/i)) {
+                cleanCliente = cand;
+                break;
+              }
+            }
+            break;
+          }
+        }
+      }
+
+      // Se endereço não veio ou veio truncado, extrai bloco multilinha
+      if ((!cleanEndereco || cleanEndereco.length < 5) && cleanOrigem === '99FOOD') {
+        const matchBloco = cleanTextoBruto.match(/Endere[çc]o:\s*([\s\S]*?)(?=\n\s*[-=*_]{4,}|\n\s*Observa|\n\s*Telefone|\n\s*O cliente|\n\s*Cancelar|\n\s*$)/i);
+        if (matchBloco) {
+          let linhasEnd = matchBloco[1].split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+          cleanEndereco = linhasEnd.join(' ').replace(/\s+/g, ' ').trim();
+        }
+      }
+    }
 
     // Se bairro não veio ou precisa ser complementado, busca na lista de bairros oficiais de Teresópolis
     if (!cleanBairro || cleanBairro.length < 2) {
