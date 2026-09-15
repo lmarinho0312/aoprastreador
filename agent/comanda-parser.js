@@ -4,21 +4,22 @@
  */
 
 const BAIRROS_OFICIAIS = [
-  'Quinta da Barra', 'Granja Florestal', 'Parque do Imbuí', 'Parque do Imbui',
+  'Quinta da Barra', 'Granja Florestal', 'Parque do Imbuí', 'Parque do Imbui', 'Parque Imbuí', 'Parque Imbui',
   'Cascata dos Amores', 'C. das Amores', 'Cascata do Imbuí', 'Cascata do Imbui',
   'C. do Imbuí', 'Fazenda Ermitage', 'F. Ermitage', 'Parque São Luiz', 'Parque Sao Luiz',
   'Parque São Luís', 'Parque Sao Luis', 'Granja Guarani', 'Jardim Serrano', 'Vale do Paraíso',
   'Vale do Paraiso', 'Quebra Frascos', 'Quinta Lebrão', 'Quinta Lebrao', 'Santa Cecília',
   'Santa Cecilia', 'Três Córregos', 'Tres Corregos', 'Vargem Grande', 'Barra do Imbuí',
   'Barra do Imbui', 'Jardim Cascata', 'Jardim Meudon', 'Campo Grande', 'Corta Vento',
-  'Fonte Santa', 'Possegueiros', 'Passegueiros', 'Pimenteiras', 'Vale Feliz',
+  'Fonte Santa', 'Possegueiros', 'Passegueiros', 'Pessegueiros', 'Pimenteiras', 'Vale Feliz',
   'Beira Linha', 'Bom Retiro', 'Fazendinha', 'Rio Lucas', 'Montanhas', 'Paineiras',
-  'Panorama', 'Parque Engá', 'Parque Enga', 'Pinheiros', 'São Pedro', 'Sao Pedro',
+  'Panorama', 'Parque Engá', 'Parque Enga', 'Pinheiros', 'Jardim Pinheiros', 'São Pedro', 'Sao Pedro',
   'Vila Muqui', 'Albuquerque', 'Artistas', 'Pimentel', 'Talmaturgo', 'Taumaturgo',
   'Fischer', 'Pedreira', 'Rosário', 'Rosario', 'Soberbo', '40 Casas', 'Quarenta Casas',
   'Agriões', 'Agrioes', 'Araras', 'Caleme', 'Comary', 'Comari', 'Coréia', 'Coreia',
   'Meudon', 'Salaco', 'Tijuca', 'Várzea', 'Varzea', 'Ermitage', 'Prata', 'Posse',
-  'Barra', 'Alto', 'Golf', 'Golfe'
+  'Barra', 'Alto', 'Golf', 'Golfe', 'Vale da Revolta', 'Santa Rita', 'Canoas',
+  'Regina de Moraes', 'Vale Cedrinhos', 'Vale dos Cedrinhos', 'Bairro de Fátima', 'Bairro de Fatima'
 ];
 
 function extrairBairroDeTexto(texto) {

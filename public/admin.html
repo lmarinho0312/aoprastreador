@@ -805,6 +805,7 @@
                 <button class="filter-pill" id="fmgSpeed" onclick="filtrarGrupoMotoboys('SPEED', this)">⚡ SPEED</button>
               </div>
               <button class="btn btn-gold btn-sm" onclick="abrirModalCadastrarMotoboy()">➕ Novo Entregador</button>
+              <button class="btn btn-secondary btn-sm" onclick="abrirModalTabelaTaxas()" title="Visualizar e editar taxas de entrega por bairro">💰 Tabela de Taxas</button>
               <button class="btn btn-secondary btn-sm" onclick="bloquearAbaMotoboys()" title="Bloquear aba novamente">🔒 Bloquear</button>
             </div>
           </div>
@@ -1212,6 +1213,49 @@
           <button type="submit" class="btn btn-gold" id="btnSalvarCadMotoboy" style="flex: 1; font-weight: 800;">➕ CADASTRAR</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE TABELA DE TAXAS (VELOZ & SPEED) -->
+  <div class="modal-confirm-overlay" id="modalTabelaTaxas" style="display: none; align-items: center; justify-content: center; z-index: 99990;">
+    <div class="modal-confirm-box" style="max-width: 650px; width: 95%; max-height: 85vh; display: flex; flex-direction: column; text-align: left; padding: 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <h3 style="font-size: 18px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <span>💰</span> Tabelas de Taxas de Entrega
+        </h3>
+        <button class="btn btn-secondary btn-icon" onclick="fecharModalTabelaTaxas()">✕</button>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 6px;">
+          <button class="filter-pill active" id="tabTaxaSpeed" onclick="alternarAbaTaxas('SPEED')">⚡ Tabela SPEED</button>
+          <button class="filter-pill" id="tabTaxaVeloz" onclick="alternarAbaTaxas('VELOZ')">🚀 Tabela VELOZ</button>
+        </div>
+        <div class="search-box" style="width: 220px;">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="inputBuscaTaxa" class="form-input" placeholder="Buscar bairro..." oninput="renderizarTabelaTaxas()" style="padding-top: 4px; padding-bottom: 4px;">
+        </div>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); margin-bottom: 12px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead style="background: rgba(255,255,255,0.03); position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--border-subtle);">
+            <tr>
+              <th style="padding: 10px 12px; text-align: left; font-weight: 800; color: var(--text-muted);">Bairro / Região</th>
+              <th style="padding: 10px 12px; text-align: right; font-weight: 800; color: var(--text-muted); width: 140px;">Taxa Oficial (R$)</th>
+              <th style="padding: 10px 12px; text-align: right; font-weight: 800; color: var(--text-muted); width: 80px;">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyTaxas">
+            <!-- Renderizado via JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
+        <span style="font-size: 11px; color: var(--text-muted);">Taxas calculadas automaticamente para cada grupo.</span>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="fecharModalTabelaTaxas()">Fechar</button>
+      </div>
     </div>
   </div>
 
@@ -2781,6 +2825,116 @@
       const novoGrupo = grupoAtual === 'SPEED' ? 'VELOZ' : 'SPEED';
       if (!confirm(`Deseja alterar a destinação deste pedido para o grupo ${novoGrupo}?`)) return;
       await definirGrupoPedido(pedidoId, novoGrupo);
+    }
+
+    // ── Gestão de Tabelas de Taxas (VELOZ & SPEED) ─────────────────────────
+    let cacheTaxas = { veloz: [], speed: [] };
+    let grupoTaxaAtivo = 'SPEED';
+
+    async function abrirModalTabelaTaxas() {
+      const modal = document.getElementById('modalTabelaTaxas');
+      if (modal) {
+        modal.style.display = 'flex';
+        alternarAbaTaxas('SPEED');
+        await carregarTaxasAdmin();
+      }
+    }
+
+    function fecharModalTabelaTaxas() {
+      const modal = document.getElementById('modalTabelaTaxas');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function carregarTaxasAdmin() {
+      try {
+        const res = await fetch('/api/admin/taxas');
+        const data = await res.json();
+        if (data && data.success) {
+          cacheTaxas.veloz = data.taxas_veloz || [];
+          cacheTaxas.speed = data.taxas_speed || [];
+          renderizarTabelaTaxas();
+        }
+      } catch (err) {
+        console.error('Erro ao carregar taxas:', err);
+      }
+    }
+
+    function alternarAbaTaxas(grupo) {
+      grupoTaxaAtivo = grupo;
+      const btnVeloz = document.getElementById('tabTaxaVeloz');
+      const btnSpeed = document.getElementById('tabTaxaSpeed');
+      if (btnVeloz && btnSpeed) {
+        btnVeloz.classList.toggle('active', grupo === 'VELOZ');
+        btnSpeed.classList.toggle('active', grupo === 'SPEED');
+      }
+      renderizarTabelaTaxas();
+    }
+
+    function renderizarTabelaTaxas() {
+      const container = document.getElementById('tbodyTaxas');
+      const query = (document.getElementById('inputBuscaTaxa')?.value || '').toLowerCase().trim();
+      if (!container) return;
+
+      const lista = grupoTaxaAtivo === 'SPEED' ? cacheTaxas.speed : cacheTaxas.veloz;
+      const filtrados = lista.filter(item => {
+        if (!query) return true;
+        return normalizarTexto(item.bairro).includes(normalizarTexto(query));
+      });
+
+      if (filtrados.length === 0) {
+        container.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 20px; color: var(--text-muted);">Nenhum bairro encontrado.</td></tr>`;
+        return;
+      }
+
+      container.innerHTML = filtrados.map(item => `
+        <tr style="border-bottom: 1px solid var(--border-subtle);">
+          <td style="padding: 8px 12px; font-weight: 700; color: var(--text-primary);">${escapeHtml(item.bairro)}</td>
+          <td style="padding: 8px 12px; width: 140px; text-align: right;">
+            <div style="display: inline-flex; align-items: center; gap: 4px;">
+              <span style="color: var(--brand-gold); font-weight: 800; font-size: 12px;">R$</span>
+              <input type="number" step="0.50" min="0" class="form-input" id="inpTaxa_${grupoTaxaAtivo}_${item.id}" value="${Number(item.taxa).toFixed(2)}" style="width: 85px; padding: 4px 6px; font-size: 13px; font-weight: 700; text-align: right;">
+            </div>
+          </td>
+          <td style="padding: 8px 12px; width: 80px; text-align: right;">
+            <button class="btn btn-gold btn-sm" onclick="salvarTaxaBairro(${item.id}, '${escapeHtml(item.bairro)}', '${grupoTaxaAtivo}')" style="padding: 4px 8px; font-size: 11px;">💾 Salvar</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function salvarTaxaBairro(id, bairro, grupo) {
+      const inp = document.getElementById(`inpTaxa_${grupo}_${id}`);
+      if (!inp) return;
+      const novaTaxa = parseFloat(inp.value);
+      if (isNaN(novaTaxa) || novaTaxa < 0) {
+        showToast('Por favor, informe uma taxa válida.', 'error');
+        return;
+      }
+
+      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
+
+      try {
+        const res = await fetch('/api/admin/taxas/atualizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id,
+            bairro,
+            taxa: novaTaxa,
+            grupo,
+            senha_admin: senhaAdmin
+          })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          showToast(`Taxa de ${bairro} (${grupo}) atualizada para R$ ${novaTaxa.toFixed(2)}!`, 'success');
+          carregarTaxasAdmin();
+        } else {
+          showToast(data.message || 'Erro ao atualizar taxa.', 'error');
+        }
+      } catch (err) {
+        showToast('Erro de conexão ao atualizar taxa.', 'error');
+      }
     }
 
   </script>
