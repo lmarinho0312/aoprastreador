@@ -250,20 +250,16 @@ async function processarArquivoSpool(filePath) {
     return;
   }
 
-  // ── ANTI-DUPLICAÇÃO E DESCARTE DE COMANDAS ANTIGAS ────────────────────
+  // ── ANTI-DUPLICAÇÃO E DESCARTE DE COMANDAS DE DATAS ANTERIORES ──────────────
   const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
-  // Se a comanda contém data explícita e for de mais de 2 dias atrás, descartar preventivamente
-  if (parsed.dataComanda) {
-    const dataDiffMs = new Date(`${hojeStr}T12:00:00Z`) - new Date(`${parsed.dataComanda}T12:00:00Z`);
-    const diasAtras = Math.floor(dataDiffMs / (1000 * 60 * 60 * 24));
-    if (diasAtras >= 2) {
-      log(`⏳ Comanda histórica descartada: ${parsed.origem} #${parsed.pedidoId} (${parsed.dataComanda} - ${diasAtras} dias atrás). Ignorando [${fileName}].`);
-      processedCache.add(cacheKeyFile);
-      arquivosPendentes.delete(fileName);
-      salvarCache();
-      return;
-    }
+  // Se a comanda contém data explícita e for de data anterior a hoje, descartar imediatamente
+  if (parsed.dataComanda && parsed.dataComanda < hojeStr) {
+    log(`⏳ Comanda de data anterior descartada: ${parsed.origem} #${parsed.pedidoId} (${parsed.dataComanda} anterior a hoje ${hojeStr}). Ignorando [${fileName}].`);
+    processedCache.add(cacheKeyFile);
+    arquivosPendentes.delete(fileName);
+    salvarCache();
+    return;
   }
 
   const dataRef = parsed.dataComanda || hojeStr;

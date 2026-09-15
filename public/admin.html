@@ -508,6 +508,10 @@
           <span>🔑 Senha</span>
         </button>
 
+        <button class="btn btn-secondary btn-sm" onclick="limparPendentesAntigos()" title="Ignorar e expirar pedidos pendentes de datas anteriores acumulados">
+          <span>🧹 Limpar Antigos</span>
+        </button>
+
         <button class="btn btn-secondary btn-sm" onclick="carregarTudo(true)" title="Atualizar dados manualmente agora">
           <span>🔄 Atualizar</span>
         </button>
@@ -1794,17 +1798,39 @@
       if (p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto' || p.status === 'em_preparo') {
         footer.innerHTML = `
           <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
-          <button class="btn btn-gold" style="flex: 1;" onclick="alterarStatusPedido(${p.id}, 'em_rota')">🚀 Despachar (Em Rota)</button>
+          <button class="btn btn-secondary" style="flex: 1; border-color: rgba(239, 68, 68, 0.4); color: #ef4444;" onclick="cancelarPedidoDrawer(${p.id})">❌ Cancelar</button>
+          <button class="btn btn-gold" style="flex: 1.2;" onclick="alterarStatusPedido(${p.id}, 'em_rota')">🚀 Despachar</button>
         `;
       } else if (p.status === 'em_rota') {
         footer.innerHTML = `
           <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
-          <button class="btn btn-success" style="flex: 1;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Concluir Entrega (Entregue)</button>
+          <button class="btn btn-secondary" style="flex: 1; border-color: rgba(239, 68, 68, 0.4); color: #ef4444;" onclick="cancelarPedidoDrawer(${p.id})">❌ Cancelar</button>
+          <button class="btn btn-success" style="flex: 1.2;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Entregue</button>
         `;
       } else {
         footer.innerHTML = `
           <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
         `;
+      }
+    }
+
+    async function cancelarPedidoDrawer(pedidoId) {
+      if (!confirm('Deseja realmente cancelar este pedido e removê-lo da fila ativa?')) return;
+      await alterarStatusPedido(pedidoId, 'cancelado');
+    }
+
+    async function limparPendentesAntigos() {
+      try {
+        const res = await fetch('/api/admin/pedidos/limpar-pendentes-antigos', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message, 'success');
+          carregarTudo(true);
+        } else {
+          showToast(data.message || 'Erro ao limpar pendentes antigos.', 'error');
+        }
+      } catch (e) {
+        showToast('Erro de conexão ao limpar pedidos antigos.', 'error');
       }
     }
 

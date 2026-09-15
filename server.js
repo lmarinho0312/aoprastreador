@@ -73,6 +73,7 @@ registerRoute('GET', '/api/admin/historico', historicoController.listarHistorico
 registerRoute('GET', '/api/admin/historico/rota', historicoController.obterRotaPedido);
 registerRoute('GET', '/api/admin/fechamento', adminController.obterFechamentoEntregas);
 registerRoute('POST', '/api/admin/pedidos/manual', adminController.criarPedidoManual);
+registerRoute('POST', '/api/admin/pedidos/limpar-pendentes-antigos', adminController.limparPedidosPendentesAntigos);
 
 // Rendimentos Motoboy
 registerRoute('GET', '/api/motoboy/rendimentos', pedidosController.obterRendimentosMotoboy);

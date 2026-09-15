@@ -339,25 +339,21 @@ async function webhookSpool(req, res) {
       });
     }
 
-    // 3. Proteção contra Comandas Históricas / Spool Antigo (apenas descarta se for de mais de 2 dias atrás)
-    // Isso garante que entregas do turno noturno que cruzam a meia-noite (23h as 02h) nunca sejam rejeitadas!
+    // 3. Proteção contra Comandas Históricas / Spool Antigo de Dias Anteriores
     const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
     const comandaDate = dataInformada || (cleanTextoBruto ? extrairDataComanda(cleanTextoBruto) : null);
-    if (comandaDate) {
-      const dataDiffMs = new Date(`${hojeStr}T12:00:00Z`) - new Date(`${comandaDate}T12:00:00Z`);
-      const diasAtras = Math.floor(dataDiffMs / (1000 * 60 * 60 * 24));
-      if (diasAtras >= 2) {
-        console.log(`⏳ Comanda histórica descartada: ${cleanOrigem} #${cleanPedidoId} (${comandaDate} - ${diasAtras} dias atrás).`);
-        return res.json(202, {
-          success: false,
-          descartado: true,
-          motivo: 'comanda_historica',
-          message: `Comanda histórica (${comandaDate}) descartada. Apenas pedidos recentes são aceitos.`
-        });
-      }
+    if (comandaDate && comandaDate < hojeStr) {
+      console.log(`⏳ Comanda de data anterior descartada: ${cleanOrigem} #${cleanPedidoId} (${comandaDate} anterior a ${hojeStr}).`);
+      return res.json(202, {
+        success: false,
+        descartado: true,
+        motivo: 'comanda_data_anterior',
+        message: `Comanda de data anterior (${comandaDate}) descartada. Apenas pedidos de hoje (${hojeStr}) são aceitos.`
+      });
     }
 
     const db = getDb();
+    await expirarPedidosPendentesDiasAnteriores(db);
 
     // 4. Mecanismo Anti-Duplicação Estrito (origem + pedido_id_origem nas últimas 36 horas)
     // Permite que plataformas reutilizem numerações após o ciclo operacional, sem bloquear pedidos do mesmo turno
@@ -403,12 +399,39 @@ async function webhookSpool(req, res) {
 }
 
 /**
+ * Ignora e expira automaticamente pedidos que ficaram pendentes de entrega
+ * de dias anteriores toda vez que a data vira (horário de Brasília).
+ * Atualiza status para 'expirado', garantindo que não acumulem no painel da cozinha ou app motoboy.
+ */
+async function expirarPedidosPendentesDiasAnteriores(db) {
+  try {
+    const result = await db.execute(`
+      UPDATE pedidos 
+      SET status = 'expirado',
+          data_fim = COALESCE(data_fim, DATETIME('now', '-3 hours'))
+      WHERE (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo', 'em_rota') OR status IS NULL)
+        AND DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) < DATE(DATETIME('now', '-3 hours'))
+    `);
+
+    if (result && result.changes > 0) {
+      console.log(`🧹 [VIRADA DE DATA] ${result.changes} pedido(s) pendente(s) de data anterior foram ignorados/expirados.`);
+    }
+    return result?.changes || 0;
+  } catch (err) {
+    console.error('⚠️ Erro ao expirar pedidos de dias anteriores:', err.message);
+    return 0;
+  }
+}
+
+/**
  * Lista todos os pedidos disponíveis no balcão aguardando retirada por um motoboy
- * GET /api/pedidos/disponiveis
+ * GET /api/pedidos/disponiveis (Apenas pedidos de HOJE, ignorando viradas de data)
  */
 async function listarPedidosDisponiveis(req, res) {
   try {
     const db = getDb();
+    await expirarPedidosPendentesDiasAnteriores(db);
+
     const pedidos = await db.query(`
       SELECT p.id, p.numero_pedido, p.status, p.origem, p.pedido_id_origem, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.criado_em,
              COALESCE(tb.taxa, 10.00) as taxa_repasse,
@@ -417,7 +440,8 @@ async function listarPedidosDisponiveis(req, res) {
       LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
       WHERE (p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR p.status IS NULL)
         AND (p.motoboy_id IS NULL OR p.status != 'em_rota')
-        AND (p.status != 'entregue')
+        AND p.status NOT IN ('entregue', 'expirado', 'cancelado')
+        AND DATE(COALESCE(p.criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
       ORDER BY p.id DESC
     `);
 
@@ -646,6 +670,8 @@ async function listarPedidosMotoboy(req, res) {
     }
 
     const db = getDb();
+    await expirarPedidosPendentesDiasAnteriores(db);
+
     const pedidos = await db.query(
       `SELECT p.id, p.numero_pedido, p.status, p.origem, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.data_inicio, 
               COALESCE(tb.taxa, 10.00) as taxa_repasse,
@@ -946,5 +972,6 @@ module.exports = {
   listarPedidosMotoboy,
   atualizarStatusPedido,
   obterDetalhesPedido,
-  obterRendimentosMotoboy
+  obterRendimentosMotoboy,
+  expirarPedidosPendentesDiasAnteriores
 };

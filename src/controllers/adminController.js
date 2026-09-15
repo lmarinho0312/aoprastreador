@@ -1,9 +1,11 @@
 const { getDb } = require('../database/db');
 const { getPosicoesMotoboys } = require('../services/traccarService');
+const { expirarPedidosPendentesDiasAnteriores } = require('./pedidosController');
 
 async function getPosicoesMapa(req, res) {
   try {
     const db = getDb();
+    await expirarPedidosPendentesDiasAnteriores(db);
 
     // Buscar motoboys incluindo suas coordenadas gravadas em tempo real
     const motoboys = await db.query(
@@ -19,6 +21,7 @@ async function getPosicoesMapa(req, res) {
               ROUND((julianday('now') - julianday(data_inicio)) * 1440) as minutos_em_rota
        FROM pedidos 
        WHERE status = 'em_rota' 
+         AND DATE(COALESCE(data_inicio, criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
        ORDER BY data_inicio ASC`
     );
 
@@ -111,18 +114,41 @@ async function getPosicoesMapa(req, res) {
 
 /**
  * Estatísticas resumidas da operação para os KPIs do Painel da Cozinha
- * GET /api/admin/stats
+ * GET /api/admin/stats (Resumo das entregas de HOJE)
  */
 async function getDashboardStats(req, res) {
   try {
     const db = getDb();
+    await expirarPedidosPendentesDiasAnteriores(db);
 
     const [aguardandoRes, emRotaRes, entreguesRes, totalRes, faturamentoRes, motoboysCountRes] = await Promise.all([
-      db.queryOne(`SELECT COUNT(*) as count FROM pedidos WHERE (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL) AND motoboy_id IS NULL AND (status != 'entregue' OR status IS NULL)`),
-      db.queryOne(`SELECT COUNT(*) as count FROM pedidos WHERE status = 'em_rota'`),
-      db.queryOne(`SELECT COUNT(*) as count FROM pedidos WHERE status = 'entregue'`),
-      db.queryOne(`SELECT COUNT(*) as count FROM pedidos`),
-      db.queryOne(`SELECT COALESCE(SUM(taxa_entrega), 0) as total_taxas FROM pedidos`),
+      db.queryOne(`
+        SELECT COUNT(*) as count FROM pedidos 
+        WHERE (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL) 
+          AND motoboy_id IS NULL 
+          AND status NOT IN ('entregue', 'expirado', 'cancelado')
+          AND DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
+      `),
+      db.queryOne(`
+        SELECT COUNT(*) as count FROM pedidos 
+        WHERE status = 'em_rota'
+          AND DATE(COALESCE(data_inicio, criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
+      `),
+      db.queryOne(`
+        SELECT COUNT(*) as count FROM pedidos 
+        WHERE status = 'entregue'
+          AND DATE(COALESCE(data_fim, data_inicio, criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
+      `),
+      db.queryOne(`
+        SELECT COUNT(*) as count FROM pedidos
+        WHERE DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
+          AND status NOT IN ('expirado', 'cancelado')
+      `),
+      db.queryOne(`
+        SELECT COALESCE(SUM(taxa_entrega), 0) as total_taxas FROM pedidos 
+        WHERE status = 'entregue'
+          AND DATE(COALESCE(data_fim, data_inicio, criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
+      `),
       db.queryOne(`SELECT COUNT(*) as count FROM motoboys`)
     ]);
 
@@ -159,12 +185,14 @@ async function getDashboardStats(req, res) {
 
 /**
  * Listagem completa e flexível de pedidos para o painel da cozinha (Lista e Kanban)
- * GET /api/admin/pedidos?status=...&busca=...
+ * GET /api/admin/pedidos?status=...&busca=...&data=hoje
  */
 async function listarTodosPedidos(req, res) {
   try {
     const db = getDb();
-    const { status, busca } = req.query || {};
+    await expirarPedidosPendentesDiasAnteriores(db);
+
+    const { status, busca, data = 'hoje', incluir_expirados } = req.query || {};
 
     let query = `
       SELECT p.id, p.numero_pedido, p.status, p.origem, p.pedido_id_origem,
@@ -191,6 +219,28 @@ async function listarTodosPedidos(req, res) {
     const conditions = [];
     const params = [];
 
+    const isBuscaAtiva = Boolean(busca && busca.trim() !== '');
+
+    if (isBuscaAtiva) {
+      // Quando o operador busca por texto livre (número, cliente, endereço), busca sem restrição estrita de data
+      const termo = `%${busca.trim()}%`;
+      conditions.push(`(p.numero_pedido LIKE ? OR p.cliente LIKE ? OR p.endereco LIKE ? OR p.bairro LIKE ? OR p.localizador LIKE ? OR p.telefone_cliente LIKE ? OR m.nome LIKE ?)`);
+      params.push(termo, termo, termo, termo, termo, termo, termo);
+    } else {
+      // Regra de virada de data: por padrão no painel ativo da cozinha, apenas pedidos de HOJE são exibidos
+      if (data === 'hoje') {
+        conditions.push(`DATE(COALESCE(p.criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))`);
+      } else if (data && data !== 'todos' && data !== 'all') {
+        conditions.push(`DATE(COALESCE(p.criado_em, DATETIME('now', '-3 hours'))) = ?`);
+        params.push(data);
+      }
+
+      // Ignora pedidos cancelados ou expirados na visualização operacional normal
+      if (incluir_expirados !== 'true') {
+        conditions.push(`p.status NOT IN ('expirado', 'cancelado')`);
+      }
+    }
+
     if (status && status !== 'todos' && status !== 'all') {
       if (status === 'aguardando' || status === 'disponivel' || status === 'balcao' || status === 'pronto') {
         conditions.push(`(p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL) AND p.motoboy_id IS NULL AND (p.status != 'entregue' OR p.status IS NULL)`);
@@ -198,12 +248,6 @@ async function listarTodosPedidos(req, res) {
         conditions.push(`p.status = ?`);
         params.push(status);
       }
-    }
-
-    if (busca && busca.trim() !== '') {
-      const termo = `%${busca.trim()}%`;
-      conditions.push(`(p.numero_pedido LIKE ? OR p.cliente LIKE ? OR p.endereco LIKE ? OR p.bairro LIKE ? OR p.localizador LIKE ? OR p.telefone_cliente LIKE ? OR m.nome LIKE ?)`);
-      params.push(termo, termo, termo, termo, termo, termo, termo);
     }
 
     if (conditions.length > 0) {
@@ -491,11 +535,33 @@ async function criarPedidoManual(req, res) {
   }
 }
 
+/**
+ * Ação Administrativa: Limpeza forçada manual de pedidos pendentes de datas anteriores
+ * POST /api/admin/pedidos/limpar-pendentes-antigos
+ */
+async function limparPedidosPendentesAntigos(req, res) {
+  try {
+    const db = getDb();
+    const count = await expirarPedidosPendentesDiasAnteriores(db);
+    return res.json(200, {
+      success: true,
+      count,
+      message: count > 0 
+        ? `${count} entrega(s) pendente(s) de datas anteriores foram ignoradas/expiradas com sucesso!`
+        : 'Nenhum pedido pendente de datas anteriores acumulado no momento.'
+    });
+  } catch (error) {
+    console.error('❌ Erro ao limpar pendentes antigos:', error);
+    return res.json(500, { success: false, message: 'Erro ao limpar entregas pendentes.', error: error.message });
+  }
+}
+
 module.exports = {
   getPosicoesMapa,
   getDashboardStats,
   listarTodosPedidos,
   listarMotoboysAdmin,
   obterFechamentoEntregas,
-  criarPedidoManual
+  criarPedidoManual,
+  limparPedidosPendentesAntigos
 };
