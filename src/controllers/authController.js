@@ -16,7 +16,7 @@ async function login(req, res) {
     const db = getDb();
 
     const motoboy = await db.queryOne(
-      `SELECT id, nome, telefone, senha, traccar_device_id FROM motoboys WHERE telefone = ? OR telefone = ?`,
+      `SELECT id, nome, telefone, senha, traccar_device_id, grupo FROM motoboys WHERE telefone = ? OR telefone = ?`,
       [cleanTelefone, String(telefone).trim()]
     );
 
@@ -36,7 +36,8 @@ async function login(req, res) {
         id: motoboy.id,
         nome: motoboy.nome,
         telefone: motoboy.telefone,
-        traccar_device_id: motoboy.traccar_device_id
+        traccar_device_id: motoboy.traccar_device_id,
+        grupo: motoboy.grupo || 'VELOZ'
       }
     });
   } catch (error) {
@@ -50,7 +51,7 @@ async function login(req, res) {
  */
 async function register(req, res) {
   try {
-    const { nome, telefone, senha, traccar_device_id } = req.body || {};
+    const { nome, telefone, senha, traccar_device_id, grupo } = req.body || {};
 
     if (!nome || !telefone || !senha) {
       return res.json(400, { success: false, message: 'Nome, telefone e senha são obrigatórios.' });
@@ -58,6 +59,9 @@ async function register(req, res) {
 
     const cleanTelefone = String(telefone).trim().replace(/\D/g, '');
     const deviceId = traccar_device_id ? String(traccar_device_id).trim() : cleanTelefone;
+    let cleanGrupo = grupo ? String(grupo).trim().toUpperCase() : 'VELOZ';
+    if (cleanGrupo !== 'VELOZ' && cleanGrupo !== 'SPEED') cleanGrupo = 'VELOZ';
+
     const db = getDb();
 
     const existente = await db.queryOne(
@@ -72,8 +76,8 @@ async function register(req, res) {
     const hashedPassword = hashPassword(senha);
 
     const result = await db.execute(
-      `INSERT INTO motoboys (nome, telefone, senha, traccar_device_id) VALUES (?, ?, ?, ?)`,
-      [String(nome).trim(), cleanTelefone, hashedPassword, deviceId]
+      `INSERT INTO motoboys (nome, telefone, senha, traccar_device_id, grupo) VALUES (?, ?, ?, ?, ?)`,
+      [String(nome).trim(), cleanTelefone, hashedPassword, deviceId, cleanGrupo]
     );
 
     return res.json(201, {
@@ -83,7 +87,8 @@ async function register(req, res) {
         id: Number(result.lastInsertRowid),
         nome: String(nome).trim(),
         telefone: cleanTelefone,
-        traccar_device_id: deviceId
+        traccar_device_id: deviceId,
+        grupo: cleanGrupo
       }
     });
   } catch (error) {

@@ -387,6 +387,70 @@
       color: var(--text-muted);
       margin-bottom: 24px;
     }
+
+    /* GRUPOS DE ENTREGA: VELOZ & SPEED */
+    .badge-grupo-pedido {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 4px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+    .badge-grupo-pedido:hover {
+      filter: brightness(1.2);
+      transform: translateY(-1px);
+    }
+    .badge-grupo-veloz {
+      background: rgba(59, 130, 246, 0.2);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+    .badge-grupo-speed {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+    .btn-grupo-selecionar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+    }
+    .btn-grupo-selecionar:hover {
+      transform: scale(1.05);
+    }
+    .btn-grupo-speed {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #000;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    }
+    .btn-grupo-veloz {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    }
+    .badge-pendente-grupo {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px dashed rgba(239, 68, 68, 0.5);
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      animation: pulse 2s infinite;
+    }
   </style>
 <body>
 
@@ -709,15 +773,44 @@
       </section>
 
       <!-- ====================================================================
-           VISÃO 4: GESTÃO DE MOTOBOYS
+           VISÃO 4: GESTÃO DE MOTOBOYS (PROTEGIDO POR SENHA: boijoaocarnes01)
            ==================================================================== -->
       <section id="view-motoboys" class="view-section">
-        <div style="margin-bottom: 16px;">
-          <h2 class="text-title">Equipe de Entregadores</h2>
-          <p class="text-subtitle">Monitoramento de status operacional e conectividade GPS.</p>
+        <!-- BLOQUEIO POR SENHA -->
+        <div id="motoboysLockScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; text-align: center; padding: 20px; width: 100%;">
+          <div class="panel-card" style="max-width: 440px; width: 100%; padding: 34px 28px; border: 1px solid var(--border-gold); box-shadow: 0 16px 36px rgba(0,0,0,0.6);">
+            <div style="font-size: 44px; margin-bottom: 12px;">🔒</div>
+            <h3 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin-bottom: 6px;">Gestão de Entregadores</h3>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Esta área permite gerenciar grupos (VELOZ / SPEED) e dados cadastrais. Digite a senha administrativa:</p>
+            <form onsubmit="autenticarAbaMotoboys(event)" style="display: flex; flex-direction: column; gap: 12px;">
+              <input type="password" id="inpSenhaAbaMotoboys" class="form-input" placeholder="Senha do Administrador" style="text-align: center; font-size: 15px; letter-spacing: 2px;" required autofocus>
+              <div id="msgErroSenhaMotoboy" style="color: #ef4444; font-size: 12px; display: none; font-weight: 600;"></div>
+              <button type="submit" id="btnDesbloquearMotoboys" class="btn btn-gold" style="width: 100%; font-weight: 800;">🔓 DESBLOQUEAR ACESSO</button>
+            </form>
+          </div>
         </div>
-        <div id="gridMotoboys" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
-          <!-- Renderizado via JS -->
+
+        <!-- CONTEÚDO DA GESTÃO DE MOTOBOYS (EXIBIDO APÓS DESBLOQUEIO) -->
+        <div id="motoboysContentScreen" style="display: none; flex-direction: column; gap: 16px; width: 100%;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h2 class="text-title">Equipe de Entregadores</h2>
+              <p class="text-subtitle">Gestão cadastral, separação por grupos (<strong style="color: #60a5fa;">VELOZ</strong> / <strong style="color: #fbbf24;">SPEED</strong>) e conectividade GPS.</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <!-- Filtro de Grupo -->
+              <div style="display: flex; gap: 4px;">
+                <button class="filter-pill active" id="fmgTodos" onclick="filtrarGrupoMotoboys('todos', this)">Todos</button>
+                <button class="filter-pill" id="fmgVeloz" onclick="filtrarGrupoMotoboys('VELOZ', this)">🚀 VELOZ</button>
+                <button class="filter-pill" id="fmgSpeed" onclick="filtrarGrupoMotoboys('SPEED', this)">⚡ SPEED</button>
+              </div>
+              <button class="btn btn-gold btn-sm" onclick="abrirModalCadastrarMotoboy()">➕ Novo Entregador</button>
+              <button class="btn btn-secondary btn-sm" onclick="bloquearAbaMotoboys()" title="Bloquear aba novamente">🔒 Bloquear</button>
+            </div>
+          </div>
+          <div id="gridMotoboys" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
+            <!-- Renderizado via JS -->
+          </div>
         </div>
       </section>
 
@@ -759,6 +852,12 @@
               <button class="filter-pill" id="fpSemana" onclick="selecionarPeriodoFechamento('semana', this)">Esta Semana</button>
               <button class="filter-pill" id="fpMes" onclick="selecionarPeriodoFechamento('mes', this)">Este Mês</button>
               <button class="filter-pill" id="fpTodos" onclick="selecionarPeriodoFechamento('todos', this)">Todos</button>
+            </div>
+            <!-- Filtro de Grupo de Entrega -->
+            <div style="display: flex; gap: 4px;">
+              <button class="filter-pill active grupo-fech-pill" id="fpgTodos" onclick="selecionarGrupoFechamento('todos', this)">Todos Grupos</button>
+              <button class="filter-pill grupo-fech-pill" id="fpgVeloz" onclick="selecionarGrupoFechamento('VELOZ', this)">🚀 VELOZ</button>
+              <button class="filter-pill grupo-fech-pill" id="fpgSpeed" onclick="selecionarGrupoFechamento('SPEED', this)">⚡ SPEED</button>
             </div>
             <!-- Filtro por Motoboy -->
             <select id="selectFiltroMotoboy" class="form-select" style="padding: 4px 10px; font-size: 12px; width: auto;" onchange="carregarFechamento()">
@@ -933,8 +1032,8 @@
       </div>
 
       <form id="formNovoPedidoManual" onsubmit="salvarNovoPedidoManual(event)">
-        <!-- Linha 1: Origem e Número -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+        <!-- Linha 1: Origem, Número e Grupo -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px;">
           <div>
             <label class="form-label" for="inpNovoOrigem" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Origem</label>
             <select id="inpNovoOrigem" class="form-input" style="width: 100%;">
@@ -946,8 +1045,16 @@
             </select>
           </div>
           <div>
-            <label class="form-label" for="inpNovoNumero" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Nº Pedido / Comanda *</label>
-            <input type="text" id="inpNovoNumero" class="form-input" placeholder="Ex: 506031 ou 118" required style="width: 100%;">
+            <label class="form-label" for="inpNovoNumero" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Nº Pedido *</label>
+            <input type="text" id="inpNovoNumero" class="form-input" placeholder="Ex: 506031" required style="width: 100%;">
+          </div>
+          <div>
+            <label class="form-label" for="inpNovoGrupo" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Grupo Destino</label>
+            <select id="inpNovoGrupo" class="form-input" style="width: 100%; font-weight: 700;">
+              <option value="">Aguardar</option>
+              <option value="VELOZ">🚀 VELOZ</option>
+              <option value="SPEED">⚡ SPEED</option>
+            </select>
           </div>
         </div>
 
@@ -1003,6 +1110,106 @@
         <div style="display: flex; gap: 10px;">
           <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="fecharModalNovoPedido()">Cancelar</button>
           <button type="submit" class="btn btn-gold" id="btnSalvarNovoPedido" style="flex: 1; font-weight: 800;">➕ LANÇAR PEDIDO</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE EDIÇÃO DE MOTOBOY -->
+  <div class="modal-confirm-overlay" id="modalEditarMotoboy" style="display: none; align-items: center; justify-content: center; z-index: 99990;">
+    <div class="modal-confirm-box" style="max-width: 440px; text-align: left;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <h3 style="font-size: 17px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <span>✏️</span> Editar Entregador
+        </h3>
+        <button class="btn btn-secondary btn-icon" onclick="fecharModalEditarMotoboy()">✕</button>
+      </div>
+
+      <form id="formEditarMotoboy" onsubmit="salvarEdicaoMotoboy(event)">
+        <input type="hidden" id="inpEditMotoboyId">
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="inpEditMotoboyNome" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Nome Completo *</label>
+          <input type="text" id="inpEditMotoboyNome" class="form-input" required style="width: 100%;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="inpEditMotoboyTel" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Telefone / WhatsApp *</label>
+          <input type="text" id="inpEditMotoboyTel" class="form-input" required style="width: 100%;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="inpEditMotoboyGrupo" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Grupo Responsável *</label>
+          <select id="inpEditMotoboyGrupo" class="form-input" style="width: 100%; font-weight: 800;">
+            <option value="VELOZ">🚀 VELOZ (Tabela Padrão)</option>
+            <option value="SPEED">⚡ SPEED (Tabela Speed)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="inpEditMotoboySenha" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Redefinir Senha do App (em branco para manter)</label>
+          <input type="password" id="inpEditMotoboySenha" class="form-input" placeholder="Nova senha (opcional)" style="width: 100%;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" for="inpEditMotoboyDeviceId" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">ID Rastreador Traccar</label>
+          <input type="text" id="inpEditMotoboyDeviceId" class="form-input" style="width: 100%;">
+        </div>
+
+        <div id="msgErroEditMotoboy" style="display: none; padding: 8px; border-radius: var(--radius-sm); background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; font-size: 12px; margin-bottom: 12px; text-align: center;"></div>
+
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="fecharModalEditarMotoboy()">Cancelar</button>
+          <button type="submit" class="btn btn-gold" id="btnSalvarEditMotoboy" style="flex: 1; font-weight: 800;">💾 SALVAR</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DE CADASTRO DE NOVO MOTOBOY -->
+  <div class="modal-confirm-overlay" id="modalCadastrarMotoboy" style="display: none; align-items: center; justify-content: center; z-index: 99990;">
+    <div class="modal-confirm-box" style="max-width: 440px; text-align: left;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <h3 style="font-size: 17px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <span>🛵</span> Cadastrar Novo Entregador
+        </h3>
+        <button class="btn btn-secondary btn-icon" onclick="fecharModalCadastrarMotoboy()">✕</button>
+      </div>
+
+      <form id="formCadastrarMotoboy" onsubmit="salvarCadastroMotoboy(event)">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="inpCadMotoboyNome" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Nome Completo *</label>
+          <input type="text" id="inpCadMotoboyNome" class="form-input" placeholder="Ex: Gabriel Santos" required style="width: 100%;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="inpCadMotoboyTel" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Telefone / WhatsApp (Login) *</label>
+          <input type="text" id="inpCadMotoboyTel" class="form-input" placeholder="Ex: 21999998888" required style="width: 100%;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="inpCadMotoboyGrupo" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Grupo Responsável *</label>
+          <select id="inpCadMotoboyGrupo" class="form-input" style="width: 100%; font-weight: 800;">
+            <option value="VELOZ" selected>🚀 VELOZ (Tabela Padrão)</option>
+            <option value="SPEED">⚡ SPEED (Tabela Speed)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label class="form-label" for="inpCadMotoboySenha" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Senha do App *</label>
+          <input type="password" id="inpCadMotoboySenha" class="form-input" placeholder="Senha de login do entregador" required style="width: 100%;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" for="inpCadMotoboyDeviceId" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">ID Rastreador Traccar (Opcional)</label>
+          <input type="text" id="inpCadMotoboyDeviceId" class="form-input" placeholder="Deixe em branco para usar telefone" style="width: 100%;">
+        </div>
+
+        <div id="msgErroCadMotoboy" style="display: none; padding: 8px; border-radius: var(--radius-sm); background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; font-size: 12px; margin-bottom: 12px; text-align: center;"></div>
+
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="fecharModalCadastrarMotoboy()">Cancelar</button>
+          <button type="submit" class="btn btn-gold" id="btnSalvarCadMotoboy" style="flex: 1; font-weight: 800;">➕ CADASTRAR</button>
         </div>
       </form>
     </div>
@@ -1202,6 +1409,8 @@
         setTimeout(() => {
           if (state.mapFullscreen) state.mapFullscreen.invalidateSize(true);
         }, 150);
+      } else if (visao === 'motoboys') {
+        verificarAbaMotoboysDesbloqueada();
       } else if (visao === 'fechamento') {
         // Popular select de motoboys e carregar dados automaticamente
         popularSelectMotoboys();
@@ -1310,6 +1519,26 @@
         const horaStr = p.criado_em ? p.criado_em.substring(11, 16) : '--:--';
         const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
 
+        let grupoHtml = '';
+        if (!p.grupo) {
+          grupoHtml = `
+            <div style="margin-top: 6px; padding: 6px 8px; background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.35); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 6px;" onclick="event.stopPropagation()">
+              <span style="font-size: 10px; font-weight: 800; color: #fbbf24;">DESTINAR:</span>
+              <div style="display: flex; gap: 4px;">
+                <button class="btn-grupo-selecionar btn-grupo-speed" onclick="definirGrupoPedido(${p.id}, 'SPEED'); event.stopPropagation();" title="Destinar entrega ao grupo SPEED">⚡ SPEED</button>
+                <button class="btn-grupo-selecionar btn-grupo-veloz" onclick="definirGrupoPedido(${p.id}, 'VELOZ'); event.stopPropagation();" title="Destinar entrega ao grupo VELOZ">🚀 VELOZ</button>
+              </div>
+            </div>
+          `;
+        } else {
+          const isSpeed = p.grupo === 'SPEED';
+          grupoHtml = `
+            <span class="badge-grupo-pedido ${isSpeed ? 'badge-grupo-speed' : 'badge-grupo-veloz'}" onclick="alternarGrupoPedido(${p.id}, '${p.grupo}'); event.stopPropagation();" title="Clique para transferir de grupo">
+              ${isSpeed ? '⚡ SPEED' : '🚀 VELOZ'} ⇄
+            </span>
+          `;
+        }
+
         return `
           <div class="order-card ${isSelected}" onclick="selecionarPedido(${p.id})">
             <div class="order-card-row">
@@ -1318,12 +1547,17 @@
                 <span class="order-time">${horaStr}</span>
                 <span class="status-badge ${badgeInfo.classe}">${badgeInfo.label}</span>
               </div>
-              <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem, p.texto_bruto)}</span>
+              <div style="display: flex; gap: 4px; align-items: center;">
+                ${p.grupo ? grupoHtml : ''}
+                <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem, p.texto_bruto)}</span>
+              </div>
             </div>
 
             <div class="order-address">
               📍 ${p.endereco} ${p.bairro ? '— ' + p.bairro : ''}
             </div>
+
+            ${!p.grupo ? grupoHtml : ''}
 
             <div class="order-meta">
               <span class="order-motoboy">
@@ -1608,17 +1842,39 @@
         `;
       }
 
+      let grupoKanban = '';
+      if (!p.grupo) {
+        grupoKanban = `
+          <div style="margin: 8px 0 6px; padding: 6px 8px; background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.35); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+            <span style="font-size: 10px; font-weight: 800; color: #fbbf24;">⚡ DESTINAR:</span>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn-grupo-selecionar btn-grupo-speed" onclick="definirGrupoPedido(${p.id}, 'SPEED'); event.stopPropagation();" title="Destinar ao grupo SPEED">⚡ SPEED</button>
+              <button class="btn-grupo-selecionar btn-grupo-veloz" onclick="definirGrupoPedido(${p.id}, 'VELOZ'); event.stopPropagation();" title="Destinar ao grupo VELOZ">🚀 VELOZ</button>
+            </div>
+          </div>
+        `;
+      } else {
+        const isSpeed = p.grupo === 'SPEED';
+        grupoKanban = `
+          <span class="badge-grupo-pedido ${isSpeed ? 'badge-grupo-speed' : 'badge-grupo-veloz'}" onclick="alternarGrupoPedido(${p.id}, '${p.grupo}')" title="Clique para transferir de grupo">
+            ${isSpeed ? '⚡ SPEED' : '🚀 VELOZ'} ⇄
+          </span>
+        `;
+      }
+
       return `
         <div class="order-card" style="margin-bottom: 0;">
           <div class="order-card-row">
             <strong class="order-number">#${p.numero_pedido}</strong>
             <div style="display: flex; gap: 4px; align-items: center;">
+              ${p.grupo ? grupoKanban : ''}
               ${p.localizador ? `<span style="font-size: 10px; font-weight: 700; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); padding: 1px 6px; border-radius: 4px; font-family: monospace;">PIN: ${p.localizador}</span>` : ''}
               <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem, p.texto_bruto)}</span>
             </div>
           </div>
           <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">${p.cliente}</div>
           <div class="order-address">📍 ${p.endereco}</div>
+          ${!p.grupo ? grupoKanban : ''}
           ${motoboyInfo}
           <div class="order-meta">
             <span>⏱️ ${p.tempo_decorrido_minutos} min</span>
@@ -1638,19 +1894,36 @@
       const container = document.getElementById('gridMotoboys');
       if (!container) return;
 
-      if (state.motoboys.length === 0) {
-        container.innerHTML = `<div class="empty-state"><div class="empty-state-title">Nenhum motoboy cadastrado</div></div>`;
+      const todos = state.motoboys || [];
+      const countVeloz = todos.filter(m => (m.grupo || 'VELOZ').toUpperCase() === 'VELOZ').length;
+      const countSpeed = todos.filter(m => (m.grupo || 'VELOZ').toUpperCase() === 'SPEED').length;
+
+      const btnT = document.getElementById('fmgTodos');
+      const btnV = document.getElementById('fmgVeloz');
+      const btnS = document.getElementById('fmgSpeed');
+      if (btnT) btnT.textContent = `Todos (${todos.length})`;
+      if (btnV) btnV.textContent = `🚀 VELOZ (${countVeloz})`;
+      if (btnS) btnS.textContent = `⚡ SPEED (${countSpeed})`;
+
+      let lista = todos;
+      if (state.filtroGrupoMotoboys && state.filtroGrupoMotoboys !== 'todos') {
+        lista = lista.filter(m => (m.grupo || 'VELOZ').toUpperCase() === state.filtroGrupoMotoboys.toUpperCase());
+      }
+
+      if (lista.length === 0) {
+        container.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;"><div class="empty-state-title">Nenhum entregador encontrado neste grupo</div></div>`;
         return;
       }
 
-      container.innerHTML = state.motoboys.map(m => {
+      container.innerHTML = lista.map(m => {
         const isOnline = m.status !== 'offline';
+        const isSpeed = (m.grupo || 'VELOZ').toUpperCase() === 'SPEED';
         const statusBadge = m.status === 'em_rota' 
           ? `<span class="status-badge badge-rota">Em Rota (${m.qtd_pedidos})</span>`
           : (isOnline ? `<span class="status-badge badge-retirada">Disponível</span>` : `<span class="status-badge badge-problema">Offline</span>`);
 
         return `
-          <div class="card card-elevated" style="display: flex; flex-direction: column; gap: 12px;">
+          <div class="card card-elevated" style="display: flex; flex-direction: column; gap: 12px; border-top: 3px solid ${isSpeed ? '#f59e0b' : '#3b82f6'};">
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <div style="display: flex; align-items: center; gap: 10px;">
                 <div style="width: 42px; height: 42px; border-radius: 50%; background: var(--bg-surface-hover); border: 2px solid ${isOnline ? '#10b981' : 'var(--border-subtle)'}; display: flex; align-items: center; justify-content: center; font-size: 20px;">🛵</div>
@@ -1662,14 +1935,24 @@
               ${statusBadge}
             </div>
 
+            <!-- Seletor de Grupo do Entregador -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: var(--bg-surface); border-radius: var(--radius-sm);">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Grupo da Equipe:</span>
+              <select style="background: #181d27; color: ${isSpeed ? '#fbbf24' : '#60a5fa'}; font-weight: 800; border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 3px 8px; font-size: 12px; cursor: pointer;" onchange="alterarGrupoMotoboyDirect(${m.id}, this.value)">
+                <option value="VELOZ" ${!isSpeed ? 'selected' : ''}>🚀 VELOZ</option>
+                <option value="SPEED" ${isSpeed ? 'selected' : ''}>⚡ SPEED</option>
+              </select>
+            </div>
+
             <div style="background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between;">
               <span>⚡ Velocidade: <strong style="color: var(--text-primary);">${m.velocidade} km/h</strong></span>
               <span>📡 GPS: <strong style="color: ${m.latitude ? 'var(--status-rota-text)' : 'var(--text-faint)'};">${m.latitude ? 'Ativo' : 'Pendente'}</strong></span>
             </div>
 
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="abrirWhatsappMotoboy('${m.telefone}')">💬 Conversar</button>
-              <button class="btn btn-gold btn-sm" style="flex: 1;" onclick="focarMotoboyNoMapa(${m.id})">🗺️ Ver no Mapa</button>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="abrirModalEditarMotoboy(${m.id})">✏️ Editar</button>
+              <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="abrirWhatsappMotoboy('${m.telefone}')">💬 WhatsApp</button>
+              <button class="btn btn-gold btn-sm" style="flex: 1;" onclick="focarMotoboyNoMapa(${m.id})">🗺️ Mapa</button>
             </div>
           </div>
         `;
@@ -2048,6 +2331,7 @@
       const payload = {
         origem: document.getElementById('inpNovoOrigem').value,
         numero_pedido: document.getElementById('inpNovoNumero').value.trim(),
+        grupo: document.getElementById('inpNovoGrupo').value || null,
         cliente: document.getElementById('inpNovoCliente').value.trim(),
         telefone_cliente: document.getElementById('inpNovoTelefone').value.trim(),
         endereco: document.getElementById('inpNovoEndereco').value.trim(),
@@ -2104,6 +2388,7 @@
 
     // ── FECHAMENTO DE TAXAS & REPASSE ────────────────────────────────────────
     let periodoFechamentoAtivo = 'hoje';
+    let grupoFechamentoAtivo = 'todos';
 
     function popularSelectMotoboys() {
       const sel = document.getElementById('selectFiltroMotoboy');
@@ -2113,14 +2398,21 @@
       motoboys.forEach(m => {
         const opt = document.createElement('option');
         opt.value = m.id;
-        opt.textContent = m.nome;
+        opt.textContent = `${m.nome} (${(m.grupo || 'VELOZ').toUpperCase()})`;
         sel.appendChild(opt);
       });
     }
 
     function selecionarPeriodoFechamento(periodo, btn) {
       periodoFechamentoAtivo = periodo;
-      document.querySelectorAll('#view-fechamento .filter-pill').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#view-fechamento #fpHoje, #view-fechamento #fpOntem, #view-fechamento #fpSemana, #view-fechamento #fpMes, #view-fechamento #fpTodos').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      carregarFechamento();
+    }
+
+    function selecionarGrupoFechamento(grupo, btn) {
+      grupoFechamentoAtivo = grupo;
+      document.querySelectorAll('#view-fechamento .grupo-fech-pill').forEach(b => b.classList.remove('active'));
       if (btn) btn.classList.add('active');
       carregarFechamento();
     }
@@ -2129,7 +2421,7 @@
       const motoboyId = document.getElementById('selectFiltroMotoboy')?.value || 'todos';
       const t = Date.now();
       try {
-        const res = await fetch(`/api/admin/fechamento?periodo=${periodoFechamentoAtivo}&motoboy_id=${motoboyId}&_t=${t}`, { cache: 'no-store' });
+        const res = await fetch(`/api/admin/fechamento?periodo=${periodoFechamentoAtivo}&motoboy_id=${motoboyId}&grupo=${grupoFechamentoAtivo}&_t=${t}`, { cache: 'no-store' });
         const data = await res.json();
         if (data.success) {
           renderizarFechamento(data);
@@ -2159,25 +2451,30 @@
         } else {
           contMotoboys.innerHTML = data.por_motoboy.map(m => {
             const totalFmt = m.total_taxas.toFixed(2).replace('.', ',');
+            const isSpeed = (m.grupo || 'VELOZ').toUpperCase() === 'SPEED';
             const msgWhats = encodeURIComponent(
               `🛵 Fechamento — ${periodoFechamentoAtivo === 'hoje' ? 'Hoje' : periodoFechamentoAtivo === 'ontem' ? 'Ontem' : periodoFechamentoAtivo === 'semana' ? 'Esta Semana' : periodoFechamentoAtivo === 'mes' ? 'Este Mês' : 'Todos'}:\n` +
+              `Grupo: ${isSpeed ? 'SPEED' : 'VELOZ'}\n` +
               `Entregas: ${m.total_entregas}\n` +
               `Total a receber: R$ ${totalFmt}\n` +
               `Ao Ponto Carnes — Teresópolis`
             );
             const tel = (m.telefone || '').replace(/\D/g, '');
             return `
-              <div class="card card-elevated" style="display: flex; flex-direction: column; gap: 12px;">
+              <div class="card card-elevated" style="display: flex; flex-direction: column; gap: 12px; border-top: 3px solid ${isSpeed ? '#f59e0b' : '#3b82f6'};">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                   <div>
-                    <strong style="font-size: 15px; display: block;">${m.nome}</strong>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <strong style="font-size: 15px;">${m.nome}</strong>
+                      <span class="badge-grupo-pedido ${isSpeed ? 'badge-grupo-speed' : 'badge-grupo-veloz'}">${isSpeed ? '⚡ SPEED' : '🚀 VELOZ'}</span>
+                    </div>
                     <span style="font-size: 12px; color: var(--text-muted);">📞 ${m.telefone}</span>
                   </div>
                   <span style="font-size: 22px; font-weight: 800; color: #34d399;">R$ ${totalFmt}</span>
                 </div>
                 <div style="background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; display: flex; justify-content: space-between;">
                   <span>📦 <strong>${m.total_entregas}</strong> entregas</span>
-                  <span style="color: var(--text-muted);">Tabela Oficial por Bairro</span>
+                  <span style="color: var(--text-muted);">${isSpeed ? 'Tabela Speed' : 'Tabela Oficial Veloz'}</span>
                 </div>
                 <div style="display: flex; gap: 8px;">
                   <a class="btn btn-success btn-sm" style="flex: 1; text-align: center; text-decoration: none;" href="https://wa.me/55${tel}?text=${msgWhats}" target="_blank">💬 WhatsApp</a>
@@ -2199,6 +2496,7 @@
               <thead>
                 <tr style="border-bottom: 2px solid var(--border-subtle); color: var(--text-muted);">
                   <th style="padding: 8px 4px; text-align: left;">#Pedido</th>
+                  <th style="padding: 8px 4px; text-align: left;">Grupo</th>
                   <th style="padding: 8px 4px; text-align: left;">Cliente</th>
                   <th style="padding: 8px 4px; text-align: left;">Bairro</th>
                   <th style="padding: 8px 4px; text-align: left;">Motoboy</th>
@@ -2207,16 +2505,22 @@
                 </tr>
               </thead>
               <tbody>
-                ${data.entregas_detalhadas.map(e => `
-                  <tr style="border-bottom: 1px solid var(--border-subtle);">
-                    <td style="padding: 8px 4px; font-weight: 700;">#${e.numero_pedido}</td>
-                    <td style="padding: 8px 4px;">${e.cliente || '—'}</td>
-                    <td style="padding: 8px 4px; color: var(--text-muted);">${e.bairro || '—'}</td>
-                    <td style="padding: 8px 4px;">${e.motoboy ? e.motoboy.nome : '—'}</td>
-                    <td style="padding: 8px 4px; color: var(--text-muted);">${e.data_fim ? e.data_fim.substring(11, 16) : '—'}</td>
-                    <td style="padding: 8px 4px; text-align: right; font-weight: 700; color: #34d399;">R$ ${e.taxa_repasse.toFixed(2).replace('.', ',')}</td>
-                  </tr>
-                `).join('')}
+                ${data.entregas_detalhadas.map(e => {
+                  const isSpeed = (e.grupo || 'VELOZ').toUpperCase() === 'SPEED';
+                  return `
+                    <tr style="border-bottom: 1px solid var(--border-subtle);">
+                      <td style="padding: 8px 4px; font-weight: 700;">#${e.numero_pedido}</td>
+                      <td style="padding: 8px 4px;">
+                        <span class="badge-grupo-pedido ${isSpeed ? 'badge-grupo-speed' : 'badge-grupo-veloz'}">${isSpeed ? '⚡ SPEED' : '🚀 VELOZ'}</span>
+                      </td>
+                      <td style="padding: 8px 4px;">${e.cliente || '—'}</td>
+                      <td style="padding: 8px 4px; color: var(--text-muted);">${e.bairro || '—'}</td>
+                      <td style="padding: 8px 4px;">${e.motoboy ? e.motoboy.nome : '—'}</td>
+                      <td style="padding: 8px 4px; color: var(--text-muted);">${e.data_fim ? e.data_fim.substring(11, 16) : '—'}</td>
+                      <td style="padding: 8px 4px; text-align: right; font-weight: 700; color: #34d399;">R$ ${e.taxa_repasse.toFixed(2).replace('.', ',')}</td>
+                    </tr>
+                  `;
+                }).join('')}
               </tbody>
             </table>
           `;
@@ -2226,6 +2530,257 @@
 
     function imprimirFechamento() {
       window.print();
+    }
+
+    // ── GESTÃO DE MOTOBOYS & GRUPOS (PROTEGIDO POR SENHA) ────────────────────
+    function filtrarGrupoMotoboys(grupo, btn) {
+      state.filtroGrupoMotoboys = grupo;
+      document.querySelectorAll('#view-motoboys .filter-pill').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderizarMotoboys();
+    }
+
+    function verificarAbaMotoboysDesbloqueada() {
+      const unlocked = sessionStorage.getItem('motoboys_unlocked') === 'true';
+      const lockScreen = document.getElementById('motoboysLockScreen');
+      const contentScreen = document.getElementById('motoboysContentScreen');
+      if (unlocked) {
+        if (lockScreen) lockScreen.style.display = 'none';
+        if (contentScreen) contentScreen.style.display = 'flex';
+        renderizarMotoboys();
+      } else {
+        if (lockScreen) lockScreen.style.display = 'flex';
+        if (contentScreen) contentScreen.style.display = 'none';
+        const inp = document.getElementById('inpSenhaAbaMotoboys');
+        if (inp) setTimeout(() => inp.focus(), 100);
+      }
+    }
+
+    async function autenticarAbaMotoboys(e) {
+      if (e) e.preventDefault();
+      const inp = document.getElementById('inpSenhaAbaMotoboys');
+      const msgErro = document.getElementById('msgErroSenhaMotoboy');
+      const btn = document.getElementById('btnDesbloquearMotoboys');
+      const senha = (inp ? inp.value : '').trim();
+
+      if (!senha) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Verificando...';
+      if (msgErro) msgErro.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/admin/motoboys/verificar-senha', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ senha })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          sessionStorage.setItem('motoboys_unlocked', 'true');
+          sessionStorage.setItem('admin_motoboy_pass', senha);
+          showToast('🔓 Acesso liberado à gestão de entregadores!', 'success');
+          if (inp) inp.value = '';
+          verificarAbaMotoboysDesbloqueada();
+        } else {
+          if (msgErro) {
+            msgErro.textContent = data.message || 'Senha incorreta.';
+            msgErro.style.display = 'block';
+          }
+          showToast('Senha administrativa incorreta.', 'error');
+        }
+      } catch (err) {
+        if (msgErro) {
+          msgErro.textContent = 'Erro de comunicação com o servidor.';
+          msgErro.style.display = 'block';
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔓 DESBLOQUEAR ACESSO';
+      }
+    }
+
+    function bloquearAbaMotoboys() {
+      sessionStorage.removeItem('motoboys_unlocked');
+      sessionStorage.removeItem('admin_motoboy_pass');
+      showToast('🔒 Aba de entregadores bloqueada com sucesso.', 'info');
+      verificarAbaMotoboysDesbloqueada();
+    }
+
+    async function alterarGrupoMotoboyDirect(motoboyId, novoGrupo) {
+      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
+      try {
+        const res = await fetch('/api/admin/motoboys/atualizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: motoboyId,
+            grupo: novoGrupo,
+            senha_admin: senhaAdmin
+          })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(`Entregador alterado para o grupo ${novoGrupo}!`, 'success');
+          carregarTudo(false);
+        } else {
+          showToast(data.message || 'Erro ao alterar grupo.', 'error');
+          carregarTudo(false);
+        }
+      } catch (e) {
+        showToast('Erro ao atualizar grupo do entregador.', 'error');
+      }
+    }
+
+    // Modal de Edição de Motoboy
+    function abrirModalEditarMotoboy(motoboyId) {
+      const m = (state.motoboys || []).find(item => item.id === motoboyId);
+      if (!m) return;
+
+      document.getElementById('inpEditMotoboyId').value = m.id;
+      document.getElementById('inpEditMotoboyNome').value = m.nome;
+      document.getElementById('inpEditMotoboyTel').value = m.telefone;
+      document.getElementById('inpEditMotoboyGrupo').value = (m.grupo || 'VELOZ').toUpperCase();
+      document.getElementById('inpEditMotoboySenha').value = '';
+      document.getElementById('inpEditMotoboyDeviceId').value = m.traccar_device_id || '';
+      document.getElementById('msgErroEditMotoboy').style.display = 'none';
+
+      document.getElementById('modalEditarMotoboy').style.display = 'flex';
+    }
+
+    function fecharModalEditarMotoboy() {
+      const modal = document.getElementById('modalEditarMotoboy');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function salvarEdicaoMotoboy(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSalvarEditMotoboy');
+      const msgErro = document.getElementById('msgErroEditMotoboy');
+      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
+
+      const payload = {
+        id: Number(document.getElementById('inpEditMotoboyId').value),
+        nome: document.getElementById('inpEditMotoboyNome').value.trim(),
+        telefone: document.getElementById('inpEditMotoboyTel').value.trim(),
+        grupo: document.getElementById('inpEditMotoboyGrupo').value,
+        senha: document.getElementById('inpEditMotoboySenha').value.trim() || undefined,
+        traccar_device_id: document.getElementById('inpEditMotoboyDeviceId').value.trim() || undefined,
+        senha_admin: senhaAdmin
+      };
+
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+      msgErro.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/admin/motoboys/atualizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message, 'success');
+          fecharModalEditarMotoboy();
+          carregarTudo(false);
+        } else {
+          msgErro.textContent = data.message || 'Erro ao salvar alterações.';
+          msgErro.style.display = 'block';
+        }
+      } catch (err) {
+        msgErro.textContent = 'Erro ao conectar ao servidor.';
+        msgErro.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 SALVAR';
+      }
+    }
+
+    // Modal de Cadastro de Motoboy
+    function abrirModalCadastrarMotoboy() {
+      document.getElementById('inpCadMotoboyNome').value = '';
+      document.getElementById('inpCadMotoboyTel').value = '';
+      document.getElementById('inpCadMotoboyGrupo').value = 'VELOZ';
+      document.getElementById('inpCadMotoboySenha').value = '';
+      document.getElementById('inpCadMotoboyDeviceId').value = '';
+      document.getElementById('msgErroCadMotoboy').style.display = 'none';
+      document.getElementById('modalCadastrarMotoboy').style.display = 'flex';
+      setTimeout(() => document.getElementById('inpCadMotoboyNome').focus(), 100);
+    }
+
+    function fecharModalCadastrarMotoboy() {
+      const modal = document.getElementById('modalCadastrarMotoboy');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function salvarCadastroMotoboy(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSalvarCadMotoboy');
+      const msgErro = document.getElementById('msgErroCadMotoboy');
+      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
+
+      const payload = {
+        nome: document.getElementById('inpCadMotoboyNome').value.trim(),
+        telefone: document.getElementById('inpCadMotoboyTel').value.trim(),
+        grupo: document.getElementById('inpCadMotoboyGrupo').value,
+        senha: document.getElementById('inpCadMotoboySenha').value.trim(),
+        traccar_device_id: document.getElementById('inpCadMotoboyDeviceId').value.trim() || undefined,
+        senha_admin: senhaAdmin
+      };
+
+      btn.disabled = true;
+      btn.textContent = 'Cadastrando...';
+      msgErro.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/admin/motoboys/cadastrar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message, 'success');
+          fecharModalCadastrarMotoboy();
+          carregarTudo(false);
+        } else {
+          msgErro.textContent = data.message || 'Erro ao cadastrar entregador.';
+          msgErro.style.display = 'block';
+        }
+      } catch (err) {
+        msgErro.textContent = 'Erro ao conectar ao servidor.';
+        msgErro.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '➕ CADASTRAR';
+      }
+    }
+
+    // Ações de Direcionamento de Pedido
+    async function definirGrupoPedido(pedidoId, grupo) {
+      try {
+        const res = await fetch('/api/pedidos/definir-grupo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pedido_id: pedidoId, grupo })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(`Pedido direcionado com sucesso para ${grupo}!`, 'success');
+          carregarTudo(false);
+        } else {
+          showToast(data.message || 'Erro ao definir grupo.', 'error');
+        }
+      } catch (e) {
+        showToast('Erro de conexão ao definir grupo.', 'error');
+      }
+    }
+
+    async function alternarGrupoPedido(pedidoId, grupoAtual) {
+      const novoGrupo = grupoAtual === 'SPEED' ? 'VELOZ' : 'SPEED';
+      if (!confirm(`Deseja alterar a destinação deste pedido para o grupo ${novoGrupo}?`)) return;
+      await definirGrupoPedido(pedidoId, novoGrupo);
     }
 
   </script>

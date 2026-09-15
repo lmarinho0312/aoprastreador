@@ -427,23 +427,107 @@ async function expirarPedidosPendentesDiasAnteriores(db) {
  * Lista todos os pedidos disponíveis no balcão aguardando retirada por um motoboy
  * GET /api/pedidos/disponiveis (Apenas pedidos de HOJE, ignorando viradas de data)
  */
+/**
+ * Define ou altera o grupo de entrega responsável pelo pedido (VELOZ ou SPEED)
+ * POST /api/pedidos/definir-grupo
+ */
+async function definirGrupoPedido(req, res) {
+  try {
+    const { pedido_id, grupo } = req.body || {};
+
+    if (!pedido_id) {
+      return res.json(400, { success: false, message: 'pedido_id é obrigatório.' });
+    }
+
+    const cleanGrupo = grupo ? String(grupo).trim().toUpperCase() : null;
+    if (cleanGrupo && cleanGrupo !== 'VELOZ' && cleanGrupo !== 'SPEED') {
+      return res.json(400, { success: false, message: "Grupo inválido. Use 'VELOZ' ou 'SPEED'." });
+    }
+
+    const db = getDb();
+    const pedidoIdNum = Number(pedido_id);
+
+    const result = await db.execute(
+      `UPDATE pedidos SET grupo = ? WHERE id = ?`,
+      [cleanGrupo, pedidoIdNum]
+    );
+
+    if (result.changes === 0) {
+      return res.json(404, { success: false, message: 'Pedido não encontrado.' });
+    }
+
+    const pedidoAtualizado = await db.queryOne(
+      `SELECT * FROM pedidos WHERE id = ?`,
+      [pedidoIdNum]
+    );
+
+    return res.json(200, {
+      success: true,
+      message: cleanGrupo 
+        ? `Pedido #${pedidoAtualizado.numero_pedido} direcionado com sucesso para o grupo ${cleanGrupo}!`
+        : `Grupo do pedido #${pedidoAtualizado.numero_pedido} redefinido para pendente.`,
+      pedido: pedidoAtualizado
+    });
+  } catch (error) {
+    console.error('❌ Erro ao definir grupo do pedido:', error);
+    return res.json(500, { success: false, message: 'Erro ao definir grupo do pedido.', error: error.message });
+  }
+}
+
+/**
+ * Lista todos os pedidos disponíveis no balcão aguardando retirada por um motoboy
+ * GET /api/pedidos/disponiveis (Apenas pedidos de HOJE, isolados por grupo VELOZ ou SPEED)
+ */
 async function listarPedidosDisponiveis(req, res) {
   try {
     const db = getDb();
     await expirarPedidosPendentesDiasAnteriores(db);
 
+    const { motoboy_id, grupo } = req.query || {};
+    let grupoFiltro = null;
+    let tabelaTaxa = 'taxa_bairro';
+
+    if (motoboy_id) {
+      const motoboy = await db.queryOne('SELECT id, nome, grupo FROM motoboys WHERE id = ?', [Number(motoboy_id)]);
+      if (motoboy && motoboy.grupo) {
+        grupoFiltro = String(motoboy.grupo).toUpperCase();
+      }
+    } else if (grupo) {
+      grupoFiltro = String(grupo).toUpperCase();
+    }
+
+    if (grupoFiltro === 'SPEED') {
+      tabelaTaxa = 'taxa_bairro_speed';
+    } else {
+      tabelaTaxa = 'taxa_bairro';
+    }
+
+    // Regra de Ouro: motoboys de um grupo só veem pedidos expressamente destinados ao seu grupo!
+    // Pedidos sem grupo definido (aguardando seleção da cozinha) NÃO aparecem no app para nenhum grupo.
+    let whereGrupo = '';
+    const params = [];
+
+    if (grupoFiltro) {
+      whereGrupo = `AND p.grupo = ?`;
+      params.push(grupoFiltro);
+    } else {
+      // Se não houver identificação do grupo, nenhum pedido é retornado para impedir vazamento entre grupos
+      whereGrupo = `AND 1 = 0`;
+    }
+
     const pedidos = await db.query(`
-      SELECT p.id, p.numero_pedido, p.status, p.origem, p.pedido_id_origem, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.criado_em,
+      SELECT p.id, p.numero_pedido, p.status, p.origem, p.grupo, p.pedido_id_origem, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.criado_em,
              COALESCE(tb.taxa, 10.00) as taxa_repasse,
              ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(p.criado_em, DATETIME('now', '-3 hours')))) * 1440) as minutos_aguardando
       FROM pedidos p
-      LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
+      LEFT JOIN ${tabelaTaxa} tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
       WHERE (p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR p.status IS NULL)
         AND (p.motoboy_id IS NULL OR p.status != 'em_rota')
         AND p.status NOT IN ('entregue', 'expirado', 'cancelado')
         AND DATE(COALESCE(p.criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
+        ${whereGrupo}
       ORDER BY p.id DESC
-    `);
+    `, params);
 
     return res.json(200, {
       success: true,
@@ -452,6 +536,7 @@ async function listarPedidosDisponiveis(req, res) {
         const repasse = Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : 10.00);
         return {
           ...p,
+          grupo: p.grupo || null,
           taxa_repasse: repasse,
           taxa_entrega: repasse, // Garantir que a taxa exibida para o motoboy seja sempre o repasse oficial Ao Ponto
           minutos_aguardando: Math.max(0, Math.round(Number(p.minutos_aguardando || 0)))
@@ -481,7 +566,26 @@ async function assumirPedido(req, res) {
     const motoboyIdNum = Number(motoboy_id);
     const db = getDb();
 
-    // Atualização atômica para evitar concorrência (qualquer status pré-saída sem motoboy atribuído)
+    // 1. Validar se o pedido tem grupo definido e se coincide com o grupo do motoboy
+    const motoboy = await db.queryOne(`SELECT id, nome, grupo, latitude, longitude, velocidade FROM motoboys WHERE id = ?`, [motoboyIdNum]);
+    const pedidoAtual = await db.queryOne(`SELECT id, numero_pedido, grupo, status, motoboy_id FROM pedidos WHERE id = ?`, [pedidoIdNum]);
+
+    if (!pedidoAtual) {
+      return res.json(404, { success: false, message: 'Pedido não encontrado.' });
+    }
+
+    if (!pedidoAtual.grupo) {
+      return res.json(400, { success: false, message: 'Este pedido ainda está aguardando direcionamento de grupo pela cozinha.' });
+    }
+
+    if (motoboy && motoboy.grupo && pedidoAtual.grupo !== motoboy.grupo) {
+      return res.json(403, { 
+        success: false, 
+        message: `Este pedido foi destinado exclusivamente ao grupo ${pedidoAtual.grupo}. Você está registrado no grupo ${motoboy.grupo}.` 
+      });
+    }
+
+    // 2. Atualização atômica para evitar concorrência (qualquer status pré-saída sem motoboy atribuído)
     const result = await db.execute(
       `UPDATE pedidos 
        SET motoboy_id = ?, status = 'em_rota', data_inicio = DATETIME('now', '-3 hours') 
@@ -507,11 +611,6 @@ async function assumirPedido(req, res) {
     }
 
     // Gravar ponto inicial de GPS se o motoboy já tiver localização conhecida
-    const motoboy = await db.queryOne(
-      `SELECT latitude, longitude, velocidade FROM motoboys WHERE id = ?`,
-      [motoboyIdNum]
-    );
-
     if (motoboy && motoboy.latitude !== null && motoboy.longitude !== null) {
       await db.execute(
         `INSERT INTO pedido_rotas (pedido_id, motoboy_id, latitude, longitude, velocidade, criado_em) 
@@ -672,12 +771,15 @@ async function listarPedidosMotoboy(req, res) {
     const db = getDb();
     await expirarPedidosPendentesDiasAnteriores(db);
 
+    const motoboy = await db.queryOne('SELECT id, nome, grupo FROM motoboys WHERE id = ?', [Number(motoboy_id)]);
+    const tabelaTaxa = (motoboy && motoboy.grupo === 'SPEED') ? 'taxa_bairro_speed' : 'taxa_bairro';
+
     const pedidos = await db.query(
-      `SELECT p.id, p.numero_pedido, p.status, p.origem, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.data_inicio, 
+      `SELECT p.id, p.numero_pedido, p.status, p.origem, p.grupo, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.data_inicio, 
               COALESCE(tb.taxa, 10.00) as taxa_repasse,
               ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(p.data_inicio)) * 1440) as minutos_em_rota
        FROM pedidos p 
-       LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
+       LEFT JOIN ${tabelaTaxa} tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
        WHERE p.motoboy_id = ? AND p.status = 'em_rota' 
        ORDER BY p.data_inicio DESC`,
       [Number(motoboy_id)]
@@ -779,10 +881,14 @@ async function obterDetalhesPedido(req, res) {
     const db = getDb();
     const p = await db.queryOne(
       `SELECT p.*, m.nome as motoboy_nome, m.telefone as motoboy_telefone, m.latitude as motoboy_lat, m.longitude as motoboy_lng,
-              COALESCE(tb.taxa, 10.00) as taxa_repasse
+              CASE 
+                WHEN p.grupo = 'SPEED' OR m.grupo = 'SPEED' THEN COALESCE(tb_speed.taxa, tb_veloz.taxa, 10.00)
+                ELSE COALESCE(tb_veloz.taxa, 10.00)
+              END as taxa_repasse
        FROM pedidos p
        LEFT JOIN motoboys m ON p.motoboy_id = m.id
-       LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
+       LEFT JOIN taxa_bairro tb_veloz ON LOWER(TRIM(tb_veloz.bairro)) = LOWER(TRIM(p.bairro))
+       LEFT JOIN taxa_bairro_speed tb_speed ON LOWER(TRIM(tb_speed.bairro)) = LOWER(TRIM(p.bairro))
        WHERE p.id = ? OR p.numero_pedido = ?`,
       [Number(pedidoId) || 0, String(pedidoId).trim()]
     );
@@ -833,6 +939,7 @@ async function obterDetalhesPedido(req, res) {
         numero_pedido: p.numero_pedido,
         status: p.status,
         origem: p.origem || 'MANUAL',
+        grupo: p.grupo || null,
         localizador: p.localizador || null,
         cliente: {
           nome: p.cliente || 'Cliente Balcão',
@@ -870,7 +977,7 @@ async function obterDetalhesPedido(req, res) {
 }
 
 /**
- * Rendimentos do Motoboy — Taxas por Bairro (fallback R$5,00)
+ * Rendimentos do Motoboy — Taxas por Bairro (isolado pelo grupo do motoboy)
  * GET /api/motoboy/rendimentos?motoboy_id=<id>&periodo=hoje|ontem|semana|mes|todos
  */
 async function obterRendimentosMotoboy(req, res) {
@@ -883,6 +990,9 @@ async function obterRendimentosMotoboy(req, res) {
 
     const db = getDb();
     const motoboyIdNum = Number(motoboy_id);
+    const motoboy = await db.queryOne('SELECT id, nome, grupo FROM motoboys WHERE id = ?', [motoboyIdNum]);
+    const tabelaTaxa = (motoboy && motoboy.grupo === 'SPEED') ? 'taxa_bairro_speed' : 'taxa_bairro';
+
     const params = [motoboyIdNum];
 
     let dataFiltro = '';
@@ -909,6 +1019,7 @@ async function obterRendimentosMotoboy(req, res) {
       SELECT
         p.id,
         p.numero_pedido,
+        p.grupo,
         p.bairro,
         p.endereco,
         p.cliente,
@@ -917,7 +1028,7 @@ async function obterRendimentosMotoboy(req, res) {
         p.data_fim,
         COALESCE(tb.taxa, 10.00) as taxa_repasse
       FROM pedidos p
-      LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
+      LEFT JOIN ${tabelaTaxa} tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
       WHERE p.motoboy_id = ?
         AND p.status = 'entregue'
         ${dataFiltro}
@@ -933,6 +1044,7 @@ async function obterRendimentosMotoboy(req, res) {
       return {
         id: e.id,
         numero_pedido: e.numero_pedido,
+        grupo: e.grupo,
         cliente: e.cliente,
         endereco: e.endereco,
         bairro: e.bairro || 'Não informado',
@@ -948,6 +1060,7 @@ async function obterRendimentosMotoboy(req, res) {
     return res.json(200, {
       success: true,
       motoboy_id: motoboyIdNum,
+      motoboy_grupo: motoboy ? motoboy.grupo : 'VELOZ',
       periodo,
       taxa_padrao_sem_bairro: 10.00,
       resumo: {
@@ -965,6 +1078,7 @@ async function obterRendimentosMotoboy(req, res) {
 
 module.exports = {
   webhookSpool,
+  definirGrupoPedido,
   listarPedidosDisponiveis,
   assumirPedido,
   iniciarPedido,

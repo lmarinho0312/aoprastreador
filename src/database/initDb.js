@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS motoboys (
     telefone TEXT UNIQUE NOT NULL,
     senha TEXT NOT NULL,
     traccar_device_id TEXT UNIQUE NOT NULL,
+    grupo TEXT NOT NULL DEFAULT 'VELOZ',
     latitude REAL,
     longitude REAL,
     velocidade REAL DEFAULT 0,
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS pedidos (
     numero_pedido TEXT NOT NULL,
     motoboy_id INTEGER,
     status TEXT NOT NULL DEFAULT 'disponivel',
+    grupo TEXT NULL,
     origem TEXT DEFAULT 'MANUAL',
     pedido_id_origem TEXT,
     cliente TEXT,
@@ -50,8 +52,21 @@ CREATE TABLE IF NOT EXISTS pedido_rotas (
     FOREIGN KEY (pedido_id) REFERENCES pedidos(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS taxa_bairro (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bairro TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    taxa REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS taxa_bairro_speed (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bairro TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    taxa REAL NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_pedidos_motoboy_status ON pedidos(motoboy_id, status);
 CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status);
+CREATE INDEX IF NOT EXISTS idx_pedidos_grupo_status ON pedidos(grupo, status);
 CREATE INDEX IF NOT EXISTS idx_pedidos_origem_id ON pedidos(origem, pedido_id_origem);
 CREATE INDEX IF NOT EXISTS idx_pedido_rotas_pedido ON pedido_rotas(pedido_id);
     `.trim();

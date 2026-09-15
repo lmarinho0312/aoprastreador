@@ -615,7 +615,10 @@
         </div>
 
         <div class="motoboy-profile-badge">
-          <div class="motoboy-name-text" id="headerMotoboyNome">Motoboy</div>
+          <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
+            <div class="motoboy-name-text" id="headerMotoboyNome">Motoboy</div>
+            <span id="headerGrupoBadge" style="font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);">🚀 VELOZ</span>
+          </div>
           <div class="gps-pulse-pill" id="headerGpsStatus">
             <span class="gps-dot"></span>
             <span id="gpsText">GPS Ativo</span>
@@ -691,6 +694,7 @@
           <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, var(--brand-gold-light), var(--brand-gold)); color: #000; font-size: 24px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;" id="perfilAvatarInitial">M</div>
           <h3 style="font-size: 18px; font-weight: 800;" id="perfilNome">Motoboy</h3>
           <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;" id="perfilTelefone">--</p>
+          <div id="perfilGrupoBadge" style="margin-top: 6px; display: inline-block; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 12px; background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);">Equipe 🚀 VELOZ</div>
         </div>
 
         <!-- Seletores de Período -->
@@ -830,6 +834,24 @@
       document.getElementById('perfilTelefone').textContent = `📞 ${state.motoboy.telefone}`;
       document.getElementById('perfilAvatarInitial').textContent = state.motoboy.nome.charAt(0).toUpperCase();
 
+      const grupo = (state.motoboy.grupo || 'VELOZ').toUpperCase();
+      const isSpeed = grupo === 'SPEED';
+      const badgeText = isSpeed ? '⚡ SPEED' : '🚀 VELOZ';
+      const badgeStyle = isSpeed 
+        ? 'background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);'
+        : 'background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);';
+
+      const elHBadge = document.getElementById('headerGrupoBadge');
+      if (elHBadge) {
+        elHBadge.textContent = badgeText;
+        elHBadge.style.cssText = `font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; ${badgeStyle}`;
+      }
+      const elPBadge = document.getElementById('perfilGrupoBadge');
+      if (elPBadge) {
+        elPBadge.textContent = `Equipe ${badgeText}`;
+        elPBadge.style.cssText = `margin-top: 6px; display: inline-block; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 12px; ${badgeStyle}`;
+      }
+
       solicitarWakeLock();
       iniciarGps();
       carregarDados();
@@ -921,7 +943,7 @@
         const t = Date.now();
         const [ativosRes, balcaoRes] = await Promise.all([
           fetch(`/api/pedidos/motoboy?motoboy_id=${state.motoboy.id}&_t=${t}`, { cache: 'no-store' }).then(r => r.json()).catch(() => null),
-          fetch(`/api/pedidos/disponiveis?_t=${t}`, { cache: 'no-store' }).then(r => r.json()).catch(() => null)
+          fetch(`/api/pedidos/disponiveis?motoboy_id=${state.motoboy.id}&_t=${t}`, { cache: 'no-store' }).then(r => r.json()).catch(() => null)
         ]);
 
         if (ativosRes && ativosRes.success) {

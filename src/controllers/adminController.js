@@ -195,11 +195,14 @@ async function listarTodosPedidos(req, res) {
     const { status, busca, data = 'hoje', incluir_expirados } = req.query || {};
 
     let query = `
-      SELECT p.id, p.numero_pedido, p.status, p.origem, p.pedido_id_origem,
+      SELECT p.id, p.numero_pedido, p.status, p.origem, p.grupo, p.pedido_id_origem,
              p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente,
              p.localizador,
              p.texto_bruto, p.data_inicio, p.data_fim, p.criado_em,
-             COALESCE(tb.taxa, 10.00) as taxa_repasse,
+             CASE 
+               WHEN p.grupo = 'SPEED' OR m.grupo = 'SPEED' THEN COALESCE(tb_speed.taxa, tb_veloz.taxa, 10.00)
+               ELSE COALESCE(tb_veloz.taxa, 10.00)
+             END as taxa_repasse,
              m.id as motoboy_id, m.nome as motoboy_nome, m.telefone as motoboy_telefone,
              CASE 
                WHEN p.status = 'em_rota' AND p.data_inicio IS NOT NULL THEN
@@ -213,7 +216,8 @@ async function listarTodosPedidos(req, res) {
              (SELECT COUNT(*) FROM pedido_rotas pr WHERE pr.pedido_id = p.id) as total_pontos_gps
       FROM pedidos p
       LEFT JOIN motoboys m ON p.motoboy_id = m.id
-      LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
+      LEFT JOIN taxa_bairro tb_veloz ON LOWER(TRIM(tb_veloz.bairro)) = LOWER(TRIM(p.bairro))
+      LEFT JOIN taxa_bairro_speed tb_speed ON LOWER(TRIM(tb_speed.bairro)) = LOWER(TRIM(p.bairro))
     `;
 
     const conditions = [];
@@ -268,6 +272,7 @@ async function listarTodosPedidos(req, res) {
           numero_pedido: p.numero_pedido,
           status: p.status,
           origem: p.origem || 'MANUAL',
+          grupo: p.grupo || null,
           cliente: p.cliente || 'Cliente Balcão',
           endereco: p.endereco || 'Retirada no balcão',
           bairro: p.bairro || '',
@@ -303,7 +308,7 @@ async function listarMotoboysAdmin(req, res) {
   try {
     const db = getDb();
     const motoboys = await db.query(
-      `SELECT id, nome, telefone, traccar_device_id, latitude, longitude, velocidade, ultima_atualizacao, criado_em FROM motoboys ORDER BY id ASC`
+      `SELECT id, nome, telefone, traccar_device_id, latitude, longitude, velocidade, ultima_atualizacao, criado_em, grupo FROM motoboys ORDER BY id ASC`
     );
 
     const pedidosAtivos = await db.query(
@@ -331,6 +336,7 @@ async function listarMotoboysAdmin(req, res) {
         id: m.id,
         nome: m.nome,
         telefone: m.telefone,
+        grupo: m.grupo || 'VELOZ',
         traccar_device_id: m.traccar_device_id,
         latitude: m.latitude,
         longitude: m.longitude,
@@ -360,7 +366,7 @@ async function listarMotoboysAdmin(req, res) {
 async function obterFechamentoEntregas(req, res) {
   try {
     const db = getDb();
-    const { periodo = 'hoje', motoboy_id } = req.query || {};
+    const { periodo = 'hoje', motoboy_id, grupo = 'todos' } = req.query || {};
 
     let dataFiltro = '';
     const params = [];
@@ -390,10 +396,18 @@ async function obterFechamentoEntregas(req, res) {
       params.push(Number(motoboy_id));
     }
 
+    let grupoFiltro = '';
+    const cleanGrupo = String(grupo).toUpperCase();
+    if (cleanGrupo === 'VELOZ' || cleanGrupo === 'SPEED') {
+      grupoFiltro = `AND (m.grupo = ? OR p.grupo = ?)`;
+      params.push(cleanGrupo, cleanGrupo);
+    }
+
     const entregas = await db.query(`
       SELECT 
         p.id,
         p.numero_pedido,
+        p.grupo as pedido_grupo,
         p.cliente,
         p.endereco,
         p.bairro,
@@ -403,14 +417,20 @@ async function obterFechamentoEntregas(req, res) {
         p.motoboy_id,
         m.nome as motoboy_nome,
         m.telefone as motoboy_telefone,
-        COALESCE(tb.taxa, 10.00) as taxa_repasse
+        m.grupo as motoboy_grupo,
+        CASE 
+          WHEN m.grupo = 'SPEED' OR p.grupo = 'SPEED' THEN COALESCE(tb_speed.taxa, tb_veloz.taxa, 10.00)
+          ELSE COALESCE(tb_veloz.taxa, 10.00)
+        END as taxa_repasse
       FROM pedidos p
       LEFT JOIN motoboys m ON p.motoboy_id = m.id
-      LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
+      LEFT JOIN taxa_bairro tb_veloz ON LOWER(TRIM(tb_veloz.bairro)) = LOWER(TRIM(p.bairro))
+      LEFT JOIN taxa_bairro_speed tb_speed ON LOWER(TRIM(tb_speed.bairro)) = LOWER(TRIM(p.bairro))
       WHERE p.status = 'entregue'
         AND p.motoboy_id IS NOT NULL
         ${dataFiltro}
         ${motoboyFiltro}
+        ${grupoFiltro}
       ORDER BY p.data_fim DESC
     `, params);
 
@@ -428,6 +448,7 @@ async function obterFechamentoEntregas(req, res) {
           motoboy_id: e.motoboy_id,
           nome: e.motoboy_nome,
           telefone: e.motoboy_telefone,
+          grupo: e.motoboy_grupo || 'VELOZ',
           total_entregas: 0,
           total_taxas: 0,
           entregas: []
@@ -439,6 +460,7 @@ async function obterFechamentoEntregas(req, res) {
       porMotoboy[e.motoboy_id].entregas.push({
         id: e.id,
         numero_pedido: e.numero_pedido,
+        grupo: e.pedido_grupo || e.motoboy_grupo || 'VELOZ',
         cliente: e.cliente,
         endereco: e.endereco,
         bairro: e.bairro,
@@ -451,13 +473,14 @@ async function obterFechamentoEntregas(req, res) {
       return {
         id: e.id,
         numero_pedido: e.numero_pedido,
+        grupo: e.pedido_grupo || e.motoboy_grupo || 'VELOZ',
         cliente: e.cliente,
         endereco: e.endereco,
         bairro: e.bairro,
         origem: e.origem,
         data_inicio: e.data_inicio,
         data_fim: e.data_fim,
-        motoboy: { id: e.motoboy_id, nome: e.motoboy_nome, telefone: e.motoboy_telefone },
+        motoboy: { id: e.motoboy_id, nome: e.motoboy_nome, telefone: e.motoboy_telefone, grupo: e.motoboy_grupo || 'VELOZ' },
         taxa_repasse: taxaEfetiva
       };
     });
@@ -470,6 +493,7 @@ async function obterFechamentoEntregas(req, res) {
     return res.json(200, {
       success: true,
       periodo,
+      grupo_filtro: cleanGrupo === 'VELOZ' || cleanGrupo === 'SPEED' ? cleanGrupo : 'todos',
       taxa_padrao_sem_bairro: 10.00,
       kpis: {
         total_entregas: totalGeralEntregas,
@@ -492,7 +516,7 @@ async function obterFechamentoEntregas(req, res) {
  */
 async function criarPedidoManual(req, res) {
   try {
-    const { numero_pedido, origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, itens, observacoes } = req.body || {};
+    const { numero_pedido, origem, grupo, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, itens, observacoes } = req.body || {};
 
     if (!numero_pedido) {
       return res.json(400, { success: false, message: 'Número do pedido é obrigatório.' });
@@ -500,6 +524,7 @@ async function criarPedidoManual(req, res) {
 
     const cleanOrigem = (origem || 'MANUAL').trim().toUpperCase();
     const cleanPedidoId = String(numero_pedido).trim();
+    const cleanGrupo = grupo ? String(grupo).trim().toUpperCase() : null;
     const cleanCliente = cliente ? String(cliente).trim() : 'Cliente';
     const cleanEndereco = endereco ? String(endereco).trim() : null;
     let cleanBairro = bairro ? String(bairro).trim() : null;
@@ -516,9 +541,9 @@ async function criarPedidoManual(req, res) {
 
     const result = await db.execute(
       `INSERT INTO pedidos 
-       (numero_pedido, motoboy_id, status, origem, pedido_id_origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, texto_bruto, criado_em)
-       VALUES (?, NULL, 'disponivel', ?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now', '-3 hours'))`,
-      [cleanPedidoId, cleanOrigem, cleanPedidoId, cleanCliente, cleanEndereco, cleanBairro, taxa, cleanTelefone, cleanLocalizador, cleanTextoBruto]
+       (numero_pedido, motoboy_id, status, grupo, origem, pedido_id_origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, texto_bruto, criado_em)
+       VALUES (?, NULL, 'disponivel', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now', '-3 hours'))`,
+      [cleanPedidoId, cleanGrupo, cleanOrigem, cleanPedidoId, cleanCliente, cleanEndereco, cleanBairro, taxa, cleanTelefone, cleanLocalizador, cleanTextoBruto]
     );
 
     const novoPedidoId = Number(result.lastInsertRowid);
@@ -556,6 +581,193 @@ async function limparPedidosPendentesAntigos(req, res) {
   }
 }
 
+// ── SEGURANÇA & GESTÃO DE MOTOBOYS (PROTEGIDO POR SENHA) ─────────────────────
+const SENHA_GESTAO_MOTOBOYS = 'boijoaocarnes01';
+
+/**
+ * Validação da senha de acesso à aba de gestão de entregadores
+ * POST /api/admin/motoboys/verificar-senha
+ */
+async function verificarSenhaMotoboys(req, res) {
+  try {
+    const { senha } = req.body || {};
+    if (!senha || String(senha).trim() !== SENHA_GESTAO_MOTOBOYS) {
+      return res.json(401, { success: false, message: 'Senha incorreta para gestão de entregadores.' });
+    }
+    return res.json(200, { success: true, message: 'Acesso autorizado!' });
+  } catch (error) {
+    return res.json(500, { success: false, message: 'Erro ao validar senha.', error: error.message });
+  }
+}
+
+/**
+ * Atualizar dados cadastrais e grupo do motoboy (VELOZ ou SPEED)
+ * POST /api/admin/motoboys/atualizar
+ */
+async function atualizarMotoboy(req, res) {
+  try {
+    const { id, nome, telefone, grupo, traccar_device_id, senha, senha_admin } = req.body || {};
+    if (!id) {
+      return res.json(400, { success: false, message: 'ID do entregador é obrigatório.' });
+    }
+    if (senha_admin && String(senha_admin).trim() !== SENHA_GESTAO_MOTOBOYS) {
+      return res.json(401, { success: false, message: 'Senha de administrador inválida.' });
+    }
+
+    const motoboyId = Number(id);
+    const db = getDb();
+    const motoboyAtual = await db.queryOne('SELECT * FROM motoboys WHERE id = ?', [motoboyId]);
+    if (!motoboyAtual) {
+      return res.json(404, { success: false, message: 'Entregador não encontrado.' });
+    }
+
+    let cleanGrupo = grupo ? String(grupo).trim().toUpperCase() : motoboyAtual.grupo || 'VELOZ';
+    if (cleanGrupo !== 'VELOZ' && cleanGrupo !== 'SPEED') {
+      cleanGrupo = 'VELOZ';
+    }
+
+    const cleanNome = nome ? String(nome).trim() : motoboyAtual.nome;
+    const cleanTelefone = telefone ? String(telefone).trim().replace(/\D/g, '') : motoboyAtual.telefone;
+    const cleanDeviceId = traccar_device_id ? String(traccar_device_id).trim() : motoboyAtual.traccar_device_id;
+
+    let updateSql = `UPDATE motoboys SET nome = ?, telefone = ?, grupo = ?, traccar_device_id = ?`;
+    const params = [cleanNome, cleanTelefone, cleanGrupo, cleanDeviceId];
+
+    if (senha && String(senha).trim().length > 0) {
+      const { hashPassword } = require('../utils/password');
+      updateSql += `, senha = ?`;
+      params.push(hashPassword(String(senha).trim()));
+    }
+
+    updateSql += ` WHERE id = ?`;
+    params.push(motoboyId);
+
+    await db.execute(updateSql, params);
+
+    const motoboyAtualizado = await db.queryOne(
+      'SELECT id, nome, telefone, traccar_device_id, grupo, latitude, longitude, velocidade, ultima_atualizacao FROM motoboys WHERE id = ?',
+      [motoboyId]
+    );
+
+    return res.json(200, {
+      success: true,
+      message: `Entregador "${cleanNome}" atualizado com sucesso! (Grupo: ${cleanGrupo})`,
+      motoboy: motoboyAtualizado
+    });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar motoboy:', error);
+    return res.json(500, { success: false, message: 'Erro ao atualizar dados do entregador.', error: error.message });
+  }
+}
+
+/**
+ * Cadastrar novo motoboy diretamente pelo Painel Admin
+ * POST /api/admin/motoboys/cadastrar
+ */
+async function cadastrarMotoboyAdmin(req, res) {
+  try {
+    const { nome, telefone, grupo, traccar_device_id, senha, senha_admin } = req.body || {};
+    if (senha_admin && String(senha_admin).trim() !== SENHA_GESTAO_MOTOBOYS) {
+      return res.json(401, { success: false, message: 'Senha de administrador inválida.' });
+    }
+    if (!nome || !telefone || !senha) {
+      return res.json(400, { success: false, message: 'Nome, telefone e senha de acesso são obrigatórios.' });
+    }
+
+    const cleanTelefone = String(telefone).trim().replace(/\D/g, '');
+    let cleanGrupo = grupo ? String(grupo).trim().toUpperCase() : 'VELOZ';
+    if (cleanGrupo !== 'VELOZ' && cleanGrupo !== 'SPEED') cleanGrupo = 'VELOZ';
+    const cleanDeviceId = traccar_device_id ? String(traccar_device_id).trim() : cleanTelefone;
+
+    const db = getDb();
+    const existente = await db.queryOne('SELECT id FROM motoboys WHERE telefone = ? OR traccar_device_id = ?', [cleanTelefone, cleanDeviceId]);
+    if (existente) {
+      return res.json(400, { success: false, message: 'Já existe um entregador cadastrado com este telefone ou ID.' });
+    }
+
+    const { hashPassword } = require('../utils/password');
+    const hashedPassword = hashPassword(String(senha).trim());
+
+    const result = await db.execute(
+      `INSERT INTO motoboys (nome, telefone, senha, traccar_device_id, grupo) VALUES (?, ?, ?, ?, ?)`,
+      [String(nome).trim(), cleanTelefone, hashedPassword, cleanDeviceId, cleanGrupo]
+    );
+
+    const novoId = Number(result.lastInsertRowid);
+    const novoMotoboy = await db.queryOne(
+      'SELECT id, nome, telefone, traccar_device_id, grupo, criado_em FROM motoboys WHERE id = ?',
+      [novoId]
+    );
+
+    return res.json(201, {
+      success: true,
+      message: `Entregador "${novoMotoboy.nome}" cadastrado com sucesso no grupo ${cleanGrupo}!`,
+      motoboy: novoMotoboy
+    });
+  } catch (error) {
+    console.error('❌ Erro ao cadastrar motoboy pelo admin:', error);
+    return res.json(500, { success: false, message: 'Erro ao cadastrar entregador.', error: error.message });
+  }
+}
+
+/**
+ * Obter tabelas de taxas de ambos os grupos (VELOZ e SPEED)
+ * GET /api/admin/taxas
+ */
+async function obterTaxasBairros(req, res) {
+  try {
+    const db = getDb();
+    const [taxasVeloz, taxasSpeed] = await Promise.all([
+      db.query('SELECT id, bairro, taxa FROM taxa_bairro ORDER BY bairro ASC'),
+      db.query('SELECT id, bairro, taxa FROM taxa_bairro_speed ORDER BY bairro ASC')
+    ]);
+    return res.json(200, {
+      success: true,
+      taxas_veloz: taxasVeloz,
+      taxas_speed: taxasSpeed
+    });
+  } catch (error) {
+    console.error('❌ Erro ao listar taxas de bairros:', error);
+    return res.json(500, { success: false, message: 'Erro ao consultar taxas.', error: error.message });
+  }
+}
+
+/**
+ * Atualizar taxa de bairro em uma das tabelas (taxa_bairro para VELOZ, taxa_bairro_speed para SPEED)
+ * POST /api/admin/taxas/atualizar
+ */
+async function atualizarTaxaBairro(req, res) {
+  try {
+    const { grupo, bairro, taxa, senha_admin } = req.body || {};
+    if (senha_admin && String(senha_admin).trim() !== SENHA_GESTAO_MOTOBOYS) {
+      return res.json(401, { success: false, message: 'Senha de administrador inválida.' });
+    }
+    if (!bairro || taxa === undefined || isNaN(Number(taxa))) {
+      return res.json(400, { success: false, message: 'Bairro e taxa válida são obrigatórios.' });
+    }
+
+    const cleanGrupo = (grupo || '').toUpperCase() === 'SPEED' ? 'SPEED' : 'VELOZ';
+    const tabela = cleanGrupo === 'SPEED' ? 'taxa_bairro_speed' : 'taxa_bairro';
+    const cleanBairro = String(bairro).trim();
+    const cleanTaxa = Number(taxa);
+
+    const db = getDb();
+    await db.execute(
+      `INSERT INTO ${tabela} (bairro, taxa) VALUES (?, ?) 
+       ON CONFLICT(bairro) DO UPDATE SET taxa = excluded.taxa`,
+      [cleanBairro, cleanTaxa]
+    );
+
+    return res.json(200, {
+      success: true,
+      message: `Taxa do bairro "${cleanBairro}" atualizada para R$ ${cleanTaxa.toFixed(2)} na tabela ${cleanGrupo}!`
+    });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar taxa de bairro:', error);
+    return res.json(500, { success: false, message: 'Erro ao atualizar taxa.', error: error.message });
+  }
+}
+
 module.exports = {
   getPosicoesMapa,
   getDashboardStats,
@@ -563,5 +775,10 @@ module.exports = {
   listarMotoboysAdmin,
   obterFechamentoEntregas,
   criarPedidoManual,
-  limparPedidosPendentesAntigos
+  limparPedidosPendentesAntigos,
+  verificarSenhaMotoboys,
+  atualizarMotoboy,
+  cadastrarMotoboyAdmin,
+  obterTaxasBairros,
+  atualizarTaxaBairro
 };

@@ -55,6 +55,7 @@ registerRoute('GET', '/api/pedidos/disponiveis', pedidosController.listarPedidos
 registerRoute('POST', '/api/pedidos/retirar', pedidosController.assumirPedido);
 registerRoute('GET', '/api/pedidos/detalhes', pedidosController.obterDetalhesPedido);
 registerRoute('POST', '/api/pedidos/status', pedidosController.atualizarStatusPedido);
+registerRoute('POST', '/api/pedidos/definir-grupo', pedidosController.definirGrupoPedido);
 
 const posicaoController = require('./src/controllers/posicaoController');
 
@@ -74,6 +75,13 @@ registerRoute('GET', '/api/admin/historico/rota', historicoController.obterRotaP
 registerRoute('GET', '/api/admin/fechamento', adminController.obterFechamentoEntregas);
 registerRoute('POST', '/api/admin/pedidos/manual', adminController.criarPedidoManual);
 registerRoute('POST', '/api/admin/pedidos/limpar-pendentes-antigos', adminController.limparPedidosPendentesAntigos);
+
+// Gestão de Entregadores & Taxas por Bairro (Protegido por Senha)
+registerRoute('POST', '/api/admin/motoboys/verificar-senha', adminController.verificarSenhaMotoboys);
+registerRoute('POST', '/api/admin/motoboys/atualizar', adminController.atualizarMotoboy);
+registerRoute('POST', '/api/admin/motoboys/cadastrar', adminController.cadastrarMotoboyAdmin);
+registerRoute('GET', '/api/admin/taxas', adminController.obterTaxasBairros);
+registerRoute('POST', '/api/admin/taxas/atualizar', adminController.atualizarTaxaBairro);
 
 // Rendimentos Motoboy
 registerRoute('GET', '/api/motoboy/rendimentos', pedidosController.obterRendimentosMotoboy);
