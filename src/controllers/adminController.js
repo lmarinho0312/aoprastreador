@@ -366,7 +366,7 @@ async function listarMotoboysAdmin(req, res) {
 async function obterFechamentoEntregas(req, res) {
   try {
     const db = getDb();
-    const { periodo = 'hoje', motoboy_id, grupo = 'todos' } = req.query || {};
+    const { periodo = 'hoje', motoboy_id, grupo = 'todos', data_inicio, data_fim } = req.query || {};
 
     let dataFiltro = '';
     const params = [];
@@ -384,6 +384,26 @@ async function obterFechamentoEntregas(req, res) {
       case 'mes':
         dataFiltro = `AND strftime('%Y-%m', COALESCE(p.data_fim, p.data_inicio, p.criado_em)) = strftime('%Y-%m', DATETIME('now', '-3 hours'))`;
         break;
+      case 'personalizado': {
+        let dtIni = String(data_inicio || '').trim();
+        let dtFim = String(data_fim || '').trim();
+        if (dtIni && dtFim) {
+          if (dtIni > dtFim) {
+            const temp = dtIni;
+            dtIni = dtFim;
+            dtFim = temp;
+          }
+          dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em)) BETWEEN ? AND ?`;
+          params.push(dtIni, dtFim);
+        } else if (dtIni) {
+          dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em)) >= ?`;
+          params.push(dtIni);
+        } else if (dtFim) {
+          dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em)) <= ?`;
+          params.push(dtFim);
+        }
+        break;
+      }
       case 'todos':
       default:
         dataFiltro = '';

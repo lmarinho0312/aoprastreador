@@ -198,8 +198,11 @@
       flex: 1;
       padding: 24px 28px;
       overflow-y: auto;
+      overflow-x: hidden;
       display: flex;
       flex-direction: column;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
     }
 
     /* SEÇÕES DE VISÃO (CORREÇÃO DE ALTERNÂNCIA E LAYOUT) */
@@ -215,6 +218,16 @@
     .view-section.active {
       display: flex !important;
       flex-direction: column !important;
+    }
+
+    /* As visões com muito conteúdo vertical (Fechamento, Entregadores, Histórico) devem expandir livremente para scroll natural da página inteira */
+    #view-fechamento.active,
+    #view-motoboys.active,
+    #view-historico.active {
+      flex: 0 0 auto !important;
+      min-height: min-content !important;
+      height: auto !important;
+      padding-bottom: 70px !important;
     }
 
     /* MAP TILE DARK THEME (Zero Watermark) */
@@ -851,11 +864,12 @@
           </div>
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <!-- Filtro de Período -->
-            <div style="display: flex; gap: 4px;">
+            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
               <button class="filter-pill active" id="fpHoje" onclick="selecionarPeriodoFechamento('hoje', this)">Hoje</button>
               <button class="filter-pill" id="fpOntem" onclick="selecionarPeriodoFechamento('ontem', this)">Ontem</button>
               <button class="filter-pill" id="fpSemana" onclick="selecionarPeriodoFechamento('semana', this)">Esta Semana</button>
               <button class="filter-pill" id="fpMes" onclick="selecionarPeriodoFechamento('mes', this)">Este Mês</button>
+              <button class="filter-pill" id="fpPersonalizado" onclick="selecionarPeriodoFechamento('personalizado', this)">📅 Personalizado</button>
               <button class="filter-pill" id="fpTodos" onclick="selecionarPeriodoFechamento('todos', this)">Todos</button>
             </div>
             <!-- Filtro de Grupo de Entrega -->
@@ -871,6 +885,25 @@
             <button class="btn btn-secondary btn-sm" onclick="abrirModalTabelaTaxas()" title="Consultar taxas oficiais por bairro" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">💰 Ver Taxas</button>
             <button class="btn btn-gold btn-sm" onclick="carregarFechamento()">🔄 Atualizar</button>
           </div>
+        </div>
+
+        <!-- Barra de Seleção de Período Personalizado -->
+        <div id="boxPeriodoPersonalizado" style="display: none; align-items: center; justify-content: space-between; gap: 12px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: var(--radius-md); padding: 10px 16px; margin-bottom: 16px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 13px; font-weight: 800; color: #fbbf24;">📅 Período Personalizado:</span>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label for="inpFechDataInicio" style="font-size: 11px; font-weight: 700; color: var(--text-muted);">De:</label>
+              <input type="date" id="inpFechDataInicio" class="form-input" style="padding: 5px 8px; font-size: 12px; width: 140px;" onchange="carregarFechamento()">
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label for="inpFechDataFim" style="font-size: 11px; font-weight: 700; color: var(--text-muted);">Até:</label>
+              <input type="date" id="inpFechDataFim" class="form-input" style="padding: 5px 8px; font-size: 12px; width: 140px;" onchange="carregarFechamento()">
+            </div>
+            <button class="btn btn-gold btn-sm" onclick="carregarFechamento()" style="padding: 5px 12px; font-size: 11px; font-weight: 800;">
+              🔍 Consultar Período
+            </button>
+          </div>
+          <span id="fechamentoPeriodoLabel" style="font-size: 12px; font-weight: 700; color: #34d399;"></span>
         </div>
 
         <!-- KPI Cards do Fechamento -->
@@ -916,12 +949,12 @@
         </div>
 
         <!-- Tabela Analítica de Entregas -->
-        <div class="panel-card" style="flex: 1; overflow-y: auto;">
+        <div class="panel-card" style="margin-bottom: 24px;">
           <div class="panel-header">
             <span class="panel-title">Detalhamento de Entregas</span>
             <button class="btn btn-secondary btn-sm" onclick="imprimirFechamento()">🖨️ Imprimir</button>
           </div>
-          <div id="containerFechamentoEntregas" style="padding: 16px;">
+          <div id="containerFechamentoEntregas" style="padding: 16px; overflow-x: auto;">
             <div class="empty-state"><div class="empty-state-title">Aguardando seleção de período</div></div>
           </div>
         </div>
@@ -2520,8 +2553,29 @@
 
     function selecionarPeriodoFechamento(periodo, btn) {
       periodoFechamentoAtivo = periodo;
-      document.querySelectorAll('#view-fechamento #fpHoje, #view-fechamento #fpOntem, #view-fechamento #fpSemana, #view-fechamento #fpMes, #view-fechamento #fpTodos').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#view-fechamento .filter-pill').forEach(b => {
+        if (b.id && b.id.startsWith('fp')) {
+          b.classList.remove('active');
+        }
+      });
       if (btn) btn.classList.add('active');
+
+      const boxPersonalizado = document.getElementById('boxPeriodoPersonalizado');
+      if (periodo === 'personalizado') {
+        if (boxPersonalizado) boxPersonalizado.style.display = 'flex';
+        const inpIni = document.getElementById('inpFechDataInicio');
+        const inpFim = document.getElementById('inpFechDataFim');
+        const hoje = new Date();
+        const yyyy = hoje.getFullYear();
+        const mm = String(hoje.getMonth() + 1).padStart(2, '0');
+        const dd = String(hoje.getDate()).padStart(2, '0');
+        const hojeStr = `${yyyy}-${mm}-${dd}`;
+        const inicioMesStr = `${yyyy}-${mm}-01`;
+        if (inpIni && !inpIni.value) inpIni.value = inicioMesStr;
+        if (inpFim && !inpFim.value) inpFim.value = hojeStr;
+      } else {
+        if (boxPersonalizado) boxPersonalizado.style.display = 'none';
+      }
       carregarFechamento();
     }
 
@@ -2535,8 +2589,14 @@
     async function carregarFechamento() {
       const motoboyId = document.getElementById('selectFiltroMotoboy')?.value || 'todos';
       const t = Date.now();
+      let extraParams = '';
+      if (periodoFechamentoAtivo === 'personalizado') {
+        const dtIni = document.getElementById('inpFechDataInicio')?.value || '';
+        const dtFim = document.getElementById('inpFechDataFim')?.value || '';
+        extraParams = `&data_inicio=${encodeURIComponent(dtIni)}&data_fim=${encodeURIComponent(dtFim)}`;
+      }
       try {
-        const res = await fetch(`/api/admin/fechamento?periodo=${periodoFechamentoAtivo}&motoboy_id=${motoboyId}&grupo=${grupoFechamentoAtivo}&_t=${t}`, { cache: 'no-store' });
+        const res = await fetch(`/api/admin/fechamento?periodo=${periodoFechamentoAtivo}&motoboy_id=${motoboyId}&grupo=${grupoFechamentoAtivo}${extraParams}&_t=${t}`, { cache: 'no-store' });
         const data = await res.json();
         if (data.success) {
           renderizarFechamento(data);
@@ -2544,6 +2604,20 @@
       } catch (err) {
         console.error('Erro ao carregar fechamento:', err);
       }
+    }
+
+    function formatarDataHoraFechamento(dtStr) {
+      if (!dtStr) return '—';
+      const clean = dtStr.replace('T', ' ');
+      const partes = clean.split(' ');
+      const dataPart = partes[0] || '';
+      const horaPart = partes[1] || '';
+      const dp = dataPart.split('-');
+      const horaFmt = horaPart ? horaPart.substring(0, 5) : '';
+      if (dp.length === 3) {
+        return `${dp[2]}/${dp[1]} ${horaFmt}`.trim();
+      }
+      return horaFmt || dtStr.substring(0, 16);
     }
 
     function renderizarFechamento(data) {
@@ -2558,17 +2632,50 @@
       if (kpiAtivos) kpiAtivos.textContent = k.entregadores_ativos || 0;
       if (kpiMedia) kpiMedia.textContent = 'R$ ' + (k.media_taxa || 0).toFixed(2).replace('.', ',');
 
+      // Rótulo do Período
+      let labelPeriodo = 'Hoje';
+      if (periodoFechamentoAtivo === 'ontem') labelPeriodo = 'Ontem';
+      else if (periodoFechamentoAtivo === 'semana') labelPeriodo = 'Esta Semana';
+      else if (periodoFechamentoAtivo === 'mes') labelPeriodo = 'Este Mês';
+      else if (periodoFechamentoAtivo === 'todos') labelPeriodo = 'Histórico Completo';
+      else if (periodoFechamentoAtivo === 'personalizado') {
+        const dtIni = document.getElementById('inpFechDataInicio')?.value || '';
+        const dtFim = document.getElementById('inpFechDataFim')?.value || '';
+        if (dtIni && dtFim) {
+          const [y1, m1, d1] = dtIni.split('-');
+          const [y2, m2, d2] = dtFim.split('-');
+          labelPeriodo = `${d1}/${m1}/${y1} a ${d2}/${m2}/${y2}`;
+        } else if (dtIni) {
+          const [y1, m1, d1] = dtIni.split('-');
+          labelPeriodo = `A partir de ${d1}/${m1}/${y1}`;
+        } else if (dtFim) {
+          const [y2, m2, d2] = dtFim.split('-');
+          labelPeriodo = `Até ${d2}/${m2}/${y2}`;
+        } else {
+          labelPeriodo = 'Personalizado';
+        }
+      }
+
+      const lblInfo = document.getElementById('fechamentoPeriodoLabel');
+      if (lblInfo) {
+        if (periodoFechamentoAtivo === 'personalizado') {
+          lblInfo.textContent = `Filtrando: ${labelPeriodo}`;
+        } else {
+          lblInfo.textContent = '';
+        }
+      }
+
       // Cards por Motoboy
       const contMotoboys = document.getElementById('containerFechamentoMotoboys');
       if (contMotoboys) {
         if (!data.por_motoboy || data.por_motoboy.length === 0) {
-          contMotoboys.innerHTML = `<div class="empty-state"><div class="empty-state-title">Nenhuma entrega no período</div></div>`;
+          contMotoboys.innerHTML = `<div class="empty-state"><div class="empty-state-title">Nenhuma entrega no período (${labelPeriodo})</div></div>`;
         } else {
           contMotoboys.innerHTML = data.por_motoboy.map(m => {
             const totalFmt = m.total_taxas.toFixed(2).replace('.', ',');
             const isSpeed = (m.grupo || 'VELOZ').toUpperCase() === 'SPEED';
             const msgWhats = encodeURIComponent(
-              `🛵 Fechamento — ${periodoFechamentoAtivo === 'hoje' ? 'Hoje' : periodoFechamentoAtivo === 'ontem' ? 'Ontem' : periodoFechamentoAtivo === 'semana' ? 'Esta Semana' : periodoFechamentoAtivo === 'mes' ? 'Este Mês' : 'Todos'}:\n` +
+              `🛵 Fechamento — ${labelPeriodo}:\n` +
               `Grupo: ${isSpeed ? 'SPEED' : 'VELOZ'}\n` +
               `Entregas: ${m.total_entregas}\n` +
               `Total a receber: R$ ${totalFmt}\n` +
@@ -2604,7 +2711,7 @@
       const contEntregas = document.getElementById('containerFechamentoEntregas');
       if (contEntregas) {
         if (!data.entregas_detalhadas || data.entregas_detalhadas.length === 0) {
-          contEntregas.innerHTML = `<div class="empty-state"><div class="empty-state-title">Nenhuma entrega no período</div></div>`;
+          contEntregas.innerHTML = `<div class="empty-state"><div class="empty-state-title">Nenhuma entrega no período (${labelPeriodo})</div></div>`;
         } else {
           contEntregas.innerHTML = `
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
@@ -2631,7 +2738,7 @@
                       <td style="padding: 8px 4px;">${e.cliente || '—'}</td>
                       <td style="padding: 8px 4px; color: var(--text-muted);">${e.bairro || '—'}</td>
                       <td style="padding: 8px 4px;">${e.motoboy ? e.motoboy.nome : '—'}</td>
-                      <td style="padding: 8px 4px; color: var(--text-muted);">${e.data_fim ? e.data_fim.substring(11, 16) : '—'}</td>
+                      <td style="padding: 8px 4px; color: var(--text-muted);">${formatarDataHoraFechamento(e.data_fim || e.data_inicio)}</td>
                       <td style="padding: 8px 4px; text-align: right; font-weight: 700; color: #34d399;">R$ ${e.taxa_repasse.toFixed(2).replace('.', ',')}</td>
                     </tr>
                   `;
