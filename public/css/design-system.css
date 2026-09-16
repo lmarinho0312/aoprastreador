@@ -4,58 +4,73 @@
    ========================================================================== */
 
 :root {
-  /* --- PALETA DE CORES & SUPERFÍCIES (CARVÃO PROFUNDO) --- */
-  --bg-app: #0a0c10;
-  --bg-surface: #11141b;
-  --bg-surface-elevated: #181c26;
-  --bg-surface-card: #141722;
-  --bg-surface-hover: #1e2433;
-  --bg-surface-active: #252c3d;
+  /* --- PALETA DE CORES (TOKENS CENTRALIZADOS) --- */
+  /* base */
+  --bg-base: #0f0f0f;
+  --bg-card: #1a1a1a;
+  --bg-card-hover: #202020;
+  --border-subtle: #2a2a2a;
 
-  /* --- BORDAS & LINHAS --- */
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-medium: rgba(255, 255, 255, 0.14);
-  --border-focus: rgba(245, 158, 11, 0.45);
-  --border-gold: rgba(245, 158, 11, 0.35);
+  /* marca */
+  --accent-primary: #f59e0b;      /* dourado/laranja do logo */
+  --accent-primary-hover: #d97706;
 
-  /* --- IDENTIDADE AO PONTO (FOGO, BRASA & OURO) --- */
-  --brand-gold: #f59e0b;
+  /* status semânticos */
+  --status-preparo: #ef4444;      /* vermelho — urgência */
+  --status-rota: #f59e0b;         /* âmbar — em andamento */
+  --status-entregue: #22c55e;     /* verde — concluído */
+  --status-neutro: #6b7280;       /* cinza — faturamento/info neutra */
+
+  /* texto */
+  --text-primary: #f5f5f5;
+  --text-muted: #9ca3af;
+  --text-disabled: #6b7280;
+
+  /* --- ALIASES & COMPATIBILIDADE OPERACIONAL --- */
+  --bg-app: var(--bg-base);
+  --bg-surface: var(--bg-card);
+  --bg-surface-elevated: #222222;
+  --bg-surface-card: var(--bg-card);
+  --bg-surface-hover: var(--bg-card-hover);
+  --bg-surface-active: #2a2a2a;
+
+  --border-medium: #333333;
+  --border-focus: var(--accent-primary);
+  --border-gold: rgba(245, 158, 11, 0.4);
+
+  --brand-gold: var(--accent-primary);
   --brand-gold-light: #fbbf24;
-  --brand-gold-dark: #d97706;
+  --brand-gold-dark: var(--accent-primary-hover);
   --brand-gold-glow: rgba(245, 158, 11, 0.25);
   --brand-orange: #f97316;
   --brand-fire: #ea580c;
   --brand-red: #ef4444;
   --brand-red-dark: #dc2626;
 
-  /* --- SEMÂNTICA OPERACIONAL DE STATUS --- */
-  --status-preparo-bg: rgba(245, 158, 11, 0.15);
-  --status-preparo-border: rgba(245, 158, 11, 0.4);
-  --status-preparo-text: #fcd34d;
+  --status-preparo-bg: rgba(239, 68, 68, 0.12);
+  --status-preparo-border: rgba(239, 68, 68, 0.4);
+  --status-preparo-text: #ef4444;
 
-  --status-retirada-bg: rgba(59, 130, 246, 0.15);
+  --status-retirada-bg: rgba(59, 130, 246, 0.12);
   --status-retirada-border: rgba(59, 130, 246, 0.4);
-  --status-retirada-text: #93c5fd;
+  --status-retirada-text: #60a5fa;
 
-  --status-rota-bg: rgba(16, 185, 129, 0.15);
-  --status-rota-border: rgba(16, 185, 129, 0.4);
-  --status-rota-text: #6ee7b7;
+  --status-rota-bg: rgba(245, 158, 11, 0.12);
+  --status-rota-border: rgba(245, 158, 11, 0.4);
+  --status-rota-text: #fbbf24;
 
-  --status-entregue-bg: rgba(5, 150, 105, 0.15);
-  --status-entregue-border: rgba(5, 150, 105, 0.4);
-  --status-entregue-text: #34d399;
+  --status-entregue-bg: rgba(34, 197, 94, 0.12);
+  --status-entregue-border: rgba(34, 197, 94, 0.4);
+  --status-entregue-text: #22c55e;
 
-  --status-problema-bg: rgba(239, 68, 68, 0.15);
+  --status-problema-bg: rgba(239, 68, 68, 0.12);
   --status-problema-border: rgba(239, 68, 68, 0.4);
-  --status-problema-text: #fca5a5;
+  --status-problema-text: #ef4444;
 
-  /* --- TIPOGRAFIA & TEXTOS --- */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --text-faint: #64748b;
-  --text-inverse: #0a0c10;
+  --text-secondary: #d1d5db;
+  --text-faint: #6b7280;
+  --text-inverse: #000000;
 
   /* --- ESPAÇAMENTOS & GEOMETRIA --- */
   --space-1: 4px;
@@ -67,18 +82,18 @@
   --space-8: 32px;
   --space-10: 40px;
 
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
   --radius-lg: 14px;
-  --radius-xl: 18px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 
   /* --- SOMBRAS E PROFUNDIDADE --- */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.7);
-  --shadow-gold: 0 4px 18px rgba(245, 158, 11, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.8);
+  --shadow-gold: 0 4px 16px rgba(245, 158, 11, 0.25);
   --shadow-glow-red: 0 4px 20px rgba(239, 68, 68, 0.35);
 
   /* --- TRANSIÇÕES --- */
@@ -303,16 +318,18 @@ h1, h2, h3, h4, h5, h6 {
   transform: none;
 }
 
-/* Botão de Destaque / Ação Primária da Marca (Ouro/Fogo) */
+/* Botão de Destaque / Ação Primária da Marca (Ouro Sólido - Único de destaque no Header) */
 .btn-gold {
-  background: linear-gradient(135deg, var(--brand-gold-light), var(--brand-gold));
-  color: var(--text-inverse);
-  box-shadow: var(--shadow-gold);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--accent-primary);
+  color: #000000;
+  font-weight: 800;
+  border: 1px solid transparent;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.28);
 }
 .btn-gold:hover:not(:disabled) {
-  background: linear-gradient(135deg, #fcd34d, var(--brand-gold-dark));
-  box-shadow: 0 6px 22px rgba(245, 158, 11, 0.45);
+  background: var(--accent-primary-hover);
+  color: #000000;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.45);
 }
 
 /* Botão de Rota (Mobile Prioritário) */
@@ -354,15 +371,29 @@ h1, h2, h3, h4, h5, h6 {
   background: linear-gradient(135deg, #f87171, #b91c1c);
 }
 
-/* Botão Secundário / Outline */
+/* Botão Secundário / Outline (Fundo transparente, borda sutil, texto suave) */
 .btn-secondary {
-  background: var(--bg-surface-elevated);
-  color: var(--text-primary);
-  border-color: var(--border-medium);
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
 }
 .btn-secondary:hover:not(:disabled) {
-  background: var(--bg-surface-hover);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Botão Sair / Logout Discreto */
+.btn-logout {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  transition: all var(--transition-fast);
+}
+.btn-logout:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.35);
 }
 
 /* Botão Compacto */
@@ -416,57 +447,83 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .stat-box {
-  background: var(--bg-surface-card);
+  background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: 16px 20px;
+  padding: 18px 22px;
   display: flex;
   align-items: center;
   gap: 16px;
   position: relative;
   overflow: hidden;
-  transition: transform var(--transition-fast), border-color var(--transition-fast);
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .stat-box:hover {
   transform: translateY(-2px);
-  border-color: var(--border-medium);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: var(--shadow-sm);
 }
 
-/* Ícones com fundos semânticos */
+.stat-box.stat-preparo {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, var(--bg-card) 60%);
+  border-left: 3px solid var(--status-preparo);
+}
+
+.stat-box.stat-rota {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, var(--bg-card) 60%);
+  border-left: 3px solid var(--status-rota);
+}
+
+.stat-box.stat-entregues {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, var(--bg-card) 60%);
+  border-left: 3px solid var(--status-entregue);
+}
+
+.stat-box.stat-faturamento {
+  background: var(--bg-card);
+  border-left: 3px solid var(--status-neutro);
+}
+
+/* Ícones com fundos semânticos redondos (SVG) */
 .stat-icon-wrap {
   width: 48px;
   height: 48px;
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
   flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+.stat-icon-wrap svg,
+.stat-icon-wrap i {
+  width: 22px;
+  height: 22px;
 }
 
 .stat-preparo .stat-icon-wrap {
-  background: rgba(239, 68, 68, 0.18);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.16);
+  color: var(--status-preparo);
+  border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
 .stat-rota .stat-icon-wrap {
-  background: rgba(245, 158, 11, 0.18);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.16);
+  color: var(--status-rota);
+  border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
 .stat-entregues .stat-icon-wrap {
-  background: rgba(16, 185, 129, 0.18);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(34, 197, 94, 0.16);
+  color: var(--status-entregue);
+  border: 1px solid rgba(34, 197, 94, 0.25);
 }
 
 .stat-faturamento .stat-icon-wrap {
-  background: rgba(148, 163, 184, 0.15);
-  color: #f8fafc;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(107, 114, 128, 0.16);
+  color: var(--text-muted);
+  border: 1px solid rgba(107, 114, 128, 0.25);
 }
 
 .stat-info {
@@ -475,25 +532,26 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .stat-label {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
   font-weight: 600;
   margin-bottom: 2px;
 }
 
 .stat-value {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.02em;
   display: flex;
   align-items: baseline;
   gap: 6px;
+  line-height: 1.2;
 }
 
 .stat-sub {
-  font-size: 11px;
-  color: var(--text-faint);
+  font-size: 12px;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -501,10 +559,11 @@ h1, h2, h3, h4, h5, h6 {
    ORDER CARD (LISTAGEM DE PEDIDOS)
    ========================================================================== */
 .order-card {
-  background: var(--bg-surface-card);
+  background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
+  border-left: 3px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
   margin-bottom: 10px;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -514,15 +573,32 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .order-card:hover {
-  background: var(--bg-surface-hover);
-  border-color: var(--border-gold);
-  transform: translateX(3px);
+  background: var(--bg-card-hover);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateX(2px);
+}
+
+.order-card.status-border-preparo,
+.order-card.status-border-disponivel {
+  border-left-color: var(--status-preparo);
+}
+
+.order-card.status-border-rota {
+  border-left-color: var(--status-rota);
+}
+
+.order-card.status-border-entregue {
+  border-left-color: var(--status-entregue);
+}
+
+.order-card.status-border-retirada {
+  border-left-color: #3b82f6;
 }
 
 .order-card.selected {
-  background: var(--bg-surface-hover);
-  border-color: var(--brand-gold);
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.2);
 }
 
 .order-card-row {
@@ -549,6 +625,9 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 12px;
   color: var(--text-muted);
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .order-address {
@@ -557,6 +636,9 @@ h1, h2, h3, h4, h5, h6 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .order-meta {
@@ -565,7 +647,7 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: space-between;
   font-size: 12px;
   color: var(--text-muted);
-  padding-top: 6px;
+  padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -580,7 +662,7 @@ h1, h2, h3, h4, h5, h6 {
 .order-price {
   font-size: 13px;
   font-weight: 700;
-  color: var(--brand-gold-light);
+  color: var(--accent-primary);
 }
 
 /* ==========================================================================
@@ -608,12 +690,12 @@ h1, h2, h3, h4, h5, h6 {
   height: 44px;
   border-radius: 50%;
   background: radial-gradient(circle, #f97316 0%, #ea580c 60%, #991b1b 100%);
-  border: 3px solid #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.95);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-  box-shadow: 0 0 20px rgba(234, 88, 12, 0.8), 0 4px 12px rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  box-shadow: 0 0 20px rgba(234, 88, 12, 0.8), 0 4px 12px rgba(0, 0, 0, 0.7);
   cursor: pointer;
   animation: flamePulse 2s infinite ease-in-out;
 }
@@ -625,23 +707,30 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Custom Marker Motoboy */
 .marker-motoboy {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: #11141b;
-  border: 2px solid #10b981;
+  background: #141722;
+  border: 2px solid var(--status-rota);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.5), 0 4px 10px rgba(0,0,0,0.5);
+  color: var(--status-rota);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.5), 0 4px 10px rgba(0,0,0,0.6);
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.marker-motoboy.active {
+  border-color: var(--status-entregue);
+  color: var(--status-entregue);
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.6), 0 4px 10px rgba(0,0,0,0.6);
 }
 
 .marker-motoboy.idle {
-  border-color: #f59e0b;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+  border-color: #3b82f6;
+  color: #60a5fa;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5), 0 4px 10px rgba(0,0,0,0.6);
 }
 
 .marker-motoboy:hover {
@@ -873,4 +962,49 @@ h1, h2, h3, h4, h5, h6 {
 .empty-state-desc {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+/* ==========================================================================
+   ÍCONES SVG & LUCIDE (HERANÇA DE COR E ALINHAMENTO)
+   ========================================================================== */
+.icon-svg,
+i[data-lucide] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+  stroke: currentColor;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.icon-svg-lg,
+i[data-lucide].icon-svg-lg {
+  width: 22px;
+  height: 22px;
+}
+
+.icon-svg-sm,
+i[data-lucide].icon-svg-sm {
+  width: 14px;
+  height: 14px;
+}
+
+/* Header utility buttons group */
+.header-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-subtle);
+  margin: 0 4px;
 }

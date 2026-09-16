@@ -17,6 +17,9 @@
   <!-- Design System CSS -->
   <link rel="stylesheet" href="/css/design-system.css">
 
+  <!-- Lucide Icons (Zero Emojis / SVG Icons) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
   <style>
     /* Estilos Estruturais do Painel Desktop */
     body {
@@ -491,7 +494,7 @@
         </div>
 
         <button type="submit" class="btn btn-gold" id="btnAdminLoginSubmit" style="width: 100%; padding: 14px; font-size: 14px; font-weight: 800; border: none; cursor: pointer;">
-          <span>🔒 ENTRAR NO PAINEL</span>
+          <span style="display: flex; align-items: center; justify-content: center; gap: 8px;"><i data-lucide="lock" style="width: 16px; height: 16px;"></i> ENTRAR NO PAINEL</span>
         </button>
       </form>
     </div>
@@ -507,27 +510,27 @@
 
     <nav class="sidebar-nav">
       <div class="nav-item active" id="nav-inicio" onclick="alternarVisao('inicio')">
-        <span class="nav-icon">🏠</span>
+        <span class="nav-icon"><i data-lucide="home"></i></span>
         <span>Início</span>
       </div>
       <div class="nav-item" id="nav-pedidos" onclick="alternarVisao('pedidos')">
-        <span class="nav-icon">📋</span>
+        <span class="nav-icon"><i data-lucide="clipboard-list"></i></span>
         <span>Pedidos</span>
       </div>
       <div class="nav-item" id="nav-entregas" onclick="alternarVisao('entregas')">
-        <span class="nav-icon">🗺️</span>
+        <span class="nav-icon"><i data-lucide="map"></i></span>
         <span>Mapa & Rotas</span>
       </div>
       <div class="nav-item" id="nav-motoboys" onclick="alternarVisao('motoboys')">
-        <span class="nav-icon">🛵</span>
+        <span class="nav-icon"><i data-lucide="bike"></i></span>
         <span>Motoboys</span>
       </div>
       <div class="nav-item" id="nav-historico" onclick="alternarVisao('historico')">
-        <span class="nav-icon">📜</span>
+        <span class="nav-icon"><i data-lucide="history"></i></span>
         <span>Histórico</span>
       </div>
       <div class="nav-item" id="nav-fechamento" onclick="alternarVisao('fechamento')">
-        <span class="nav-icon">💼</span>
+        <span class="nav-icon"><i data-lucide="receipt"></i></span>
         <span>Fechamento</span>
       </div>
     </nav>
@@ -537,14 +540,18 @@
         <span class="status-dot-live"></span>
         <span id="txtStatusConexao">Sistema Online</span>
       </div>
-      <div style="font-size: 11px; color: var(--text-faint); display: flex; justify-content: space-between;">
+      <div style="font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between;">
         <span>v1.2.0 • Ao Ponto</span>
-        <span id="pingInfo">📡 Turso/Local</span>
+        <span id="pingInfo" style="display: none;"></span>
       </div>
       <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
-        <span style="font-size: 11px; font-weight: 700; color: var(--brand-gold-light);" id="lblAdminLogado">👨‍🍳 Cozinha</span>
-        <button class="btn btn-secondary btn-sm" onclick="realizarLogoutAdmin()" style="padding: 2px 6px; font-size: 10px; border-color: rgba(239, 68, 68, 0.3); color: #ef4444;" title="Sair do painel">
-          <span>Sair 🚪</span>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--brand-gold-light);">
+          <i data-lucide="chef-hat" style="width: 14px; height: 14px;"></i>
+          <span id="lblAdminLogado">Cozinha</span>
+        </div>
+        <button class="btn btn-logout btn-sm" onclick="realizarLogoutAdmin()" style="padding: 3px 8px; font-size: 11px;" title="Sair do painel">
+          <i data-lucide="log-out" style="width: 12px; height: 12px;"></i>
+          <span>Sair</span>
         </button>
       </div>
     </div>
@@ -562,43 +569,53 @@
       </div>
 
       <div class="header-actions">
+        <!-- Relógio Digital -->
         <div class="live-clock-badge">
           <div id="liveClock">--:--:--</div>
           <div class="live-clock-date" id="liveDate">Hoje</div>
         </div>
 
-        <div class="live-clock-badge" style="display: flex; align-items: center; gap: 6px; border-color: rgba(16, 185, 129, 0.3);" title="Atualização automática ativa a cada 5 segundos">
-          <span class="status-dot-live"></span>
-          <span style="font-size: 11px; font-weight: 700; color: #10b981;">AUTO 5s</span>
-        </div>
-
+        <!-- Perfil Cozinha -->
         <div class="role-badge">
-          <span>👨‍🍳</span>
+          <i data-lucide="chef-hat" style="width: 15px; height: 15px; color: var(--accent-primary);"></i>
           <span id="badgeAdminNome">Cozinha</span>
         </div>
 
-        <button class="btn btn-gold btn-sm" onclick="abrirModalNovoPedido()" title="Lançar Novo Pedido Manualmente" style="font-weight: 800; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);">
-          <span>➕ Novo Pedido</span>
+        <!-- AÇÃO PRIMÁRIA SÓLIDA DE DESTAQUE -->
+        <button class="btn btn-gold btn-sm" onclick="abrirModalNovoPedido()" title="Lançar Novo Pedido Manualmente">
+          <i data-lucide="plus"></i>
+          <span>Novo Pedido</span>
         </button>
 
-        <button class="btn btn-secondary btn-sm" onclick="abrirModalTabelaTaxas()" title="Visualizar tabelas de taxas por grupo (SPEED e VELOZ)" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; font-weight: 700;">
-          <span>💰 Taxas por Grupo</span>
-        </button>
+        <!-- AÇÕES SECUNDÁRIAS / OUTLINE -->
+        <div class="header-actions-group">
+          <button class="btn btn-secondary btn-sm" onclick="abrirModalTabelaTaxas()" title="Visualizar tabelas de taxas por grupo (SPEED e VELOZ)">
+            <i data-lucide="coins"></i>
+            <span>Taxas</span>
+          </button>
 
-        <button class="btn btn-secondary btn-sm" onclick="abrirModalAlterarSenha()" title="Alterar Senha de Acesso">
-          <span>🔑 Senha</span>
-        </button>
+          <button class="btn btn-secondary btn-sm" onclick="abrirModalAlterarSenha()" title="Alterar Senha de Acesso">
+            <i data-lucide="key"></i>
+            <span>Senha</span>
+          </button>
 
-        <button class="btn btn-secondary btn-sm" onclick="limparPendentesAntigos()" title="Ignorar e expirar pedidos pendentes de datas anteriores acumulados">
-          <span>🧹 Limpar Antigos</span>
-        </button>
+          <button class="btn btn-secondary btn-sm" onclick="limparPendentesAntigos()" title="Ignorar e expirar pedidos pendentes de datas anteriores">
+            <i data-lucide="trash-2"></i>
+            <span>Limpar</span>
+          </button>
 
-        <button class="btn btn-secondary btn-sm" onclick="carregarTudo(true)" title="Atualizar dados manualmente agora">
-          <span>🔄 Atualizar</span>
-        </button>
+          <button class="btn btn-secondary btn-sm" onclick="carregarTudo(true)" title="Atualizar dados manualmente agora">
+            <i data-lucide="refresh-cw"></i>
+            <span>Atualizar</span>
+          </button>
+        </div>
 
-        <button class="btn btn-secondary btn-sm" onclick="realizarLogoutAdmin()" title="Sair do painel da cozinha" style="border-color: rgba(239, 68, 68, 0.4); color: #ef4444;">
-          <span>🚪 Sair</span>
+        <!-- SEPARADOR E BOTÃO SAIR ISOLADO -->
+        <div class="header-divider"></div>
+
+        <button class="btn btn-logout btn-sm" onclick="realizarLogoutAdmin()" title="Sair do painel da cozinha">
+          <i data-lucide="log-out"></i>
+          <span>Sair</span>
         </button>
       </div>
     </header>
@@ -612,11 +629,13 @@
       <section id="view-inicio" class="view-section active">
         <!-- 4 KPI STATS CARDS -->
         <div class="stats-container">
-          <!-- 1. Pedidos no balcao aguardando saida -->
+          <!-- 1. Pedidos em preparo -->
           <div class="stat-box stat-preparo">
-            <div class="stat-icon-wrap">📦</div>
+            <div class="stat-icon-wrap">
+              <i data-lucide="shopping-cart"></i>
+            </div>
             <div class="stat-info">
-              <span class="stat-label">No Balcão (Aguardando)</span>
+              <span class="stat-label">Pedidos em preparo</span>
               <div class="stat-value">
                 <span id="kpiPreparo">0</span>
                 <span class="stat-sub" id="kpiPreparoSub">de 0</span>
@@ -626,7 +645,9 @@
 
           <!-- 2. Em rota -->
           <div class="stat-box stat-rota">
-            <div class="stat-icon-wrap">🛵</div>
+            <div class="stat-icon-wrap">
+              <i data-lucide="bike"></i>
+            </div>
             <div class="stat-info">
               <span class="stat-label">Em rota</span>
               <div class="stat-value">
@@ -638,7 +659,9 @@
 
           <!-- 3. Entregues hoje -->
           <div class="stat-box stat-entregues">
-            <div class="stat-icon-wrap">✓</div>
+            <div class="stat-icon-wrap">
+              <i data-lucide="check-circle"></i>
+            </div>
             <div class="stat-info">
               <span class="stat-label">Entregues hoje</span>
               <div class="stat-value">
@@ -650,7 +673,9 @@
 
           <!-- 4. Faturamento hoje -->
           <div class="stat-box stat-faturamento">
-            <div class="stat-icon-wrap">💰</div>
+            <div class="stat-icon-wrap">
+              <i data-lucide="wallet"></i>
+            </div>
             <div class="stat-info">
               <span class="stat-label">Faturamento hoje</span>
               <div class="stat-value" id="kpiFaturamento">R$ 0,00</div>
@@ -707,7 +732,7 @@
                     <span class="status-badge badge-rota" id="floatingCardStatus">Em rota</span>
                   </div>
                   <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" id="floatingCardAddr">R. Feliciano Sodré, 520 - Várzea</div>
-                  <div style="font-size: 11px; color: var(--brand-gold); font-weight: 700; margin-top: 2px;" id="floatingCardEta">⏱️ ETA 12 min</div>
+                  <div style="font-size: 11px; color: var(--brand-gold); font-weight: 700; margin-top: 2px; display: inline-flex; align-items: center; gap: 4px;" id="floatingCardEta"><i data-lucide="clock" style="width: 12px; height: 12px;"></i> ETA 12 min</div>
                 </div>
                 <button class="btn btn-secondary btn-sm" onclick="abrirDetalhesDoCardFlutuante()">Detalhes &gt;</button>
               </div>
@@ -728,10 +753,11 @@
           </div>
           <div style="display: flex; align-items: center; gap: 10px;">
             <button class="btn btn-gold btn-sm" onclick="abrirModalNovoPedido()" title="Lançar Novo Pedido Manualmente" style="font-weight: 800;">
-              <span>➕ Novo Pedido</span>
+              <i data-lucide="plus"></i>
+              <span>Novo Pedido</span>
             </button>
             <div class="search-box" style="width: 280px;">
-              <span class="search-icon">🔍</span>
+              <span class="search-icon"><i data-lucide="search" style="width: 15px; height: 15px;"></i></span>
               <input type="text" id="inputBuscaPedidos" class="form-input" placeholder="Buscar pedido, cliente ou endereço..." oninput="filtrarPedidosKanban()">
             </div>
           </div>
@@ -742,7 +768,7 @@
           <div class="kanban-col">
             <div class="kanban-col-header" style="border-top: 3px solid #3b82f6;">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span>📦</span>
+                <i data-lucide="package" style="width: 16px; height: 16px; color: #60a5fa;"></i>
                 <span>No Balcão (Aguardando)</span>
               </div>
               <span class="status-badge badge-retirada" id="countKanbanAguardando">0</span>
@@ -756,7 +782,7 @@
           <div class="kanban-col">
             <div class="kanban-col-header" style="border-top: 3px solid var(--brand-gold);">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span>🚀</span>
+                <i data-lucide="bike" style="width: 16px; height: 16px; color: var(--accent-primary);"></i>
                 <span>Em Rota de Entrega</span>
               </div>
               <span class="status-badge badge-rota" id="countKanbanRota">0</span>
@@ -770,7 +796,7 @@
           <div class="kanban-col">
             <div class="kanban-col-header" style="border-top: 3px solid #10b981;">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span>✅</span>
+                <i data-lucide="check-circle" style="width: 16px; height: 16px; color: #34d399;"></i>
                 <span>Entregues Hoje</span>
               </div>
               <span class="status-badge badge-entregue" id="countKanbanEntregues">0</span>
@@ -790,19 +816,24 @@
       </section>
 
       <!-- ====================================================================
-           VISÃO 4: GESTÃO DE MOTOBOYS (PROTEGIDO POR SENHA: boijoaocarnes01)
+           VISÃO 4: GESTÃO DE MOTOBOYS (PROTEGIDO POR SENHA)
            ==================================================================== -->
       <section id="view-motoboys" class="view-section">
         <!-- BLOQUEIO POR SENHA -->
         <div id="motoboysLockScreen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; text-align: center; padding: 20px; width: 100%;">
           <div class="panel-card" style="max-width: 440px; width: 100%; padding: 34px 28px; border: 1px solid var(--border-gold); box-shadow: 0 16px 36px rgba(0,0,0,0.6);">
-            <div style="font-size: 44px; margin-bottom: 12px;">🔒</div>
+            <div style="margin-bottom: 12px; display: flex; justify-content: center; color: var(--accent-primary);">
+              <i data-lucide="lock" style="width: 42px; height: 42px;"></i>
+            </div>
             <h3 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin-bottom: 6px;">Gestão de Entregadores</h3>
             <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Esta área permite gerenciar grupos (VELOZ / SPEED) e dados cadastrais. Digite a senha administrativa:</p>
             <form onsubmit="autenticarAbaMotoboys(event)" style="display: flex; flex-direction: column; gap: 12px;">
               <input type="password" id="inpSenhaAbaMotoboys" class="form-input" placeholder="Senha do Administrador" style="text-align: center; font-size: 15px; letter-spacing: 2px;" required autofocus>
               <div id="msgErroSenhaMotoboy" style="color: #ef4444; font-size: 12px; display: none; font-weight: 600;"></div>
-              <button type="submit" id="btnDesbloquearMotoboys" class="btn btn-gold" style="width: 100%; font-weight: 800;">🔓 DESBLOQUEAR ACESSO</button>
+              <button type="submit" id="btnDesbloquearMotoboys" class="btn btn-gold" style="width: 100%; font-weight: 800;">
+                <i data-lucide="unlock"></i>
+                <span>DESBLOQUEAR ACESSO</span>
+              </button>
             </form>
           </div>
         </div>
@@ -818,12 +849,21 @@
               <!-- Filtro de Grupo -->
               <div style="display: flex; gap: 4px;">
                 <button class="filter-pill active" id="fmgTodos" onclick="filtrarGrupoMotoboys('todos', this)">Todos</button>
-                <button class="filter-pill" id="fmgVeloz" onclick="filtrarGrupoMotoboys('VELOZ', this)">🚀 VELOZ</button>
-                <button class="filter-pill" id="fmgSpeed" onclick="filtrarGrupoMotoboys('SPEED', this)">⚡ SPEED</button>
+                <button class="filter-pill" id="fmgVeloz" onclick="filtrarGrupoMotoboys('VELOZ', this)">VELOZ</button>
+                <button class="filter-pill" id="fmgSpeed" onclick="filtrarGrupoMotoboys('SPEED', this)">SPEED</button>
               </div>
-              <button class="btn btn-gold btn-sm" onclick="abrirModalCadastrarMotoboy()">➕ Novo Entregador</button>
-              <button class="btn btn-secondary btn-sm" onclick="abrirModalTabelaTaxas()" title="Visualizar e editar taxas de entrega por bairro">💰 Tabela de Taxas</button>
-              <button class="btn btn-secondary btn-sm" onclick="bloquearAbaMotoboys()" title="Bloquear aba novamente">🔒 Bloquear</button>
+              <button class="btn btn-gold btn-sm" onclick="abrirModalCadastrarMotoboy()">
+                <i data-lucide="plus"></i>
+                <span>Novo Entregador</span>
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="abrirModalTabelaTaxas()" title="Visualizar e editar taxas de entrega por bairro">
+                <i data-lucide="coins"></i>
+                <span>Tabela de Taxas</span>
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="bloquearAbaMotoboys()" title="Bloquear aba novamente">
+                <i data-lucide="lock"></i>
+                <span>Bloquear</span>
+              </button>
             </div>
           </div>
           <div id="gridMotoboys" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
@@ -842,7 +882,7 @@
             <p class="text-subtitle">Registro completo com tempos de percurso e auditoria GPS.</p>
           </div>
           <div class="search-box" style="width: 320px;">
-            <span class="search-icon">🔍</span>
+            <span class="search-icon"><i data-lucide="search" style="width: 15px; height: 15px;"></i></span>
             <input type="text" id="inputBuscaHistorico" class="form-input" placeholder="Buscar no histórico..." oninput="filtrarHistorico()">
           </div>
         </div>
@@ -859,7 +899,10 @@
       <section id="view-fechamento" class="view-section">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
           <div>
-            <h2 class="text-title">💼 Fechamento de Taxas & Repasse</h2>
+            <h2 class="text-title" style="display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="receipt" style="color: var(--accent-primary);"></i>
+              <span>Fechamento de Taxas & Repasse</span>
+            </h2>
             <p class="text-subtitle">Controle de entregas e repasses calculados pela <strong style="color: #34d399;">Tabela Oficial Ao Ponto por Bairro</strong> (58 bairros cadastrados).</p>
           </div>
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -869,28 +912,38 @@
               <button class="filter-pill" id="fpOntem" onclick="selecionarPeriodoFechamento('ontem', this)">Ontem</button>
               <button class="filter-pill" id="fpSemana" onclick="selecionarPeriodoFechamento('semana', this)">Esta Semana</button>
               <button class="filter-pill" id="fpMes" onclick="selecionarPeriodoFechamento('mes', this)">Este Mês</button>
-              <button class="filter-pill" id="fpPersonalizado" onclick="selecionarPeriodoFechamento('personalizado', this)">📅 Personalizado</button>
+              <button class="filter-pill" id="fpPersonalizado" onclick="selecionarPeriodoFechamento('personalizado', this)">
+                <i data-lucide="calendar" style="width: 12px; height: 12px;"></i> Personalizado
+              </button>
               <button class="filter-pill" id="fpTodos" onclick="selecionarPeriodoFechamento('todos', this)">Todos</button>
             </div>
             <!-- Filtro de Grupo de Entrega -->
             <div style="display: flex; gap: 4px;">
               <button class="filter-pill active grupo-fech-pill" id="fpgTodos" onclick="selecionarGrupoFechamento('todos', this)">Todos Grupos</button>
-              <button class="filter-pill grupo-fech-pill" id="fpgVeloz" onclick="selecionarGrupoFechamento('VELOZ', this)">🚀 VELOZ</button>
-              <button class="filter-pill grupo-fech-pill" id="fpgSpeed" onclick="selecionarGrupoFechamento('SPEED', this)">⚡ SPEED</button>
+              <button class="filter-pill grupo-fech-pill" id="fpgVeloz" onclick="selecionarGrupoFechamento('VELOZ', this)">VELOZ</button>
+              <button class="filter-pill grupo-fech-pill" id="fpgSpeed" onclick="selecionarGrupoFechamento('SPEED', this)">SPEED</button>
             </div>
             <!-- Filtro por Motoboy -->
             <select id="selectFiltroMotoboy" class="form-select" style="padding: 4px 10px; font-size: 12px; width: auto;" onchange="carregarFechamento()">
               <option value="todos">Todos os Motoboys</option>
             </select>
-            <button class="btn btn-secondary btn-sm" onclick="abrirModalTabelaTaxas()" title="Consultar taxas oficiais por bairro" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">💰 Ver Taxas</button>
-            <button class="btn btn-gold btn-sm" onclick="carregarFechamento()">🔄 Atualizar</button>
+            <button class="btn btn-secondary btn-sm" onclick="abrirModalTabelaTaxas()" title="Consultar taxas oficiais por bairro">
+              <i data-lucide="coins"></i>
+              <span>Ver Taxas</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="carregarFechamento()">
+              <i data-lucide="refresh-cw"></i>
+              <span>Atualizar</span>
+            </button>
           </div>
         </div>
 
         <!-- Barra de Seleção de Período Personalizado -->
         <div id="boxPeriodoPersonalizado" style="display: none; align-items: center; justify-content: space-between; gap: 12px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: var(--radius-md); padding: 10px 16px; margin-bottom: 16px; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <span style="font-size: 13px; font-weight: 800; color: #fbbf24;">📅 Período Personalizado:</span>
+            <span style="font-size: 13px; font-weight: 800; color: #fbbf24; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="calendar" style="width: 14px; height: 14px;"></i> Período Personalizado:
+            </span>
             <div style="display: flex; align-items: center; gap: 6px;">
               <label for="inpFechDataInicio" style="font-size: 11px; font-weight: 700; color: var(--text-muted);">De:</label>
               <input type="date" id="inpFechDataInicio" class="form-input" style="padding: 5px 8px; font-size: 12px; width: 140px;" onchange="carregarFechamento()">
@@ -900,7 +953,8 @@
               <input type="date" id="inpFechDataFim" class="form-input" style="padding: 5px 8px; font-size: 12px; width: 140px;" onchange="carregarFechamento()">
             </div>
             <button class="btn btn-gold btn-sm" onclick="carregarFechamento()" style="padding: 5px 12px; font-size: 11px; font-weight: 800;">
-              🔍 Consultar Período
+              <i data-lucide="search"></i>
+              <span>Consultar Período</span>
             </button>
           </div>
           <span id="fechamentoPeriodoLabel" style="font-size: 12px; font-weight: 700; color: #34d399;"></span>
@@ -909,28 +963,36 @@
         <!-- KPI Cards do Fechamento -->
         <div class="stats-container" style="margin-bottom: 16px;">
           <div class="stat-box stat-preparo">
-            <div class="stat-icon-wrap">📦</div>
+            <div class="stat-icon-wrap">
+              <i data-lucide="package"></i>
+            </div>
             <div class="stat-info">
               <span class="stat-label">Entregas no Período</span>
               <div class="stat-value"><span id="fechKpiEntregas">0</span></div>
             </div>
           </div>
-          <div class="stat-box stat-entregue">
-            <div class="stat-icon-wrap">💰</div>
+          <div class="stat-box stat-entregues">
+            <div class="stat-icon-wrap">
+              <i data-lucide="wallet"></i>
+            </div>
             <div class="stat-info">
               <span class="stat-label">Total a Pagar (R$)</span>
               <div class="stat-value"><span id="fechKpiTotal" style="color: #34d399;">R$ 0,00</span></div>
             </div>
           </div>
           <div class="stat-box stat-rota">
-            <div class="stat-icon-wrap">🛵</div>
+            <div class="stat-icon-wrap">
+              <i data-lucide="bike"></i>
+            </div>
             <div class="stat-info">
               <span class="stat-label">Entregadores Ativos</span>
               <div class="stat-value"><span id="fechKpiAtivos">0</span></div>
             </div>
           </div>
-          <div class="stat-box">
-            <div class="stat-icon-wrap">📊</div>
+          <div class="stat-box stat-faturamento">
+            <div class="stat-icon-wrap">
+              <i data-lucide="trending-up"></i>
+            </div>
             <div class="stat-info">
               <span class="stat-label">Taxa Média por Entrega</span>
               <div class="stat-value"><span id="fechKpiMedia">R$ 0,00</span></div>
@@ -952,7 +1014,10 @@
         <div class="panel-card" style="margin-bottom: 24px;">
           <div class="panel-header">
             <span class="panel-title">Detalhamento de Entregas</span>
-            <button class="btn btn-secondary btn-sm" onclick="imprimirFechamento()">🖨️ Imprimir</button>
+            <button class="btn btn-secondary btn-sm" onclick="imprimirFechamento()">
+              <i data-lucide="printer"></i>
+              <span>Imprimir</span>
+            </button>
           </div>
           <div id="containerFechamentoEntregas" style="padding: 16px; overflow-x: auto;">
             <div class="empty-state"><div class="empty-state-title">Aguardando seleção de período</div></div>
@@ -986,15 +1051,16 @@
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
             <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Cliente & Destino</span>
             <button class="btn btn-gold btn-sm" id="btnWhatsappCliente" onclick="abrirWhatsappCliente()">
-              <span>💬 WhatsApp</span>
+              <i data-lucide="message-circle"></i>
+              <span>WhatsApp</span>
             </button>
           </div>
           <div style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;" id="dtlClienteNome">--</div>
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
-            <div style="font-size: 13px; color: var(--brand-gold-light);" id="dtlClienteTelefone">📞 --</div>
-            <div style="font-size: 12px; font-weight: 700; color: #fbbf24; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); padding: 2px 8px; border-radius: var(--radius-sm); font-family: monospace; display: none;" id="dtlClienteLocalizador">🔑 PIN: --</div>
+            <div style="font-size: 13px; color: var(--brand-gold-light); display: flex; align-items: center; gap: 4px;" id="dtlClienteTelefone">--</div>
+            <div style="font-size: 12px; font-weight: 700; color: #fbbf24; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); padding: 2px 8px; border-radius: var(--radius-sm); font-family: monospace; display: none; align-items: center; gap: 4px;" id="dtlClienteLocalizador">--</div>
           </div>
-          <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.4;" id="dtlClienteEndereco">📍 --</div>
+          <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.4; display: flex; align-items: flex-start; gap: 6px;" id="dtlClienteEndereco">--</div>
         </div>
 
         <!-- ITENS DA COMANDA -->
@@ -1018,7 +1084,9 @@
           <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 10px;">Entregador Responsável</span>
           <div id="dtlMotoboyInfo" style="display: flex; align-items: center; justify-content: space-between;">
             <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--bg-surface-elevated); border: 1px solid var(--border-medium); display: flex; align-items: center; justify-content: center; font-size: 18px;">🛵</div>
+              <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--bg-surface-elevated); border: 1px solid var(--border-medium); display: flex; align-items: center; justify-content: center; color: var(--accent-primary);">
+                <i data-lucide="bike" style="width: 20px; height: 20px;"></i>
+              </div>
               <div>
                 <div style="font-weight: 700; font-size: 14px;" id="dtlMotoboyNome">Aguardando atribuição</div>
                 <div style="font-size: 12px; color: var(--text-muted);" id="dtlMotoboyTelefone">--</div>
@@ -1039,7 +1107,10 @@
   <div class="modal-confirm-overlay" id="modalAlterarSenha" style="display: none; align-items: center; justify-content: center; z-index: 99990;">
     <div class="modal-confirm-box" style="max-width: 400px; text-align: left;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-        <h3 style="font-size: 17px; font-weight: 800; color: var(--text-primary);">🔑 Alterar Senha da Cozinha</h3>
+        <h3 style="font-size: 17px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="key" style="color: var(--accent-primary); width: 18px; height: 18px;"></i>
+          <span>Alterar Senha da Cozinha</span>
+        </h3>
         <button class="btn btn-secondary btn-icon" onclick="fecharModalAlterarSenha()">✕</button>
       </div>
       <form id="formAlterarSenhaAdmin" onsubmit="salvarNovaSenhaAdmin(event)">
@@ -1065,7 +1136,8 @@
     <div class="modal-confirm-box" style="max-width: 540px; text-align: left; max-height: 90vh; overflow-y: auto;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
         <h3 style="font-size: 17px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-          <span>➕</span> Lançar Novo Pedido
+          <i data-lucide="plus-circle" style="color: var(--accent-primary); width: 18px; height: 18px;"></i>
+          <span>Lançar Novo Pedido</span>
         </h3>
         <button class="btn btn-secondary btn-icon" onclick="fecharModalNovoPedido()">✕</button>
       </div>
@@ -1091,8 +1163,8 @@
             <label class="form-label" for="inpNovoGrupo" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Grupo Destino</label>
             <select id="inpNovoGrupo" class="form-input" style="width: 100%; font-weight: 700;">
               <option value="">Aguardar</option>
-              <option value="VELOZ">🚀 VELOZ</option>
-              <option value="SPEED">⚡ SPEED</option>
+              <option value="VELOZ">VELOZ</option>
+              <option value="SPEED">SPEED</option>
             </select>
           </div>
         </div>
@@ -1148,7 +1220,10 @@
 
         <div style="display: flex; gap: 10px;">
           <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="fecharModalNovoPedido()">Cancelar</button>
-          <button type="submit" class="btn btn-gold" id="btnSalvarNovoPedido" style="flex: 1; font-weight: 800;">➕ LANÇAR PEDIDO</button>
+          <button type="submit" class="btn btn-gold" id="btnSalvarNovoPedido" style="flex: 1; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <i data-lucide="plus"></i>
+            <span>Lançar Pedido</span>
+          </button>
         </div>
       </form>
     </div>
@@ -1159,7 +1234,8 @@
     <div class="modal-confirm-box" style="max-width: 440px; text-align: left;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
         <h3 style="font-size: 17px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-          <span>✏️</span> Editar Entregador
+          <i data-lucide="user-cog" style="color: var(--accent-primary); width: 18px; height: 18px;"></i>
+          <span>Editar Entregador</span>
         </h3>
         <button class="btn btn-secondary btn-icon" onclick="fecharModalEditarMotoboy()">✕</button>
       </div>
@@ -1180,8 +1256,8 @@
         <div class="form-group" style="margin-bottom: 12px;">
           <label class="form-label" for="inpEditMotoboyGrupo" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Grupo Responsável *</label>
           <select id="inpEditMotoboyGrupo" class="form-input" style="width: 100%; font-weight: 800;">
-            <option value="VELOZ">🚀 VELOZ (Tabela Padrão)</option>
-            <option value="SPEED">⚡ SPEED (Tabela Speed)</option>
+            <option value="VELOZ">VELOZ (Tabela Padrão)</option>
+            <option value="SPEED">SPEED (Tabela Speed)</option>
           </select>
         </div>
 
@@ -1199,7 +1275,10 @@
 
         <div style="display: flex; gap: 10px;">
           <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="fecharModalEditarMotoboy()">Cancelar</button>
-          <button type="submit" class="btn btn-gold" id="btnSalvarEditMotoboy" style="flex: 1; font-weight: 800;">💾 SALVAR</button>
+          <button type="submit" class="btn btn-gold" id="btnSalvarEditMotoboy" style="flex: 1; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <i data-lucide="save"></i>
+            <span>Salvar Alterações</span>
+          </button>
         </div>
       </form>
     </div>
@@ -1210,7 +1289,8 @@
     <div class="modal-confirm-box" style="max-width: 440px; text-align: left;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
         <h3 style="font-size: 17px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-          <span>🛵</span> Cadastrar Novo Entregador
+          <i data-lucide="user-plus" style="color: var(--accent-primary); width: 18px; height: 18px;"></i>
+          <span>Cadastrar Novo Entregador</span>
         </h3>
         <button class="btn btn-secondary btn-icon" onclick="fecharModalCadastrarMotoboy()">✕</button>
       </div>
@@ -1229,8 +1309,8 @@
         <div class="form-group" style="margin-bottom: 12px;">
           <label class="form-label" for="inpCadMotoboyGrupo" style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">Grupo Responsável *</label>
           <select id="inpCadMotoboyGrupo" class="form-input" style="width: 100%; font-weight: 800;">
-            <option value="VELOZ" selected>🚀 VELOZ (Tabela Padrão)</option>
-            <option value="SPEED">⚡ SPEED (Tabela Speed)</option>
+            <option value="VELOZ" selected>VELOZ (Tabela Padrão)</option>
+            <option value="SPEED">SPEED (Tabela Speed)</option>
           </select>
         </div>
 
@@ -1248,7 +1328,10 @@
 
         <div style="display: flex; gap: 10px;">
           <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="fecharModalCadastrarMotoboy()">Cancelar</button>
-          <button type="submit" class="btn btn-gold" id="btnSalvarCadMotoboy" style="flex: 1; font-weight: 800;">➕ CADASTRAR</button>
+          <button type="submit" class="btn btn-gold" id="btnSalvarCadMotoboy" style="flex: 1; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <i data-lucide="user-plus"></i>
+            <span>Cadastrar Entregador</span>
+          </button>
         </div>
       </form>
     </div>
@@ -1259,18 +1342,19 @@
     <div class="modal-confirm-box" style="max-width: 650px; width: 95%; max-height: 85vh; display: flex; flex-direction: column; text-align: left; padding: 20px;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
         <h3 style="font-size: 18px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-          <span>💰</span> Tabelas de Taxas de Entrega
+          <i data-lucide="coins" style="color: var(--accent-primary); width: 20px; height: 20px;"></i>
+          <span>Tabelas de Taxas de Entrega</span>
         </h3>
         <button class="btn btn-secondary btn-icon" onclick="fecharModalTabelaTaxas()">✕</button>
       </div>
 
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
         <div style="display: flex; gap: 6px;">
-          <button class="filter-pill active" id="tabTaxaSpeed" onclick="alternarAbaTaxas('SPEED')">⚡ Tabela SPEED</button>
-          <button class="filter-pill" id="tabTaxaVeloz" onclick="alternarAbaTaxas('VELOZ')">🚀 Tabela VELOZ</button>
+          <button class="filter-pill active" id="tabTaxaSpeed" onclick="alternarAbaTaxas('SPEED')">Tabela SPEED</button>
+          <button class="filter-pill" id="tabTaxaVeloz" onclick="alternarAbaTaxas('VELOZ')">Tabela VELOZ</button>
         </div>
         <div class="search-box" style="width: 220px;">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon"><i data-lucide="search" style="width: 14px; height: 14px;"></i></span>
           <input type="text" id="inputBuscaTaxa" class="form-input" placeholder="Buscar bairro..." oninput="renderizarTabelaTaxas()" style="padding-top: 4px; padding-bottom: 4px;">
         </div>
       </div>
@@ -1302,7 +1386,8 @@
     <div class="modal-confirm-box" style="max-width: 480px; width: 95%; text-align: left; padding: 22px;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
         <h3 style="font-size: 17px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-          <span>🛵</span> Atribuir Entrega a um Motoboy
+          <i data-lucide="bike" style="color: var(--accent-primary); width: 18px; height: 18px;"></i>
+          <span>Atribuir Entrega a um Motoboy</span>
         </h3>
         <button class="btn btn-secondary btn-icon" onclick="fecharModalAtribuirEntregador()">✕</button>
       </div>
@@ -1328,8 +1413,8 @@
             Status Inicial
           </label>
           <select id="selectAtribuirStatus" class="form-select" style="width: 100%; padding: 8px; font-size: 13px; background: var(--bg-surface-elevated); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 6px;">
-            <option value="em_rota" selected>🚀 Em Rota (saiu para entrega)</option>
-            <option value="aguardando_retirada">📦 Pronto no Balcão (aguardando motoboy retirar)</option>
+            <option value="em_rota" selected>Em Rota (saiu para entrega)</option>
+            <option value="aguardando_retirada">Pronto no Balcão (aguardando motoboy retirar)</option>
           </select>
         </div>
 
@@ -1337,8 +1422,9 @@
 
         <div style="display: flex; gap: 10px;">
           <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="fecharModalAtribuirEntregador()">Cancelar</button>
-          <button type="submit" class="btn btn-gold" id="btnConfirmarAtribuicao" style="flex: 1.3; font-weight: 800;">
-            🚀 CONFIRMAR
+          <button type="submit" class="btn btn-gold" id="btnConfirmarAtribuicao" style="flex: 1.3; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <i data-lucide="check"></i>
+            <span>Confirmar</span>
           </button>
         </div>
       </form>
@@ -1371,9 +1457,24 @@
       restauranteCoords: [-22.4123, -42.9664] // Teresópolis - RJ (Ao Ponto Carnes)
     };
 
+    // Helper SVG Icons Centralizado
+    const SVG_ICONS = {
+      bike: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>',
+      mapPin: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+      phone: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+      clock: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+      check: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+      alert: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+      edit: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+      message: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
+      map: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/></svg>',
+      utensils: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/><path d="M15 2v14a4 4 0 0 1-4 4H9"/><path d="M6 2v20"/><path d="M6 6h4"/></svg>'
+    };
+
     // Inicialização protegida por Autenticação
     document.addEventListener('DOMContentLoaded', () => {
       verificarAutenticacaoAdmin();
+      if (window.lucide) lucide.createIcons();
     });
 
     function verificarAutenticacaoAdmin() {
@@ -1389,7 +1490,7 @@
           const badgeNome = document.getElementById('badgeAdminNome');
           const lblLogado = document.getElementById('lblAdminLogado');
           if (badgeNome) badgeNome.textContent = nomeCurto;
-          if (lblLogado) lblLogado.textContent = `👨‍🍳 ${nomeCurto}`;
+          if (lblLogado) lblLogado.textContent = nomeCurto;
 
           // Ocultar tela de login com transição suave
           if (overlay) {
@@ -1646,7 +1747,7 @@
       if (lista.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-icon">🍽️</div>
+            <div class="empty-state-icon" style="display: flex; justify-content: center; color: var(--text-muted);">${SVG_ICONS.utensils}</div>
             <div class="empty-state-title">Nenhum pedido encontrado</div>
             <div class="empty-state-desc">Não há pedidos com esse filtro no momento.</div>
           </div>
@@ -1659,6 +1760,7 @@
         const badgeInfo = obterBadgeStatus(p.status);
         const horaStr = p.criado_em ? p.criado_em.substring(11, 16) : '--:--';
         const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
+        const statusBorderClass = `status-border-${badgeInfo.classe.replace('badge-', '')}`;
 
         let grupoHtml = '';
         if (!p.grupo) {
@@ -1666,8 +1768,8 @@
             <div style="margin-top: 6px; padding: 6px 8px; background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.35); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 6px;" onclick="event.stopPropagation()">
               <span style="font-size: 10px; font-weight: 800; color: #fbbf24;">DESTINAR:</span>
               <div style="display: flex; gap: 4px;">
-                <button class="btn-grupo-selecionar btn-grupo-speed" onclick="definirGrupoPedido(${p.id}, 'SPEED'); event.stopPropagation();" title="Destinar entrega ao grupo SPEED">⚡ SPEED</button>
-                <button class="btn-grupo-selecionar btn-grupo-veloz" onclick="definirGrupoPedido(${p.id}, 'VELOZ'); event.stopPropagation();" title="Destinar entrega ao grupo VELOZ">🚀 VELOZ</button>
+                <button class="btn-grupo-selecionar btn-grupo-speed" onclick="definirGrupoPedido(${p.id}, 'SPEED'); event.stopPropagation();" title="Destinar entrega ao grupo SPEED">SPEED</button>
+                <button class="btn-grupo-selecionar btn-grupo-veloz" onclick="definirGrupoPedido(${p.id}, 'VELOZ'); event.stopPropagation();" title="Destinar entrega ao grupo VELOZ">VELOZ</button>
               </div>
             </div>
           `;
@@ -1675,13 +1777,13 @@
           const isSpeed = p.grupo === 'SPEED';
           grupoHtml = `
             <span class="badge-grupo-pedido ${isSpeed ? 'badge-grupo-speed' : 'badge-grupo-veloz'}" onclick="alternarGrupoPedido(${p.id}, '${p.grupo}'); event.stopPropagation();" title="Clique para transferir de grupo">
-              ${isSpeed ? '⚡ SPEED' : '🚀 VELOZ'} ⇄
+              ${isSpeed ? 'SPEED' : 'VELOZ'} ⇄
             </span>
           `;
         }
 
         return `
-          <div class="order-card ${isSelected}" onclick="selecionarPedido(${p.id})">
+          <div class="order-card ${isSelected} ${statusBorderClass}" onclick="selecionarPedido(${p.id})">
             <div class="order-card-row">
               <div class="order-num-time">
                 <span class="order-number">#${p.numero_pedido}</span>
@@ -1695,22 +1797,24 @@
             </div>
 
             <div class="order-address">
-              📍 ${p.endereco} ${p.bairro ? '— ' + p.bairro : ''}
+              ${SVG_ICONS.mapPin}
+              <span>${escapeHtml(p.endereco)} ${p.bairro ? '— ' + escapeHtml(p.bairro) : ''}</span>
             </div>
 
             ${!p.grupo ? grupoHtml : ''}
 
             <div class="order-meta">
               <span class="order-motoboy">
-                <span>🛵</span>
-                <span>${p.motoboy ? p.motoboy.nome : 'Aguardando motoboy'}</span>
+                ${SVG_ICONS.bike}
+                <span>${p.motoboy ? escapeHtml(p.motoboy.nome) : 'Aguardando motoboy'}</span>
               </span>
               <span class="order-price">${taxaStr}</span>
             </div>
 
             <div style="margin-top: 8px; display: flex; gap: 6px;" onclick="event.stopPropagation()">
-              <button class="btn btn-sm ${p.motoboy ? 'btn-secondary' : 'btn-gold'}" onclick="abrirModalAtribuirEntregador(${p.id}); event.stopPropagation();" style="font-size: 11px; padding: 4px 8px; font-weight: 700; width: 100%; justify-content: center;">
-                🛵 ${p.motoboy ? 'Trocar Entregador (' + p.motoboy.nome + ')' : 'Atribuir Entregador'}
+              <button class="btn btn-sm ${p.motoboy ? 'btn-secondary' : 'btn-gold'}" onclick="abrirModalAtribuirEntregador(${p.id}); event.stopPropagation();" style="font-size: 11px; padding: 4px 8px; font-weight: 700; width: 100%; justify-content: center; display: inline-flex; align-items: center; gap: 6px;">
+                ${SVG_ICONS.bike}
+                <span>${p.motoboy ? 'Trocar (' + escapeHtml(p.motoboy.nome) + ')' : 'Atribuir Entregador'}</span>
               </button>
             </div>
           </div>
@@ -1788,7 +1892,7 @@
           statusEl.className = `status-badge ${badge.classe}`;
         }
         if (addrEl) addrEl.textContent = `${p.endereco} ${p.bairro ? '— ' + p.bairro : ''}`;
-        if (etaEl) etaEl.textContent = `⏱️ ${p.tempo_decorrido_minutos} min decorridos`;
+        if (etaEl) etaEl.innerHTML = `${SVG_ICONS.clock} <span>${p.tempo_decorrido_minutos} min decorridos</span>`;
       }
 
       // Focar motoboy no mapa se houver
@@ -1824,10 +1928,11 @@
         maxZoom: 19
       }).addTo(state.mapDashboard);
 
-      // Marcador da Loja Ao Ponto Carnes (Chama / Fogo)
+      // Marcador da Loja Ao Ponto Carnes (Chama / Fogo SVG)
+      const flameSvg = `<svg viewBox="0 0 24 24" width="22" height="22" fill="#f59e0b" stroke="#f59e0b" stroke-width="1"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`;
       const flameIcon = L.divIcon({
         className: 'custom-icon',
-        html: `<div class="marker-restaurant" title="Ao Ponto Carnes — Loja Matriz">🔥</div>`,
+        html: `<div class="marker-restaurant" title="Ao Ponto Carnes — Loja Matriz">${flameSvg}</div>`,
         iconSize: [44, 44],
         iconAnchor: [22, 22]
       });
@@ -1835,7 +1940,7 @@
       L.marker(state.restauranteCoords, { icon: flameIcon })
         .bindPopup(`
           <div style="padding: 6px 8px; text-align: center;">
-            <strong style="color: var(--brand-gold-light); font-size: 14px;">🥩 AO PONTO CARNES</strong><br>
+            <strong style="color: var(--brand-gold-light); font-size: 14px;">AO PONTO CARNES</strong><br>
             <span style="font-size: 11px; color: var(--text-muted);">Loja Matriz • Teresópolis/RJ</span>
           </div>
         `)
@@ -1857,15 +1962,21 @@
         maxZoom: 19
       }).addTo(state.mapFullscreen);
 
+      const flameSvg = `<svg viewBox="0 0 24 24" width="22" height="22" fill="#f59e0b" stroke="#f59e0b" stroke-width="1"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`;
       const flameIcon = L.divIcon({
         className: 'custom-icon',
-        html: `<div class="marker-restaurant">🔥</div>`,
+        html: `<div class="marker-restaurant" title="Ao Ponto Carnes — Loja Matriz">${flameSvg}</div>`,
         iconSize: [44, 44],
         iconAnchor: [22, 22]
       });
 
       L.marker(state.restauranteCoords, { icon: flameIcon })
-        .bindPopup(`<strong>Ao Ponto Carnes</strong>`)
+        .bindPopup(`
+          <div style="padding: 6px 8px; text-align: center;">
+            <strong style="color: var(--brand-gold-light); font-size: 14px;">AO PONTO CARNES</strong><br>
+            <span style="font-size: 11px; color: var(--text-muted);">Loja Matriz • Teresópolis/RJ</span>
+          </div>
+        `)
         .addTo(state.mapFullscreen);
     }
 
@@ -1880,6 +1991,7 @@
 
       const filtroEl = document.getElementById('selectFiltroMapa');
       const filtro = filtroEl ? filtroEl.value : 'todos';
+      const bikeMarkerSvg = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>`;
 
       state.motoboysMapa.forEach(m => {
         if (!m.latitude || !m.longitude) return;
@@ -1894,18 +2006,21 @@
           return;
         }
 
-        const iconHtml = `<div class="marker-motoboy ${isEmRota ? 'active' : 'idle'}">🛵</div>`;
+        const iconHtml = `<div class="marker-motoboy ${isEmRota ? 'active' : 'idle'}">${bikeMarkerSvg}</div>`;
         const customIcon = L.divIcon({
           className: 'custom-icon',
           html: iconHtml,
-          iconSize: [38, 38],
-          iconAnchor: [19, 19]
+          iconSize: [40, 40],
+          iconAnchor: [20, 20]
         });
 
         const popupHtml = `
           <div style="padding: 8px 10px; min-width: 180px;">
-            <div style="font-weight: 800; font-size: 13px; color: var(--brand-gold-light);">🛵 ${m.nome}</div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">📞 ${m.telefone} • ⚡ ${Math.round(m.speed || 0)} km/h</div>
+            <div style="font-weight: 800; font-size: 13px; color: var(--brand-gold-light); display: flex; align-items: center; gap: 6px;">
+              ${bikeMarkerSvg}
+              <span>${escapeHtml(m.nome)}</span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${escapeHtml(m.telefone)} • ${Math.round(m.speed || 0)} km/h</div>
             <div style="font-size: 11px; margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1);">
               ${isEmRota ? `<strong>Em rota:</strong> #${(m.pedidos_numeros || []).join(', #')}` : '<em>Disponível no balcão</em>'}
             </div>
@@ -1958,34 +2073,41 @@
 
     function cardKanbanHtml(p, colTipo) {
       const taxaStr = p.taxa_entrega > 0 ? `R$ ${p.taxa_entrega.toFixed(2).replace('.', ',')}` : 'Grátis';
+      const borderClass = colTipo === 'aguardando' ? 'status-border-preparo' : (colTipo === 'rota' ? 'status-border-rota' : 'status-border-entregue');
       let botaoAcao = '';
 
       if (colTipo === 'aguardando') {
         botaoAcao = `
           <div style="margin-top: 8px; display: flex; gap: 6px;">
-            <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="abrirDetalhesPedido(${p.id})">📋 Detalhes</button>
-            <button class="btn btn-gold btn-sm" style="flex: 1.3; font-weight: 800;" onclick="abrirModalAtribuirEntregador(${p.id})">🛵 Atribuir</button>
+            <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="abrirDetalhesPedido(${p.id})">Detalhes</button>
+            <button class="btn btn-gold btn-sm" style="flex: 1.3; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" onclick="abrirModalAtribuirEntregador(${p.id})">
+              ${SVG_ICONS.bike}
+              <span>Atribuir</span>
+            </button>
           </div>
         `;
       } else if (colTipo === 'rota') {
         botaoAcao = `
           <div style="margin-top: 8px; display: flex; gap: 5px;">
-            <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px;" onclick="abrirDetalhesPedido(${p.id})">🗺️ Rota</button>
-            <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px;" onclick="abrirModalAtribuirEntregador(${p.id})" title="Substituir entregador">🛵 Trocar</button>
-            <button class="btn btn-success btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Concluir</button>
+            <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px;" onclick="abrirDetalhesPedido(${p.id})">Rota</button>
+            <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px;" onclick="abrirModalAtribuirEntregador(${p.id})" title="Substituir entregador">Trocar</button>
+            <button class="btn btn-success btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="alterarStatusPedido(${p.id}, 'entregue')">
+              ${SVG_ICONS.check}
+              <span>Concluir</span>
+            </button>
           </div>
         `;
       } else if (colTipo === 'entregue') {
-        botaoAcao = `<button class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 8px;" onclick="abrirDetalhesPedido(${p.id})">📄 Ver Resumo</button>`;
+        botaoAcao = `<button class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 8px;" onclick="abrirDetalhesPedido(${p.id})">Ver Resumo</button>`;
       }
 
       let motoboyInfo = '';
       if (colTipo === 'rota' || colTipo === 'entregue') {
         const nomeEntregador = p.motoboy ? p.motoboy.nome : (p.motoboy_nome || 'Sem motoboy');
         motoboyInfo = `
-          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; display: flex; align-items: center; gap: 5px;">
-            <span>🛵</span>
-            <span>Entregador: <strong style="color: var(--brand-gold-light); font-weight: 700;">${nomeEntregador}</strong></span>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+            ${SVG_ICONS.bike}
+            <span>Entregador: <strong style="color: var(--brand-gold-light); font-weight: 700;">${escapeHtml(nomeEntregador)}</strong></span>
           </div>
         `;
       }
@@ -1994,10 +2116,10 @@
       if (!p.grupo) {
         grupoKanban = `
           <div style="margin: 8px 0 6px; padding: 6px 8px; background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.35); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
-            <span style="font-size: 10px; font-weight: 800; color: #fbbf24;">⚡ DESTINAR:</span>
+            <span style="font-size: 10px; font-weight: 800; color: #fbbf24;">DESTINAR:</span>
             <div style="display: flex; gap: 4px;">
-              <button class="btn-grupo-selecionar btn-grupo-speed" onclick="definirGrupoPedido(${p.id}, 'SPEED'); event.stopPropagation();" title="Destinar ao grupo SPEED">⚡ SPEED</button>
-              <button class="btn-grupo-selecionar btn-grupo-veloz" onclick="definirGrupoPedido(${p.id}, 'VELOZ'); event.stopPropagation();" title="Destinar ao grupo VELOZ">🚀 VELOZ</button>
+              <button class="btn-grupo-selecionar btn-grupo-speed" onclick="definirGrupoPedido(${p.id}, 'SPEED'); event.stopPropagation();" title="Destinar ao grupo SPEED">SPEED</button>
+              <button class="btn-grupo-selecionar btn-grupo-veloz" onclick="definirGrupoPedido(${p.id}, 'VELOZ'); event.stopPropagation();" title="Destinar ao grupo VELOZ">VELOZ</button>
             </div>
           </div>
         `;
@@ -2005,13 +2127,13 @@
         const isSpeed = p.grupo === 'SPEED';
         grupoKanban = `
           <span class="badge-grupo-pedido ${isSpeed ? 'badge-grupo-speed' : 'badge-grupo-veloz'}" onclick="alternarGrupoPedido(${p.id}, '${p.grupo}')" title="Clique para transferir de grupo">
-            ${isSpeed ? '⚡ SPEED' : '🚀 VELOZ'} ⇄
+            ${isSpeed ? 'SPEED' : 'VELOZ'} ⇄
           </span>
         `;
       }
 
       return `
-        <div class="order-card" style="margin-bottom: 0;">
+        <div class="order-card ${borderClass}" style="margin-bottom: 0;">
           <div class="order-card-row">
             <strong class="order-number">#${p.numero_pedido}</strong>
             <div style="display: flex; gap: 4px; align-items: center;">
@@ -2020,12 +2142,12 @@
               <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem, p.texto_bruto)}</span>
             </div>
           </div>
-          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">${p.cliente}</div>
-          <div class="order-address">📍 ${p.endereco}</div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">${escapeHtml(p.cliente)}</div>
+          <div class="order-address">${SVG_ICONS.mapPin} <span>${escapeHtml(p.endereco)}</span></div>
           ${!p.grupo ? grupoKanban : ''}
           ${motoboyInfo}
           <div class="order-meta">
-            <span>⏱️ ${p.tempo_decorrido_minutos} min</span>
+            <span style="display: flex; align-items: center; gap: 4px;">${SVG_ICONS.clock} <span>${p.tempo_decorrido_minutos} min</span></span>
             <span class="order-price">${taxaStr}</span>
           </div>
           ${botaoAcao}
@@ -2050,8 +2172,8 @@
       const btnV = document.getElementById('fmgVeloz');
       const btnS = document.getElementById('fmgSpeed');
       if (btnT) btnT.textContent = `Todos (${todos.length})`;
-      if (btnV) btnV.textContent = `🚀 VELOZ (${countVeloz})`;
-      if (btnS) btnS.textContent = `⚡ SPEED (${countSpeed})`;
+      if (btnV) btnV.textContent = `VELOZ (${countVeloz})`;
+      if (btnS) btnS.textContent = `SPEED (${countSpeed})`;
 
       let lista = todos;
       if (state.filtroGrupoMotoboys && state.filtroGrupoMotoboys !== 'todos') {
@@ -2074,10 +2196,14 @@
           <div class="card card-elevated" style="display: flex; flex-direction: column; gap: 12px; border-top: 3px solid ${isSpeed ? '#f59e0b' : '#3b82f6'};">
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="width: 42px; height: 42px; border-radius: 50%; background: var(--bg-surface-hover); border: 2px solid ${isOnline ? '#10b981' : 'var(--border-subtle)'}; display: flex; align-items: center; justify-content: center; font-size: 20px;">🛵</div>
+                <div style="width: 42px; height: 42px; border-radius: 50%; background: var(--bg-card-hover); border: 2px solid ${isOnline ? 'var(--status-entregue)' : 'var(--border-subtle)'}; display: flex; align-items: center; justify-content: center; color: var(--accent-primary);">
+                  ${SVG_ICONS.bike}
+                </div>
                 <div>
-                  <strong style="font-size: 15px; display: block;">${m.nome}</strong>
-                  <span style="font-size: 12px; color: var(--text-muted);">📞 ${m.telefone}</span>
+                  <strong style="font-size: 15px; display: block;">${escapeHtml(m.nome)}</strong>
+                  <span style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+                    ${SVG_ICONS.phone} <span>${formatarTelefone(m.telefone)}</span>
+                  </span>
                 </div>
               </div>
               ${statusBadge}
@@ -2087,20 +2213,29 @@
             <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: var(--bg-surface); border-radius: var(--radius-sm);">
               <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Grupo da Equipe:</span>
               <select style="background: #181d27; color: ${isSpeed ? '#fbbf24' : '#60a5fa'}; font-weight: 800; border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 3px 8px; font-size: 12px; cursor: pointer;" onchange="alterarGrupoMotoboyDirect(${m.id}, this.value)">
-                <option value="VELOZ" ${!isSpeed ? 'selected' : ''}>🚀 VELOZ</option>
-                <option value="SPEED" ${isSpeed ? 'selected' : ''}>⚡ SPEED</option>
+                <option value="VELOZ" ${!isSpeed ? 'selected' : ''}>VELOZ</option>
+                <option value="SPEED" ${isSpeed ? 'selected' : ''}>SPEED</option>
               </select>
             </div>
 
             <div style="background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between;">
-              <span>⚡ Velocidade: <strong style="color: var(--text-primary);">${m.velocidade} km/h</strong></span>
-              <span>📡 GPS: <strong style="color: ${m.latitude ? 'var(--status-rota-text)' : 'var(--text-faint)'};">${m.latitude ? 'Ativo' : 'Pendente'}</strong></span>
+              <span>Velocidade: <strong style="color: var(--text-primary);">${m.velocidade} km/h</strong></span>
+              <span>GPS: <strong style="color: ${m.latitude ? 'var(--status-rota-text)' : 'var(--text-faint)'};">${m.latitude ? 'Ativo' : 'Pendente'}</strong></span>
             </div>
 
             <div style="display: flex; gap: 6px;">
-              <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="abrirModalEditarMotoboy(${m.id})">✏️ Editar</button>
-              <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="abrirWhatsappMotoboy('${m.telefone}')">💬 WhatsApp</button>
-              <button class="btn btn-gold btn-sm" style="flex: 1;" onclick="focarMotoboyNoMapa(${m.id})">🗺️ Mapa</button>
+              <button class="btn btn-secondary btn-sm" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="abrirModalEditarMotoboy(${m.id})">
+                ${SVG_ICONS.edit}
+                <span>Editar</span>
+              </button>
+              <button class="btn btn-secondary btn-sm" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="abrirWhatsappMotoboy('${m.telefone}')">
+                ${SVG_ICONS.message}
+                <span>WhatsApp</span>
+              </button>
+              <button class="btn btn-gold btn-sm" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="focarMotoboyNoMapa(${m.id})">
+                ${SVG_ICONS.map}
+                <span>Mapa</span>
+              </button>
             </div>
           </div>
         `;
@@ -2128,18 +2263,25 @@
       }
 
       container.innerHTML = entregues.map(e => `
-        <div class="order-card" style="margin-bottom: 8px;">
+        <div class="order-card status-border-entregue" style="margin-bottom: 8px;">
           <div class="order-card-row">
             <div class="order-num-time">
               <strong class="order-number">#${e.numero_pedido}</strong>
               <span class="status-badge badge-entregue">Entregue</span>
               <span class="origem-badge ${obterOrigemClasse(e.origem)}">${obterOrigemNome(e.origem, e.texto_bruto)}</span>
             </div>
-            <span style="font-size: 12px; color: var(--text-muted);">⏱️ Concluído em ${e.tempo_decorrido_minutos} min</span>
+            <span style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+              ${SVG_ICONS.clock} <span>Concluído em ${e.tempo_decorrido_minutos} min</span>
+            </span>
           </div>
-          <div style="font-size: 13px; color: var(--text-secondary);">👤 <strong>${e.cliente}</strong> — 📍 ${e.endereco}</div>
+          <div style="font-size: 13px; color: var(--text-secondary); margin: 4px 0;">
+            <strong>${escapeHtml(e.cliente)}</strong> — <span>${escapeHtml(e.endereco)}</span>
+          </div>
           <div class="order-meta">
-            <span>🛵 Entregador: <strong>${e.motoboy ? e.motoboy.nome : 'Sem motoboy'}</strong></span>
+            <span style="display: flex; align-items: center; gap: 4px;">
+              ${SVG_ICONS.bike}
+              <span>Entregador: <strong>${escapeHtml(e.motoboy ? e.motoboy.nome : 'Sem motoboy')}</strong></span>
+            </span>
             <span class="order-price">Taxa: R$ ${(e.taxa_repasse !== undefined ? e.taxa_repasse : (e.taxa_entrega || 10)).toFixed(2).replace('.', ',')}</span>
           </div>
         </div>
@@ -2168,26 +2310,26 @@
 
           document.getElementById('dtlClienteNome').textContent = p.cliente.nome;
           const tel = p.cliente.telefone || p.telefone_cliente;
-          document.getElementById('dtlClienteTelefone').textContent = tel ? `📞 ${formatarTelefone(tel)}` : '📞 Telefone não informado';
+          document.getElementById('dtlClienteTelefone').innerHTML = `${SVG_ICONS.phone} <span>${tel ? formatarTelefone(tel) : 'Telefone não informado'}</span>`;
           const loc = p.cliente.localizador || p.localizador;
           const elLoc = document.getElementById('dtlClienteLocalizador');
           if (elLoc) {
             if (loc) {
-              elLoc.textContent = `🔑 PIN: ${loc}`;
-              elLoc.style.display = 'inline-block';
+              elLoc.innerHTML = `<span>PIN: ${escapeHtml(loc)}</span>`;
+              elLoc.style.display = 'inline-flex';
             } else {
               elLoc.style.display = 'none';
             }
           }
-          document.getElementById('dtlClienteEndereco').textContent = `📍 ${p.cliente.endereco}${p.cliente.bairro ? ' — ' + p.cliente.bairro : ''}`;
+          document.getElementById('dtlClienteEndereco').innerHTML = `${SVG_ICONS.mapPin} <span>${escapeHtml(p.cliente.endereco)}${p.cliente.bairro ? ' — ' + escapeHtml(p.cliente.bairro) : ''}</span>`;
 
           // Itens
           const itensContainer = document.getElementById('dtlItensLista');
           itensContainer.innerHTML = p.itens.map(it => `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; font-size: 13px;">
               <div>
-                <strong style="color: var(--text-primary);">${it.qtd}x ${it.nome}</strong>
-                ${it.obs ? `<div style="font-size: 11px; color: var(--brand-gold);">${it.obs}</div>` : ''}
+                <strong style="color: var(--text-primary);">${it.qtd}x ${escapeHtml(it.nome)}</strong>
+                ${it.obs ? `<div style="font-size: 11px; color: var(--brand-gold);">${escapeHtml(it.obs)}</div>` : ''}
               </div>
               <span style="color: var(--text-secondary); font-weight: 600;">${it.preco > 0 ? `R$ ${(it.preco * it.qtd).toFixed(2).replace('.', ',')}` : 'Incluso'}</span>
             </div>
@@ -2229,14 +2371,20 @@
       if (p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto' || p.status === 'em_preparo') {
         footer.innerHTML = `
           <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
-          <button class="btn btn-secondary" style="flex: 1; border-color: rgba(239, 68, 68, 0.4); color: #ef4444;" onclick="cancelarPedidoDrawer(${p.id})">❌ Cancelar</button>
-          <button class="btn btn-gold" style="flex: 1.4; font-weight: 800;" onclick="abrirModalAtribuirEntregador(${p.id})">🛵 Atribuir Entregador</button>
+          <button class="btn btn-secondary" style="flex: 1; border-color: rgba(239, 68, 68, 0.4); color: #ef4444;" onclick="cancelarPedidoDrawer(${p.id})">Cancelar Pedido</button>
+          <button class="btn btn-gold" style="flex: 1.4; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" onclick="abrirModalAtribuirEntregador(${p.id})">
+            ${SVG_ICONS.bike}
+            <span>Atribuir Entregador</span>
+          </button>
         `;
       } else if (p.status === 'em_rota') {
         footer.innerHTML = `
           <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
-          <button class="btn btn-secondary" style="flex: 1.1;" onclick="abrirModalAtribuirEntregador(${p.id})" title="Substituir entregador">🛵 Trocar</button>
-          <button class="btn btn-success" style="flex: 1.2; font-weight: 800;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Entregue</button>
+          <button class="btn btn-secondary" style="flex: 1.1;" onclick="abrirModalAtribuirEntregador(${p.id})" title="Substituir entregador">Trocar Entregador</button>
+          <button class="btn btn-success" style="flex: 1.2; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" onclick="alterarStatusPedido(${p.id}, 'entregue')">
+            ${SVG_ICONS.check}
+            <span>Concluir Entrega</span>
+          </button>
         `;
       } else {
         footer.innerHTML = `
@@ -2316,7 +2464,7 @@
 
       const toast = document.createElement('div');
       toast.className = `toast toast-${tipo}`;
-      toast.innerHTML = `<span>${tipo === 'success' ? '✅' : '❌'}</span><span>${mensagem}</span>`;
+      toast.innerHTML = `<span style="display: flex; align-items: center;">${tipo === 'success' ? SVG_ICONS.check : SVG_ICONS.alert}</span><span>${mensagem}</span>`;
 
       container.appendChild(toast);
       setTimeout(() => {
@@ -2338,7 +2486,7 @@
       if (!usuario || !senha) return;
 
       btnSubmit.disabled = true;
-      btnSubmit.innerHTML = '<span>⏳ Autenticando...</span>';
+      btnSubmit.innerHTML = '<span>Autenticando...</span>';
       msgErro.style.display = 'none';
 
       try {
@@ -2363,7 +2511,7 @@
         msgErro.style.display = 'block';
       } finally {
         btnSubmit.disabled = false;
-        btnSubmit.innerHTML = '<span>🔒 ENTRAR NO PAINEL</span>';
+        btnSubmit.innerHTML = '<span>ENTRAR NO PAINEL</span>';
       }
     }
 
@@ -2530,7 +2678,7 @@
         msgErro.style.display = 'block';
       } finally {
         btn.disabled = false;
-        btn.textContent = '➕ LANÇAR PEDIDO';
+        btn.textContent = 'Lançar Pedido';
       }
     }
 
@@ -2675,7 +2823,7 @@
             const totalFmt = m.total_taxas.toFixed(2).replace('.', ',');
             const isSpeed = (m.grupo || 'VELOZ').toUpperCase() === 'SPEED';
             const msgWhats = encodeURIComponent(
-              `🛵 Fechamento — ${labelPeriodo}:\n` +
+              `Fechamento — ${labelPeriodo}:\n` +
               `Grupo: ${isSpeed ? 'SPEED' : 'VELOZ'}\n` +
               `Entregas: ${m.total_entregas}\n` +
               `Total a receber: R$ ${totalFmt}\n` +
@@ -2687,19 +2835,24 @@
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                   <div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                      <strong style="font-size: 15px;">${m.nome}</strong>
-                      <span class="badge-grupo-pedido ${isSpeed ? 'badge-grupo-speed' : 'badge-grupo-veloz'}">${isSpeed ? '⚡ SPEED' : '🚀 VELOZ'}</span>
+                      <strong style="font-size: 15px;">${escapeHtml(m.nome)}</strong>
+                      <span class="badge-grupo-pedido ${isSpeed ? 'badge-grupo-speed' : 'badge-grupo-veloz'}">${isSpeed ? 'SPEED' : 'VELOZ'}</span>
                     </div>
-                    <span style="font-size: 12px; color: var(--text-muted);">📞 ${m.telefone}</span>
+                    <span style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+                      ${SVG_ICONS.phone} <span>${formatarTelefone(m.telefone)}</span>
+                    </span>
                   </div>
                   <span style="font-size: 22px; font-weight: 800; color: #34d399;">R$ ${totalFmt}</span>
                 </div>
                 <div style="background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; display: flex; justify-content: space-between;">
-                  <span>📦 <strong>${m.total_entregas}</strong> entregas</span>
+                  <span><strong>${m.total_entregas}</strong> entregas</span>
                   <span style="color: var(--text-muted);">${isSpeed ? 'Tabela Speed' : 'Tabela Oficial Veloz'}</span>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                  <a class="btn btn-success btn-sm" style="flex: 1; text-align: center; text-decoration: none;" href="https://wa.me/55${tel}?text=${msgWhats}" target="_blank">💬 WhatsApp</a>
+                  <a class="btn btn-success btn-sm" style="flex: 1; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" href="https://wa.me/55${tel}?text=${msgWhats}" target="_blank">
+                    ${SVG_ICONS.message}
+                    <span>WhatsApp</span>
+                  </a>
                 </div>
               </div>
             `;
@@ -2733,11 +2886,11 @@
                     <tr style="border-bottom: 1px solid var(--border-subtle);">
                       <td style="padding: 8px 4px; font-weight: 700;">#${e.numero_pedido}</td>
                       <td style="padding: 8px 4px;">
-                        <span class="badge-grupo-pedido ${isSpeed ? 'badge-grupo-speed' : 'badge-grupo-veloz'}">${isSpeed ? '⚡ SPEED' : '🚀 VELOZ'}</span>
+                        <span class="badge-grupo-pedido ${isSpeed ? 'badge-grupo-speed' : 'badge-grupo-veloz'}">${isSpeed ? 'SPEED' : 'VELOZ'}</span>
                       </td>
-                      <td style="padding: 8px 4px;">${e.cliente || '—'}</td>
-                      <td style="padding: 8px 4px; color: var(--text-muted);">${e.bairro || '—'}</td>
-                      <td style="padding: 8px 4px;">${e.motoboy ? e.motoboy.nome : '—'}</td>
+                      <td style="padding: 8px 4px;">${escapeHtml(e.cliente || '—')}</td>
+                      <td style="padding: 8px 4px; color: var(--text-muted);">${escapeHtml(e.bairro || '—')}</td>
+                      <td style="padding: 8px 4px;">${escapeHtml(e.motoboy ? e.motoboy.nome : '—')}</td>
                       <td style="padding: 8px 4px; color: var(--text-muted);">${formatarDataHoraFechamento(e.data_fim || e.data_inicio)}</td>
                       <td style="padding: 8px 4px; text-align: right; font-weight: 700; color: #34d399;">R$ ${e.taxa_repasse.toFixed(2).replace('.', ',')}</td>
                     </tr>
@@ -2801,7 +2954,7 @@
         if (res.ok && data.success) {
           sessionStorage.setItem('motoboys_unlocked', 'true');
           sessionStorage.setItem('admin_motoboy_pass', senha);
-          showToast('🔓 Acesso liberado à gestão de entregadores!', 'success');
+          showToast('Acesso liberado à gestão de entregadores!', 'success');
           if (inp) inp.value = '';
           verificarAbaMotoboysDesbloqueada();
         } else {
@@ -2818,14 +2971,14 @@
         }
       } finally {
         btn.disabled = false;
-        btn.textContent = '🔓 DESBLOQUEAR ACESSO';
+        btn.textContent = 'DESBLOQUEAR ACESSO';
       }
     }
 
     function bloquearAbaMotoboys() {
       sessionStorage.removeItem('motoboys_unlocked');
       sessionStorage.removeItem('admin_motoboy_pass');
-      showToast('🔒 Aba de entregadores bloqueada com sucesso.', 'info');
+      showToast('Aba de entregadores bloqueada com sucesso.', 'info');
       verificarAbaMotoboysDesbloqueada();
     }
 
@@ -2915,7 +3068,7 @@
         msgErro.style.display = 'block';
       } finally {
         btn.disabled = false;
-        btn.textContent = '💾 SALVAR';
+        btn.textContent = 'SALVAR';
       }
     }
 
@@ -2975,7 +3128,7 @@
         msgErro.style.display = 'block';
       } finally {
         btn.disabled = false;
-        btn.textContent = '➕ CADASTRAR';
+        btn.textContent = 'CADASTRAR';
       }
     }
 
@@ -3096,7 +3249,7 @@
             </div>
           </td>
           <td style="padding: 10px 12px; width: 80px; text-align: right;">
-            <button class="btn btn-gold btn-sm" onclick="salvarTaxaBairro(${item.id}, '${grupoTaxaAtivo}')" style="padding: 4px 8px; font-size: 11px;">💾 Salvar</button>
+            <button class="btn btn-gold btn-sm" onclick="salvarTaxaBairro(${item.id}, '${grupoTaxaAtivo}')" style="padding: 4px 8px; font-size: 11px;">Salvar</button>
           </td>
         </tr>
       `).join('');
@@ -3152,7 +3305,7 @@
       document.getElementById('inpAtribuirPedidoId').value = pedido.id;
 
       const grupoBadge = pedido.grupo 
-        ? `<span class="badge-grupo-pedido ${pedido.grupo === 'SPEED' ? 'badge-grupo-speed' : 'badge-grupo-veloz'}">${pedido.grupo === 'SPEED' ? '⚡ SPEED' : '🚀 VELOZ'}</span>`
+        ? `<span class="badge-grupo-pedido ${pedido.grupo === 'SPEED' ? 'badge-grupo-speed' : 'badge-grupo-veloz'}">${pedido.grupo === 'SPEED' ? 'SPEED' : 'VELOZ'}</span>`
         : `<span class="badge-pendente-grupo">Pendente de Grupo</span>`;
 
       const infoCard = document.getElementById('atribuirPedidoInfoCard');
@@ -3167,7 +3320,7 @@
             ${grupoBadge}
           </div>
           <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px;">${escapeHtml(clienteNome)}</div>
-          <div style="font-size: 12px; color: var(--text-secondary);">📍 ${escapeHtml(endStr)} ${bairroStr ? '— ' + escapeHtml(bairroStr) : ''}</div>
+          <div style="font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px;">${SVG_ICONS.mapPin} <span>${escapeHtml(endStr)} ${bairroStr ? '— ' + escapeHtml(bairroStr) : ''}</span></div>
           ${pedido.motoboy ? `<div style="font-size: 11px; color: #fbbf24; margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.08);">Atualmente com: <strong>${escapeHtml(pedido.motoboy.nome)}</strong></div>` : ''}
         `;
       }
@@ -3190,7 +3343,7 @@
         ordenados.forEach(m => {
           const opt = document.createElement('option');
           opt.value = m.id;
-          const grupoIcon = (m.grupo === 'SPEED') ? '⚡ SPEED' : '🚀 VELOZ';
+          const grupoIcon = (m.grupo === 'SPEED') ? 'SPEED' : 'VELOZ';
           const isAtribuido = pedido.motoboy_id && Number(pedido.motoboy_id) === Number(m.id);
           opt.textContent = `${m.nome} (${grupoIcon}) ${m.status_motoboy === 'em_rota' ? '— Em rota' : '— Disponível'}`;
           if (isAtribuido) opt.selected = true;
@@ -3248,7 +3401,7 @@
         msgErro.style.display = 'block';
       } finally {
         btn.disabled = false;
-        btn.textContent = '🚀 CONFIRMAR';
+        btn.textContent = 'CONFIRMAR';
       }
     }
 
