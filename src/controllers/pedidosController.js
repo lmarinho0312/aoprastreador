@@ -1,5 +1,6 @@
 const config = require('../config/env');
 const { getDb } = require('../database/db');
+const { obterTaxaRepasse, obterNomeBairroCanonica } = require('../utils/rateResolver');
 
 /**
  * Extrai telefone e código localizador / PIN do texto da comanda
@@ -296,7 +297,10 @@ async function webhookSpool(req, res) {
     }
 
     // Se bairro não veio ou precisa ser complementado, busca na lista de bairros oficiais de Teresópolis
-    if (!cleanBairro || cleanBairro.length < 2) {
+    const bCanonico = obterNomeBairroCanonica(cleanBairro, cleanEndereco, cleanTextoBruto);
+    if (bCanonico) {
+      cleanBairro = bCanonico;
+    } else if (!cleanBairro || cleanBairro.length < 2) {
       const bExtraido = extrairBairroDeTexto(cleanEndereco || cleanTextoBruto);
       if (bExtraido) {
         cleanBairro = bExtraido;
@@ -376,11 +380,16 @@ async function webhookSpool(req, res) {
     }
 
     // 5. Inserção do pedido com status 'disponivel' (aguardando motoboy retirar)
+    let taxaFinal = !isNaN(Number(taxaEntrega)) && Number(taxaEntrega) > 0 ? Number(taxaEntrega) : 0.0;
+    if (taxaFinal === 0) {
+      taxaFinal = obterTaxaRepasse(cleanBairro, cleanEndereco, cleanTextoBruto, 'VELOZ');
+    }
+
     const result = await db.execute(
       `INSERT INTO pedidos 
        (numero_pedido, motoboy_id, status, origem, pedido_id_origem, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, texto_bruto, criado_em)
        VALUES (?, NULL, 'disponivel', ?, ?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now', '-3 hours'))`,
-      [cleanPedidoId, cleanOrigem, cleanPedidoId, cleanCliente, cleanEndereco, cleanBairro, taxa, cleanTelefone, cleanLocalizador, cleanTextoBruto]
+      [cleanPedidoId, cleanOrigem, cleanPedidoId, cleanCliente, cleanEndereco, cleanBairro, taxaFinal, cleanTelefone, cleanLocalizador, cleanTextoBruto]
     );
 
     const novoPedidoId = Number(result.lastInsertRowid);
@@ -447,14 +456,20 @@ async function definirGrupoPedido(req, res) {
     const db = getDb();
     const pedidoIdNum = Number(pedido_id);
 
-    const result = await db.execute(
-      `UPDATE pedidos SET grupo = ? WHERE id = ?`,
-      [cleanGrupo, pedidoIdNum]
-    );
-
-    if (result.changes === 0) {
+    const pedidoAtual = await db.queryOne(`SELECT * FROM pedidos WHERE id = ?`, [pedidoIdNum]);
+    if (!pedidoAtual) {
       return res.json(404, { success: false, message: 'Pedido não encontrado.' });
     }
+
+    let novaTaxa = pedidoAtual.taxa_entrega;
+    if (cleanGrupo) {
+      novaTaxa = obterTaxaRepasse(pedidoAtual.bairro, pedidoAtual.endereco, pedidoAtual.texto_bruto, cleanGrupo);
+    }
+
+    await db.execute(
+      `UPDATE pedidos SET grupo = ?, taxa_entrega = ? WHERE id = ?`,
+      [cleanGrupo, novaTaxa, pedidoIdNum]
+    );
 
     const pedidoAtualizado = await db.queryOne(
       `SELECT * FROM pedidos WHERE id = ?`,
@@ -516,11 +531,9 @@ async function listarPedidosDisponiveis(req, res) {
     }
 
     const pedidos = await db.query(`
-      SELECT p.id, p.numero_pedido, p.status, p.origem, p.grupo, p.pedido_id_origem, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.criado_em,
-             COALESCE(tb.taxa, 10.00) as taxa_repasse,
+      SELECT p.id, p.numero_pedido, p.status, p.origem, p.grupo, p.pedido_id_origem, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.texto_bruto, p.criado_em,
              ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(p.criado_em, DATETIME('now', '-3 hours')))) * 1440) as minutos_aguardando
       FROM pedidos p
-      LEFT JOIN ${tabelaTaxa} tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
       WHERE (p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR p.status IS NULL)
         AND (p.motoboy_id IS NULL OR p.status != 'em_rota')
         AND p.status NOT IN ('entregue', 'expirado', 'cancelado')
@@ -533,9 +546,11 @@ async function listarPedidosDisponiveis(req, res) {
       success: true,
       total: pedidos.length,
       pedidos: pedidos.map(p => {
-        const repasse = Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : 10.00);
+        const repasse = obterTaxaRepasse(p.bairro, p.endereco, p.texto_bruto, grupoFiltro || p.grupo || 'VELOZ');
+        const bairroNome = obterNomeBairroCanonica(p.bairro, p.endereco, p.texto_bruto) || p.bairro;
         return {
           ...p,
+          bairro: bairroNome,
           grupo: p.grupo || null,
           taxa_repasse: repasse,
           taxa_entrega: repasse, // Garantir que a taxa exibida para o motoboy seja sempre o repasse oficial Ao Ponto
@@ -772,14 +787,12 @@ async function listarPedidosMotoboy(req, res) {
     await expirarPedidosPendentesDiasAnteriores(db);
 
     const motoboy = await db.queryOne('SELECT id, nome, grupo FROM motoboys WHERE id = ?', [Number(motoboy_id)]);
-    const tabelaTaxa = (motoboy && motoboy.grupo === 'SPEED') ? 'taxa_bairro_speed' : 'taxa_bairro';
+    const grupoMotoboy = (motoboy && motoboy.grupo) ? String(motoboy.grupo).toUpperCase() : 'VELOZ';
 
     const pedidos = await db.query(
-      `SELECT p.id, p.numero_pedido, p.status, p.origem, p.grupo, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.data_inicio, 
-              COALESCE(tb.taxa, 10.00) as taxa_repasse,
+      `SELECT p.id, p.numero_pedido, p.status, p.origem, p.grupo, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.texto_bruto, p.data_inicio, 
               ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(p.data_inicio)) * 1440) as minutos_em_rota
        FROM pedidos p 
-       LEFT JOIN ${tabelaTaxa} tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
        WHERE p.motoboy_id = ? AND p.status = 'em_rota' 
        ORDER BY p.data_inicio DESC`,
       [Number(motoboy_id)]
@@ -788,9 +801,11 @@ async function listarPedidosMotoboy(req, res) {
     return res.json(200, {
       success: true,
       pedidos: pedidos.map(p => {
-        const repasse = Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : 10.00);
+        const repasse = obterTaxaRepasse(p.bairro, p.endereco, p.texto_bruto, grupoMotoboy);
+        const bairroNome = obterNomeBairroCanonica(p.bairro, p.endereco, p.texto_bruto) || p.bairro;
         return {
           ...p,
+          bairro: bairroNome,
           taxa_repasse: repasse,
           taxa_entrega: repasse, // Sempre mostrar para o motoboy o repasse oficial Ao Ponto
           minutos_em_rota: Math.max(0, Math.round(Number(p.minutos_em_rota || 0)))
@@ -880,15 +895,9 @@ async function obterDetalhesPedido(req, res) {
 
     const db = getDb();
     const p = await db.queryOne(
-      `SELECT p.*, m.nome as motoboy_nome, m.telefone as motoboy_telefone, m.latitude as motoboy_lat, m.longitude as motoboy_lng,
-              CASE 
-                WHEN p.grupo = 'SPEED' OR m.grupo = 'SPEED' THEN COALESCE(tb_speed.taxa, tb_veloz.taxa, 10.00)
-                ELSE COALESCE(tb_veloz.taxa, 10.00)
-              END as taxa_repasse
+      `SELECT p.*, m.nome as motoboy_nome, m.telefone as motoboy_telefone, m.latitude as motoboy_lat, m.longitude as motoboy_lng, m.grupo as motoboy_grupo
        FROM pedidos p
        LEFT JOIN motoboys m ON p.motoboy_id = m.id
-       LEFT JOIN taxa_bairro tb_veloz ON LOWER(TRIM(tb_veloz.bairro)) = LOWER(TRIM(p.bairro))
-       LEFT JOIN taxa_bairro_speed tb_speed ON LOWER(TRIM(tb_speed.bairro)) = LOWER(TRIM(p.bairro))
        WHERE p.id = ? OR p.numero_pedido = ?`,
       [Number(pedidoId) || 0, String(pedidoId).trim()]
     );
@@ -922,8 +931,10 @@ async function obterDetalhesPedido(req, res) {
       ];
     }
 
+    const grupoEfetivo = (p.grupo === 'SPEED' || p.motoboy_grupo === 'SPEED') ? 'SPEED' : 'VELOZ';
+    const taxa = obterTaxaRepasse(p.bairro, p.endereco, p.texto_bruto, grupoEfetivo);
+    const bairroFormatado = obterNomeBairroCanonica(p.bairro, p.endereco, p.texto_bruto) || p.bairro;
     const subtotal = itens.reduce((acc, it) => acc + (it.preco * it.qtd), 0);
-    const taxa = Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : (p.taxa_entrega || 10.00));
     const total = subtotal + taxa;
 
     // Buscar últimos pontos de GPS da rota
@@ -946,7 +957,7 @@ async function obterDetalhesPedido(req, res) {
           telefone: p.telefone_cliente || null,
           localizador: p.localizador || null,
           endereco: p.endereco || 'Endereço não informado',
-          bairro: p.bairro || 'Centro'
+          bairro: bairroFormatado || 'Centro'
         },
         motoboy: p.motoboy_id ? {
           id: p.motoboy_id,
@@ -991,7 +1002,7 @@ async function obterRendimentosMotoboy(req, res) {
     const db = getDb();
     const motoboyIdNum = Number(motoboy_id);
     const motoboy = await db.queryOne('SELECT id, nome, grupo FROM motoboys WHERE id = ?', [motoboyIdNum]);
-    const tabelaTaxa = (motoboy && motoboy.grupo === 'SPEED') ? 'taxa_bairro_speed' : 'taxa_bairro';
+    const grupoMotoboy = (motoboy && motoboy.grupo) ? String(motoboy.grupo).toUpperCase() : 'VELOZ';
 
     const params = [motoboyIdNum];
 
@@ -1026,9 +1037,8 @@ async function obterRendimentosMotoboy(req, res) {
         p.origem,
         p.data_inicio,
         p.data_fim,
-        COALESCE(tb.taxa, 10.00) as taxa_repasse
+        p.texto_bruto
       FROM pedidos p
-      LEFT JOIN ${tabelaTaxa} tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
       WHERE p.motoboy_id = ?
         AND p.status = 'entregue'
         ${dataFiltro}
@@ -1038,16 +1048,17 @@ async function obterRendimentosMotoboy(req, res) {
     let totalTaxas = 0;
 
     const entregasProcessadas = entregas.map(e => {
-      const taxaEfetiva = Number(e.taxa_repasse);
+      const taxaEfetiva = obterTaxaRepasse(e.bairro, e.endereco, e.texto_bruto, grupoMotoboy);
+      const bairroNome = obterNomeBairroCanonica(e.bairro, e.endereco, e.texto_bruto) || e.bairro;
       totalTaxas += taxaEfetiva;
 
       return {
         id: e.id,
         numero_pedido: e.numero_pedido,
-        grupo: e.grupo,
+        grupo: e.grupo || grupoMotoboy,
         cliente: e.cliente,
         endereco: e.endereco,
-        bairro: e.bairro || 'Não informado',
+        bairro: bairroNome || 'Não informado',
         origem: e.origem,
         data_inicio: e.data_inicio,
         data_fim: e.data_fim,
@@ -1060,9 +1071,9 @@ async function obterRendimentosMotoboy(req, res) {
     return res.json(200, {
       success: true,
       motoboy_id: motoboyIdNum,
-      motoboy_grupo: motoboy ? motoboy.grupo : 'VELOZ',
+      motoboy_grupo: grupoMotoboy,
       periodo,
-      taxa_padrao_sem_bairro: 10.00,
+      taxa_padrao_sem_bairro: grupoMotoboy === 'SPEED' ? 11.00 : 10.00,
       resumo: {
         total_entregas: totalEntregas,
         total_a_receber: Number(totalTaxas.toFixed(2)),

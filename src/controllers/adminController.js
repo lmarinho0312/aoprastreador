@@ -1,6 +1,7 @@
 const { getDb } = require('../database/db');
 const { getPosicoesMotoboys } = require('../services/traccarService');
 const { expirarPedidosPendentesDiasAnteriores } = require('./pedidosController');
+const { obterTaxaRepasse, obterNomeBairroCanonica } = require('../utils/rateResolver');
 
 async function getPosicoesMapa(req, res) {
   try {
@@ -199,11 +200,7 @@ async function listarTodosPedidos(req, res) {
              p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente,
              p.localizador,
              p.texto_bruto, p.data_inicio, p.data_fim, p.criado_em,
-             CASE 
-               WHEN p.grupo = 'SPEED' OR m.grupo = 'SPEED' THEN COALESCE(tb_speed.taxa, tb_veloz.taxa, 10.00)
-               ELSE COALESCE(tb_veloz.taxa, 10.00)
-             END as taxa_repasse,
-             m.id as motoboy_id, m.nome as motoboy_nome, m.telefone as motoboy_telefone,
+             m.id as motoboy_id, m.nome as motoboy_nome, m.telefone as motoboy_telefone, m.grupo as motoboy_grupo,
              CASE 
                WHEN p.status = 'em_rota' AND p.data_inicio IS NOT NULL THEN
                  ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(p.data_inicio)) * 1440)
@@ -216,8 +213,6 @@ async function listarTodosPedidos(req, res) {
              (SELECT COUNT(*) FROM pedido_rotas pr WHERE pr.pedido_id = p.id) as total_pontos_gps
       FROM pedidos p
       LEFT JOIN motoboys m ON p.motoboy_id = m.id
-      LEFT JOIN taxa_bairro tb_veloz ON LOWER(TRIM(tb_veloz.bairro)) = LOWER(TRIM(p.bairro))
-      LEFT JOIN taxa_bairro_speed tb_speed ON LOWER(TRIM(tb_speed.bairro)) = LOWER(TRIM(p.bairro))
     `;
 
     const conditions = [];
@@ -266,7 +261,9 @@ async function listarTodosPedidos(req, res) {
       success: true,
       total: pedidos.length,
       pedidos: pedidos.map(p => {
-        const repasse = Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : 10.00);
+        const grupoEfetivo = (p.grupo === 'SPEED' || p.motoboy_grupo === 'SPEED') ? 'SPEED' : (p.grupo === 'VELOZ' || p.motoboy_grupo === 'VELOZ' ? 'VELOZ' : 'VELOZ');
+        const repasse = obterTaxaRepasse(p.bairro, p.endereco, p.texto_bruto, grupoEfetivo);
+        const bairroFormatado = obterNomeBairroCanonica(p.bairro, p.endereco, p.texto_bruto);
         return {
           id: p.id,
           numero_pedido: p.numero_pedido,
@@ -275,7 +272,7 @@ async function listarTodosPedidos(req, res) {
           grupo: p.grupo || null,
           cliente: p.cliente || 'Cliente Balcão',
           endereco: p.endereco || 'Retirada no balcão',
-          bairro: p.bairro || '',
+          bairro: bairroFormatado,
           taxa_repasse: repasse,
           taxa_entrega: repasse, // Reflete a taxa oficial por bairro da Ao Ponto
           telefone_cliente: p.telefone_cliente || '',
@@ -288,7 +285,8 @@ async function listarTodosPedidos(req, res) {
           motoboy: p.motoboy_id ? {
             id: p.motoboy_id,
             nome: p.motoboy_nome,
-            telefone: p.motoboy_telefone
+            telefone: p.motoboy_telefone,
+            grupo: p.motoboy_grupo || 'VELOZ'
           } : null,
           total_pontos_gps: Number(p.total_pontos_gps || 0)
         };
@@ -435,17 +433,12 @@ async function obterFechamentoEntregas(req, res) {
         p.data_inicio,
         p.data_fim,
         p.motoboy_id,
+        p.texto_bruto,
         m.nome as motoboy_nome,
         m.telefone as motoboy_telefone,
-        m.grupo as motoboy_grupo,
-        CASE 
-          WHEN m.grupo = 'SPEED' OR p.grupo = 'SPEED' THEN COALESCE(tb_speed.taxa, tb_veloz.taxa, 10.00)
-          ELSE COALESCE(tb_veloz.taxa, 10.00)
-        END as taxa_repasse
+        m.grupo as motoboy_grupo
       FROM pedidos p
       LEFT JOIN motoboys m ON p.motoboy_id = m.id
-      LEFT JOIN taxa_bairro tb_veloz ON LOWER(TRIM(tb_veloz.bairro)) = LOWER(TRIM(p.bairro))
-      LEFT JOIN taxa_bairro_speed tb_speed ON LOWER(TRIM(tb_speed.bairro)) = LOWER(TRIM(p.bairro))
       WHERE p.status = 'entregue'
         AND p.motoboy_id IS NOT NULL
         ${dataFiltro}
@@ -460,7 +453,9 @@ async function obterFechamentoEntregas(req, res) {
 
     const entregasDetalhadas = entregas.map(e => {
       totalGeralEntregas++;
-      const taxaEfetiva = Number(e.taxa_repasse);
+      const grupoMotoboy = (e.motoboy_grupo || e.pedido_grupo || 'VELOZ').toUpperCase();
+      const taxaEfetiva = obterTaxaRepasse(e.bairro, e.endereco, e.texto_bruto, grupoMotoboy);
+      const bairroNome = obterNomeBairroCanonica(e.bairro, e.endereco, e.texto_bruto) || e.bairro;
       totalGeralTaxas += taxaEfetiva;
 
       if (!porMotoboy[e.motoboy_id]) {
@@ -483,7 +478,7 @@ async function obterFechamentoEntregas(req, res) {
         grupo: e.pedido_grupo || e.motoboy_grupo || 'VELOZ',
         cliente: e.cliente,
         endereco: e.endereco,
-        bairro: e.bairro,
+        bairro: bairroNome,
         origem: e.origem,
         data_inicio: e.data_inicio,
         data_fim: e.data_fim,
@@ -496,7 +491,7 @@ async function obterFechamentoEntregas(req, res) {
         grupo: e.pedido_grupo || e.motoboy_grupo || 'VELOZ',
         cliente: e.cliente,
         endereco: e.endereco,
-        bairro: e.bairro,
+        bairro: bairroNome,
         origem: e.origem,
         data_inicio: e.data_inicio,
         data_fim: e.data_fim,
@@ -550,12 +545,18 @@ async function criarPedidoManual(req, res) {
     let cleanBairro = bairro ? String(bairro).trim() : null;
     const cleanTelefone = telefone_cliente ? String(telefone_cliente).trim() : null;
     const cleanLocalizador = localizador ? String(localizador).trim() : null;
-    const taxa = !isNaN(Number(taxa_entrega)) ? Number(taxa_entrega) : 10.0;
 
     let textoBrutoParts = [];
     if (itens) textoBrutoParts.push(String(itens).trim());
     if (observacoes) textoBrutoParts.push(`Obs: ${String(observacoes).trim()}`);
     const cleanTextoBruto = textoBrutoParts.length > 0 ? textoBrutoParts.join('\n') : null;
+
+    if (cleanBairro) {
+      cleanBairro = obterNomeBairroCanonica(cleanBairro, cleanEndereco, cleanTextoBruto) || cleanBairro;
+    }
+    const taxa = !isNaN(Number(taxa_entrega)) && Number(taxa_entrega) > 0
+      ? Number(taxa_entrega)
+      : obterTaxaRepasse(cleanBairro, cleanEndereco, cleanTextoBruto, cleanGrupo || 'VELOZ');
 
     const db = getDb();
 

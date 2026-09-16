@@ -1,4 +1,5 @@
 const { getDb } = require('../database/db');
+const { obterTaxaRepasse, obterNomeBairroCanonica } = require('../utils/rateResolver');
 
 /**
  * Consulta o histórico de entregas concluídas ou em andamento com duração
@@ -13,16 +14,18 @@ async function listarHistoricoEntregas(req, res) {
              p.numero_pedido,
              p.status,
              p.origem,
+             p.grupo as pedido_grupo,
              p.cliente,
              p.endereco,
              p.bairro,
              p.taxa_entrega,
-             COALESCE(tb.taxa, 10.00) as taxa_repasse,
+             p.texto_bruto,
              p.data_inicio,
              p.data_fim,
              m.id as motoboy_id,
              m.nome as motoboy_nome,
              m.telefone as motoboy_telefone,
+             m.grupo as motoboy_grupo,
              CASE 
                WHEN p.data_fim IS NOT NULL THEN ROUND((julianday(p.data_fim) - julianday(p.data_inicio)) * 1440)
                ELSE ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(p.data_inicio, DATETIME('now', '-3 hours')))) * 1440)
@@ -30,33 +33,39 @@ async function listarHistoricoEntregas(req, res) {
              (SELECT COUNT(*) FROM pedido_rotas pr WHERE pr.pedido_id = p.id) as total_pontos_gps
       FROM pedidos p
       LEFT JOIN motoboys m ON p.motoboy_id = m.id
-      LEFT JOIN taxa_bairro tb ON LOWER(TRIM(tb.bairro)) = LOWER(TRIM(p.bairro))
       ORDER BY p.id DESC
     `);
 
     return res.json(200, {
       success: true,
       total: entregas.length,
-      entregas: entregas.map(e => ({
-        pedido_id: e.pedido_id,
-        numero_pedido: e.numero_pedido,
-        status: e.status,
-        origem: e.origem || 'MANUAL',
-        cliente: e.cliente || null,
-        endereco: e.endereco || null,
-        bairro: e.bairro || null,
-        taxa_repasse: Number(e.taxa_repasse !== undefined ? e.taxa_repasse : 10.00),
-        taxa_entrega: Number(e.taxa_repasse !== undefined ? e.taxa_repasse : (e.taxa_entrega || 10.00)),
-        data_inicio: e.data_inicio,
-        data_fim: e.data_fim,
-        duracao_minutos: e.duracao_minutos !== null ? Math.max(0, Math.round(e.duracao_minutos)) : 0,
-        motoboy: {
-          id: e.motoboy_id,
-          nome: e.motoboy_nome || (e.status === 'disponivel' ? 'Aguardando Retirada' : 'Desconhecido'),
-          telefone: e.motoboy_telefone || '-'
-        },
-        total_pontos_gps: Number(e.total_pontos_gps || 0)
-      }))
+      entregas: entregas.map(e => {
+        const grupoEfetivo = (e.motoboy_grupo === 'SPEED' || e.pedido_grupo === 'SPEED') ? 'SPEED' : 'VELOZ';
+        const taxaEfetiva = obterTaxaRepasse(e.bairro, e.endereco, e.texto_bruto, grupoEfetivo);
+        const bairroNome = obterNomeBairroCanonica(e.bairro, e.endereco, e.texto_bruto) || e.bairro;
+        return {
+          pedido_id: e.pedido_id,
+          numero_pedido: e.numero_pedido,
+          status: e.status,
+          origem: e.origem || 'MANUAL',
+          grupo: e.pedido_grupo || e.motoboy_grupo || null,
+          cliente: e.cliente || null,
+          endereco: e.endereco || null,
+          bairro: bairroNome || null,
+          taxa_repasse: taxaEfetiva,
+          taxa_entrega: taxaEfetiva,
+          data_inicio: e.data_inicio,
+          data_fim: e.data_fim,
+          duracao_minutos: e.duracao_minutos !== null ? Math.max(0, Math.round(e.duracao_minutos)) : 0,
+          motoboy: {
+            id: e.motoboy_id,
+            nome: e.motoboy_nome || (e.status === 'disponivel' ? 'Aguardando Retirada' : 'Desconhecido'),
+            telefone: e.motoboy_telefone || '-',
+            grupo: e.motoboy_grupo || null
+          },
+          total_pontos_gps: Number(e.total_pontos_gps || 0)
+        };
+      })
     });
   } catch (error) {
     console.error('❌ Erro ao listar histórico de entregas:', error);
