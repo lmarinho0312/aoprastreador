@@ -56,7 +56,7 @@ try {
   log('✅ Retenção de impressão (KeepPrintedJobs) garantida nas impressoras.');
 } catch (e) {}
 
-// ── Cache Local Anti-Duplicação ──────────────────────────────────────────────
+// ── Cache Local de Arquivos de Spool Processados ─────────────────────────────
 const cachePath = path.join(__dirname, 'processed_cache.json');
 let processedCache = new Set();
 
@@ -64,7 +64,7 @@ if (fs.existsSync(cachePath)) {
   try {
     const data = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
     if (Array.isArray(data)) {
-      processedCache = new Set(data);
+      processedCache = new Set(data.filter(k => typeof k === 'string' && k.startsWith('FILE_')));
     }
   } catch (err) {
     processedCache = new Set();
@@ -127,8 +127,6 @@ function enviarPedidoParaApi(pedidoData) {
 
 // ── Processamento de Arquivos de Impressão (.SPL) ───────────────────────────
 let isScanning = false;
-// Mutex: impede que dois arquivos com o mesmo pedido sejam processados ao mesmo tempo
-const pedidosEmProcessamento = new Set();
 // Rastreamento de tentativas por arquivo para evitar cache prematuro de arquivos sendo gravados
 const arquivosPendentes = new Map(); // fileName -> { tentativas: number, ultimoTamanho: number }
 
@@ -250,7 +248,7 @@ async function processarArquivoSpool(filePath) {
     return;
   }
 
-  // ── ANTI-DUPLICAÇÃO E DESCARTE DE COMANDAS DE DATAS ANTERIORES ──────────────
+  // ── DESCARTE DE COMANDAS DE DATAS ANTERIORES ──────────────
   const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
   // Se a comanda contém data explícita e for de data anterior a hoje, descartar imediatamente
@@ -261,21 +259,6 @@ async function processarArquivoSpool(filePath) {
     salvarCache();
     return;
   }
-
-  const dataRef = parsed.dataComanda || hojeStr;
-  const cacheKeyOrder = `${parsed.origem}_${parsed.pedidoId}_${dataRef}`;
-
-  // Verificar se já está no cache OU se está sendo processado agora por outro arquivo
-  if (processedCache.has(cacheKeyOrder) || pedidosEmProcessamento.has(cacheKeyOrder)) {
-    log(`ℹ️ Pedido ${parsed.origem} #${parsed.pedidoId} já enviado/em processamento na data ${dataRef}. Ignorando arquivo [${fileName}].`);
-    processedCache.add(cacheKeyFile);
-    arquivosPendentes.delete(fileName);
-    salvarCache();
-    return;
-  }
-
-  // Marcar como "em processamento" IMEDIATAMENTE (antes do HTTP)
-  pedidosEmProcessamento.add(cacheKeyOrder);
 
   log(`======================================================`);
   log(`📄 NOVA COMANDA DETECTADA [${fileName}]`);
@@ -290,9 +273,8 @@ async function processarArquivoSpool(filePath) {
     log(`🚀 Enviando para API (${config.api_url})...`);
     const resp = await enviarPedidoParaApi(parsed);
 
-    if (resp.statusCode === 201) {
+    if (resp.statusCode === 201 || resp.statusCode === 200) {
       log(`✅ Sucesso! Pedido #${parsed.pedidoId} liberado automaticamente para os motoboys.`);
-      processedCache.add(cacheKeyOrder);
       processedCache.add(cacheKeyFile);
       arquivosPendentes.delete(fileName);
       salvarCache();
@@ -300,15 +282,8 @@ async function processarArquivoSpool(filePath) {
       if (config.delete_processed_files) {
         try { fs.unlinkSync(filePath); } catch (e) {}
       }
-    } else if (resp.statusCode === 200 && resp.data && resp.data.duplicado) {
-      log(`ℹ️ Pedido #${parsed.pedidoId} já constava no banco de dados. Sincronizado.`);
-      processedCache.add(cacheKeyOrder);
-      processedCache.add(cacheKeyFile);
-      arquivosPendentes.delete(fileName);
-      salvarCache();
     } else if (resp.statusCode === 202 || (resp.data && resp.data.descartado)) {
       log(`⚠️ Aviso: Pedido #${parsed.pedidoId} descartado pela API (${resp.data?.motivo || 'regra de negócio'}): ${resp.data?.message}`);
-      processedCache.add(cacheKeyOrder);
       processedCache.add(cacheKeyFile);
       arquivosPendentes.delete(fileName);
       salvarCache();
@@ -318,9 +293,6 @@ async function processarArquivoSpool(filePath) {
     }
   } catch (err) {
     log(`❌ Erro ao enviar comanda para API: ${err.message}`);
-  } finally {
-    // Liberar o mutex após concluir (com ou sem erro)
-    pedidosEmProcessamento.delete(cacheKeyOrder);
   }
 }
 

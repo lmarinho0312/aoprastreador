@@ -359,27 +359,8 @@ async function webhookSpool(req, res) {
     const db = getDb();
     await expirarPedidosPendentesDiasAnteriores(db);
 
-    // 4. Mecanismo Anti-Duplicação Estrito (origem + pedido_id_origem nas últimas 36 horas)
-    // Permite que plataformas reutilizem numerações após o ciclo operacional, sem bloquear pedidos do mesmo turno
-    const pedidoExistente = await db.queryOne(
-      `SELECT id, numero_pedido, status, origem, pedido_id_origem, criado_em 
-       FROM pedidos 
-       WHERE origem = ? 
-         AND pedido_id_origem = ?
-         AND datetime(criado_em) >= datetime('now', '-3 hours', '-36 hours')`,
-      [cleanOrigem, cleanPedidoId]
-    );
-
-    if (pedidoExistente) {
-      return res.json(200, {
-        success: true,
-        duplicado: true,
-        message: `Pedido ${cleanOrigem} #${cleanPedidoId} já registrado anteriormente.`,
-        pedido: pedidoExistente
-      });
-    }
-
-    // 5. Inserção do pedido com status 'disponivel' (aguardando motoboy retirar)
+    // 4. Inserção direta do pedido com status 'disponivel' (aguardando motoboy retirar)
+    // Mecanismo anti-repetição completamente desativado para garantir que nenhum pedido da 99Food ou iFood seja perdido
     let taxaFinal = !isNaN(Number(taxaEntrega)) && Number(taxaEntrega) > 0 ? Number(taxaEntrega) : 0.0;
     if (taxaFinal === 0) {
       taxaFinal = obterTaxaRepasse(cleanBairro, cleanEndereco, cleanTextoBruto, 'VELOZ');
@@ -397,7 +378,6 @@ async function webhookSpool(req, res) {
 
     return res.json(201, {
       success: true,
-      duplicado: false,
       message: `Pedido ${cleanOrigem} #${cleanPedidoId} registrado com sucesso! Aguardando retirada.`,
       pedido: novoPedido
     });
