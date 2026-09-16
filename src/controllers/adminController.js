@@ -768,6 +768,90 @@ async function atualizarTaxaBairro(req, res) {
   }
 }
 
+/**
+ * Atribuição Manual de Pedido a um Entregador pela Cozinha / Admin
+ * POST /api/admin/pedidos/atribuir
+ * Body: { pedido_id, motoboy_id, status }
+ */
+async function atribuirPedidoMotoboy(req, res) {
+  try {
+    const { pedido_id, motoboy_id, status } = req.body || {};
+
+    if (!pedido_id || !motoboy_id) {
+      return res.json(400, { success: false, message: 'Campos pedido_id e motoboy_id são obrigatórios.' });
+    }
+
+    const db = getDb();
+    const pedidoIdNum = Number(pedido_id);
+    const motoboyIdNum = Number(motoboy_id);
+    const novoStatus = (status && typeof status === 'string') ? status : 'em_rota';
+
+    // 1. Obter motoboy selecionado
+    const motoboy = await db.queryOne(
+      `SELECT id, nome, telefone, grupo, latitude, longitude, velocidade FROM motoboys WHERE id = ?`,
+      [motoboyIdNum]
+    );
+
+    if (!motoboy) {
+      return res.json(404, { success: false, message: 'Entregador não encontrado no sistema.' });
+    }
+
+    // 2. Obter pedido
+    const pedido = await db.queryOne(
+      `SELECT id, numero_pedido, cliente, bairro, grupo, status, motoboy_id FROM pedidos WHERE id = ?`,
+      [pedidoIdNum]
+    );
+
+    if (!pedido) {
+      return res.json(404, { success: false, message: 'Pedido não encontrado.' });
+    }
+
+    const grupoFinal = motoboy.grupo || 'VELOZ';
+
+    // 3. Atualizar o pedido para o entregador designado
+    let updateSql = `UPDATE pedidos 
+                     SET motoboy_id = ?, 
+                         grupo = ?, 
+                         status = ?`;
+    const params = [motoboyIdNum, grupoFinal, novoStatus];
+
+    if (novoStatus === 'em_rota') {
+      updateSql += `, data_inicio = COALESCE(data_inicio, DATETIME('now', '-3 hours'))`;
+    }
+
+    updateSql += ` WHERE id = ?`;
+    params.push(pedidoIdNum);
+
+    await db.execute(updateSql, params);
+
+    // 4. Se o motoboy tiver GPS conhecido e for rota ativa, registrar ponto de início
+    if (novoStatus === 'em_rota' && motoboy.latitude !== null && motoboy.longitude !== null) {
+      await db.execute(
+        `INSERT INTO pedido_rotas (pedido_id, motoboy_id, latitude, longitude, velocidade, criado_em) 
+         VALUES (?, ?, ?, ?, ?, DATETIME('now', '-3 hours'))`,
+        [pedidoIdNum, motoboyIdNum, Number(motoboy.latitude), Number(motoboy.longitude), Number(motoboy.velocidade || 0)]
+      );
+    }
+
+    const pedidoAtualizado = await db.queryOne(
+      `SELECT p.*, m.nome as motoboy_nome, m.telefone as motoboy_telefone 
+       FROM pedidos p 
+       LEFT JOIN motoboys m ON p.motoboy_id = m.id 
+       WHERE p.id = ?`,
+      [pedidoIdNum]
+    );
+
+    return res.json(200, {
+      success: true,
+      message: `Pedido #${pedido.numero_pedido} atribuído com sucesso a ${motoboy.nome} (${grupoFinal})!`,
+      pedido: pedidoAtualizado
+    });
+  } catch (error) {
+    console.error('❌ Erro ao atribuir pedido a entregador:', error);
+    return res.json(500, { success: false, message: 'Erro ao atribuir pedido a entregador.', error: error.message });
+  }
+}
+
 module.exports = {
   getPosicoesMapa,
   getDashboardStats,
@@ -780,5 +864,6 @@ module.exports = {
   atualizarMotoboy,
   cadastrarMotoboyAdmin,
   obterTaxasBairros,
-  atualizarTaxaBairro
+  atualizarTaxaBairro,
+  atribuirPedidoMotoboy
 };

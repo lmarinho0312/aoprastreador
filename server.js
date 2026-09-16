@@ -75,6 +75,7 @@ registerRoute('GET', '/api/admin/historico/rota', historicoController.obterRotaP
 registerRoute('GET', '/api/admin/fechamento', adminController.obterFechamentoEntregas);
 registerRoute('POST', '/api/admin/pedidos/manual', adminController.criarPedidoManual);
 registerRoute('POST', '/api/admin/pedidos/limpar-pendentes-antigos', adminController.limparPedidosPendentesAntigos);
+registerRoute('POST', '/api/admin/pedidos/atribuir', adminController.atribuirPedidoMotoboy);
 
 // Gestão de Entregadores & Taxas por Bairro (Protegido por Senha)
 registerRoute('POST', '/api/admin/motoboys/verificar-senha', adminController.verificarSenhaMotoboys);

@@ -568,6 +568,10 @@
           <span>➕ Novo Pedido</span>
         </button>
 
+        <button class="btn btn-secondary btn-sm" onclick="abrirModalTabelaTaxas()" title="Visualizar tabelas de taxas por grupo (SPEED e VELOZ)" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; font-weight: 700;">
+          <span>💰 Taxas por Grupo</span>
+        </button>
+
         <button class="btn btn-secondary btn-sm" onclick="abrirModalAlterarSenha()" title="Alterar Senha de Acesso">
           <span>🔑 Senha</span>
         </button>
@@ -864,6 +868,7 @@
             <select id="selectFiltroMotoboy" class="form-select" style="padding: 4px 10px; font-size: 12px; width: auto;" onchange="carregarFechamento()">
               <option value="todos">Todos os Motoboys</option>
             </select>
+            <button class="btn btn-secondary btn-sm" onclick="abrirModalTabelaTaxas()" title="Consultar taxas oficiais por bairro" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">💰 Ver Taxas</button>
             <button class="btn btn-gold btn-sm" onclick="carregarFechamento()">🔄 Atualizar</button>
           </div>
         </div>
@@ -1253,9 +1258,57 @@
       </div>
 
       <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
-        <span style="font-size: 11px; color: var(--text-muted);">Taxas calculadas automaticamente para cada grupo.</span>
+        <span id="lblCountTaxas" style="font-size: 11px; color: var(--text-muted);">Taxas calculadas automaticamente para cada grupo.</span>
         <button type="button" class="btn btn-secondary btn-sm" onclick="fecharModalTabelaTaxas()">Fechar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE ATRIBUIÇÃO MANUAL DE ENTREGADOR -->
+  <div class="modal-confirm-overlay" id="modalAtribuirEntregador" style="display: none; align-items: center; justify-content: center; z-index: 99995;">
+    <div class="modal-confirm-box" style="max-width: 480px; width: 95%; text-align: left; padding: 22px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <h3 style="font-size: 17px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <span>🛵</span> Atribuir Entrega a um Motoboy
+        </h3>
+        <button class="btn btn-secondary btn-icon" onclick="fecharModalAtribuirEntregador()">✕</button>
+      </div>
+
+      <div id="atribuirPedidoInfoCard" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+        <!-- Preenchido via JS: Pedido, Cliente, Endereço, Grupo -->
+      </div>
+
+      <form id="formAtribuirEntregador" onsubmit="confirmarAtribuicaoEntregador(event)">
+        <input type="hidden" id="inpAtribuirPedidoId">
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label" for="selectAtribuirMotoboy" style="font-size: 12px; font-weight: 800; color: var(--text-primary); display: block; margin-bottom: 6px;">
+            Selecione o Entregador Disponível *
+          </label>
+          <select id="selectAtribuirMotoboy" class="form-select" required style="width: 100%; padding: 10px; font-size: 13px; font-weight: 700; background: var(--bg-surface-elevated); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 6px;">
+            <!-- Opções geradas via JS -->
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 18px;">
+          <label class="form-label" for="selectAtribuirStatus" style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: block; margin-bottom: 6px;">
+            Status Inicial
+          </label>
+          <select id="selectAtribuirStatus" class="form-select" style="width: 100%; padding: 8px; font-size: 13px; background: var(--bg-surface-elevated); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 6px;">
+            <option value="em_rota" selected>🚀 Em Rota (saiu para entrega)</option>
+            <option value="aguardando_retirada">📦 Pronto no Balcão (aguardando motoboy retirar)</option>
+          </select>
+        </div>
+
+        <div id="msgErroAtribuir" style="display: none; padding: 8px; border-radius: var(--radius-sm); background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444; font-size: 12px; margin-bottom: 14px; text-align: center;"></div>
+
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="fecharModalAtribuirEntregador()">Cancelar</button>
+          <button type="submit" class="btn btn-gold" id="btnConfirmarAtribuicao" style="flex: 1.3; font-weight: 800;">
+            🚀 CONFIRMAR
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -1371,6 +1424,17 @@
       }
       atualizar();
       setInterval(atualizar, 1000);
+    }
+
+    // ── Helper para escape de HTML ──────────────────────────────────────────
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
     // ── Normalização de texto para busca sem acento ─────────────────────────
@@ -1609,6 +1673,12 @@
                 <span>${p.motoboy ? p.motoboy.nome : 'Aguardando motoboy'}</span>
               </span>
               <span class="order-price">${taxaStr}</span>
+            </div>
+
+            <div style="margin-top: 8px; display: flex; gap: 6px;" onclick="event.stopPropagation()">
+              <button class="btn btn-sm ${p.motoboy ? 'btn-secondary' : 'btn-gold'}" onclick="abrirModalAtribuirEntregador(${p.id}); event.stopPropagation();" style="font-size: 11px; padding: 4px 8px; font-weight: 700; width: 100%; justify-content: center;">
+                🛵 ${p.motoboy ? 'Trocar Entregador (' + p.motoboy.nome + ')' : 'Atribuir Entregador'}
+              </button>
             </div>
           </div>
         `;
@@ -1861,14 +1931,15 @@
         botaoAcao = `
           <div style="margin-top: 8px; display: flex; gap: 6px;">
             <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="abrirDetalhesPedido(${p.id})">📋 Detalhes</button>
-            <button class="btn btn-gold btn-sm" style="flex: 1;" onclick="abrirDetalhesPedido(${p.id})">🚀 Despachar</button>
+            <button class="btn btn-gold btn-sm" style="flex: 1.3; font-weight: 800;" onclick="abrirModalAtribuirEntregador(${p.id})">🛵 Atribuir</button>
           </div>
         `;
       } else if (colTipo === 'rota') {
         botaoAcao = `
-          <div style="margin-top: 8px; display: flex; gap: 6px;">
-            <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="abrirDetalhesPedido(${p.id})">🗺️ Rota GPS</button>
-            <button class="btn btn-success btn-sm" style="flex: 1;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Concluir</button>
+          <div style="margin-top: 8px; display: flex; gap: 5px;">
+            <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px;" onclick="abrirDetalhesPedido(${p.id})">🗺️ Rota</button>
+            <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px;" onclick="abrirModalAtribuirEntregador(${p.id})" title="Substituir entregador">🛵 Trocar</button>
+            <button class="btn btn-success btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Concluir</button>
           </div>
         `;
       } else if (colTipo === 'entregue') {
@@ -2126,13 +2197,13 @@
         footer.innerHTML = `
           <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
           <button class="btn btn-secondary" style="flex: 1; border-color: rgba(239, 68, 68, 0.4); color: #ef4444;" onclick="cancelarPedidoDrawer(${p.id})">❌ Cancelar</button>
-          <button class="btn btn-gold" style="flex: 1.2;" onclick="alterarStatusPedido(${p.id}, 'em_rota')">🚀 Despachar</button>
+          <button class="btn btn-gold" style="flex: 1.4; font-weight: 800;" onclick="abrirModalAtribuirEntregador(${p.id})">🛵 Atribuir Entregador</button>
         `;
       } else if (p.status === 'em_rota') {
         footer.innerHTML = `
           <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
-          <button class="btn btn-secondary" style="flex: 1; border-color: rgba(239, 68, 68, 0.4); color: #ef4444;" onclick="cancelarPedidoDrawer(${p.id})">❌ Cancelar</button>
-          <button class="btn btn-success" style="flex: 1.2;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Entregue</button>
+          <button class="btn btn-secondary" style="flex: 1.1;" onclick="abrirModalAtribuirEntregador(${p.id})" title="Substituir entregador">🛵 Trocar</button>
+          <button class="btn btn-success" style="flex: 1.2; font-weight: 800;" onclick="alterarStatusPedido(${p.id}, 'entregue')">✓ Entregue</button>
         `;
       } else {
         footer.innerHTML = `
@@ -2864,14 +2935,32 @@
       const btnVeloz = document.getElementById('tabTaxaVeloz');
       const btnSpeed = document.getElementById('tabTaxaSpeed');
       if (btnVeloz && btnSpeed) {
-        btnVeloz.classList.toggle('active', grupo === 'VELOZ');
-        btnSpeed.classList.toggle('active', grupo === 'SPEED');
+        if (grupo === 'SPEED') {
+          btnSpeed.className = 'filter-pill active';
+          btnSpeed.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+          btnSpeed.style.color = '#000';
+          btnSpeed.style.borderColor = '#f59e0b';
+          btnVeloz.className = 'filter-pill';
+          btnVeloz.style.background = 'rgba(255,255,255,0.06)';
+          btnVeloz.style.color = 'var(--text-muted)';
+          btnVeloz.style.borderColor = 'var(--border-subtle)';
+        } else {
+          btnVeloz.className = 'filter-pill active';
+          btnVeloz.style.background = 'linear-gradient(135deg, #3b82f6, #2563eb)';
+          btnVeloz.style.color = '#fff';
+          btnVeloz.style.borderColor = '#3b82f6';
+          btnSpeed.className = 'filter-pill';
+          btnSpeed.style.background = 'rgba(255,255,255,0.06)';
+          btnSpeed.style.color = 'var(--text-muted)';
+          btnSpeed.style.borderColor = 'var(--border-subtle)';
+        }
       }
       renderizarTabelaTaxas();
     }
 
     function renderizarTabelaTaxas() {
       const container = document.getElementById('tbodyTaxas');
+      const lblCount = document.getElementById('lblCountTaxas');
       const query = (document.getElementById('inputBuscaTaxa')?.value || '').toLowerCase().trim();
       if (!container) return;
 
@@ -2881,28 +2970,32 @@
         return normalizarTexto(item.bairro).includes(normalizarTexto(query));
       });
 
+      if (lblCount) {
+        lblCount.textContent = `Exibindo ${filtrados.length} de ${lista.length} bairros na Tabela ${grupoTaxaAtivo}.`;
+      }
+
       if (filtrados.length === 0) {
-        container.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 20px; color: var(--text-muted);">Nenhum bairro encontrado.</td></tr>`;
+        container.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 25px; color: var(--text-muted);">Nenhum bairro encontrado para "${escapeHtml(query)}".</td></tr>`;
         return;
       }
 
       container.innerHTML = filtrados.map(item => `
         <tr style="border-bottom: 1px solid var(--border-subtle);">
-          <td style="padding: 8px 12px; font-weight: 700; color: var(--text-primary);">${escapeHtml(item.bairro)}</td>
-          <td style="padding: 8px 12px; width: 140px; text-align: right;">
+          <td style="padding: 10px 12px; font-weight: 700; color: var(--text-primary);">${escapeHtml(item.bairro)}</td>
+          <td style="padding: 10px 12px; width: 140px; text-align: right;">
             <div style="display: inline-flex; align-items: center; gap: 4px;">
               <span style="color: var(--brand-gold); font-weight: 800; font-size: 12px;">R$</span>
               <input type="number" step="0.50" min="0" class="form-input" id="inpTaxa_${grupoTaxaAtivo}_${item.id}" value="${Number(item.taxa).toFixed(2)}" style="width: 85px; padding: 4px 6px; font-size: 13px; font-weight: 700; text-align: right;">
             </div>
           </td>
-          <td style="padding: 8px 12px; width: 80px; text-align: right;">
-            <button class="btn btn-gold btn-sm" onclick="salvarTaxaBairro(${item.id}, '${escapeHtml(item.bairro)}', '${grupoTaxaAtivo}')" style="padding: 4px 8px; font-size: 11px;">💾 Salvar</button>
+          <td style="padding: 10px 12px; width: 80px; text-align: right;">
+            <button class="btn btn-gold btn-sm" onclick="salvarTaxaBairro(${item.id}, '${grupoTaxaAtivo}')" style="padding: 4px 8px; font-size: 11px;">💾 Salvar</button>
           </td>
         </tr>
       `).join('');
     }
 
-    async function salvarTaxaBairro(id, bairro, grupo) {
+    async function salvarTaxaBairro(id, grupo) {
       const inp = document.getElementById(`inpTaxa_${grupo}_${id}`);
       if (!inp) return;
       const novaTaxa = parseFloat(inp.value);
@@ -2910,6 +3003,10 @@
         showToast('Por favor, informe uma taxa válida.', 'error');
         return;
       }
+
+      const lista = grupo === 'SPEED' ? cacheTaxas.speed : cacheTaxas.veloz;
+      const item = lista.find(t => t.id === id);
+      const bairroNome = item ? item.bairro : '';
 
       const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
 
@@ -2919,7 +3016,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             id,
-            bairro,
+            bairro: bairroNome,
             taxa: novaTaxa,
             grupo,
             senha_admin: senhaAdmin
@@ -2927,13 +3024,124 @@
         });
         const data = await res.json();
         if (data && data.success) {
-          showToast(`Taxa de ${bairro} (${grupo}) atualizada para R$ ${novaTaxa.toFixed(2)}!`, 'success');
+          showToast(`Taxa de ${bairroNome} (${grupo}) atualizada para R$ ${novaTaxa.toFixed(2)}!`, 'success');
           carregarTaxasAdmin();
         } else {
           showToast(data.message || 'Erro ao atualizar taxa.', 'error');
         }
       } catch (err) {
         showToast('Erro de conexão ao atualizar taxa.', 'error');
+      }
+    }
+
+    // ── Atribuição Manual de Pedido a Entregador ───────────────────────────
+    function abrirModalAtribuirEntregador(pedidoId) {
+      const pedido = (state.pedidos || []).find(p => p.id === pedidoId) || state.pedidoDetalheCache;
+      if (!pedido) {
+        showToast('Pedido não encontrado.', 'error');
+        return;
+      }
+
+      document.getElementById('inpAtribuirPedidoId').value = pedido.id;
+
+      const grupoBadge = pedido.grupo 
+        ? `<span class="badge-grupo-pedido ${pedido.grupo === 'SPEED' ? 'badge-grupo-speed' : 'badge-grupo-veloz'}">${pedido.grupo === 'SPEED' ? '⚡ SPEED' : '🚀 VELOZ'}</span>`
+        : `<span class="badge-pendente-grupo">Pendente de Grupo</span>`;
+
+      const infoCard = document.getElementById('atribuirPedidoInfoCard');
+      if (infoCard) {
+        const clienteNome = (pedido.cliente && pedido.cliente.nome) ? pedido.cliente.nome : (pedido.cliente || 'Cliente Balcão');
+        const endStr = pedido.endereco || (pedido.cliente && pedido.cliente.endereco) || 'Endereço não informado';
+        const bairroStr = pedido.bairro || (pedido.cliente && pedido.cliente.bairro) || '';
+
+        infoCard.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong style="font-size: 15px; color: var(--brand-gold-light);">#${pedido.numero_pedido}</strong>
+            ${grupoBadge}
+          </div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px;">${escapeHtml(clienteNome)}</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">📍 ${escapeHtml(endStr)} ${bairroStr ? '— ' + escapeHtml(bairroStr) : ''}</div>
+          ${pedido.motoboy ? `<div style="font-size: 11px; color: #fbbf24; margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.08);">Atualmente com: <strong>${escapeHtml(pedido.motoboy.nome)}</strong></div>` : ''}
+        `;
+      }
+
+      // Preencher select de motoboys
+      const select = document.getElementById('selectAtribuirMotoboy');
+      if (select) {
+        select.innerHTML = '<option value="">-- Selecione o Entregador --</option>';
+        const motoboys = state.motoboys || [];
+
+        // Ordenar motoboys: primeiro os do mesmo grupo do pedido (se houver), depois por nome
+        const ordenados = [...motoboys].sort((a, b) => {
+          const aGrupoMatch = pedido.grupo && (a.grupo || 'VELOZ') === pedido.grupo;
+          const bGrupoMatch = pedido.grupo && (b.grupo || 'VELOZ') === pedido.grupo;
+          if (aGrupoMatch && !bGrupoMatch) return -1;
+          if (!aGrupoMatch && bGrupoMatch) return 1;
+          return (a.nome || '').localeCompare(b.nome || '');
+        });
+
+        ordenados.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          const grupoIcon = (m.grupo === 'SPEED') ? '⚡ SPEED' : '🚀 VELOZ';
+          const isAtribuido = pedido.motoboy_id && Number(pedido.motoboy_id) === Number(m.id);
+          opt.textContent = `${m.nome} (${grupoIcon}) ${m.status_motoboy === 'em_rota' ? '— Em rota' : '— Disponível'}`;
+          if (isAtribuido) opt.selected = true;
+          select.appendChild(opt);
+        });
+      }
+
+      document.getElementById('msgErroAtribuir').style.display = 'none';
+      document.getElementById('modalAtribuirEntregador').style.display = 'flex';
+    }
+
+    function fecharModalAtribuirEntregador() {
+      const modal = document.getElementById('modalAtribuirEntregador');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function confirmarAtribuicaoEntregador(e) {
+      e.preventDefault();
+      const pedidoId = Number(document.getElementById('inpAtribuirPedidoId').value);
+      const motoboyId = Number(document.getElementById('selectAtribuirMotoboy').value);
+      const status = document.getElementById('selectAtribuirStatus').value;
+      const btn = document.getElementById('btnConfirmarAtribuicao');
+      const msgErro = document.getElementById('msgErroAtribuir');
+
+      if (!motoboyId) {
+        msgErro.textContent = 'Por favor, selecione um entregador na lista.';
+        msgErro.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Atribuindo...';
+      msgErro.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/admin/pedidos/atribuir', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pedido_id: pedidoId, motoboy_id: motoboyId, status })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message, 'success');
+          fecharModalAtribuirEntregador();
+          if (document.getElementById('drawerPedido').classList.contains('open')) {
+            abrirDetalhesPedido(pedidoId);
+          }
+          carregarTudo(false);
+        } else {
+          msgErro.textContent = data.message || 'Erro ao atribuir pedido.';
+          msgErro.style.display = 'block';
+        }
+      } catch (err) {
+        msgErro.textContent = 'Erro ao conectar ao servidor.';
+        msgErro.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🚀 CONFIRMAR';
       }
     }
 
