@@ -359,8 +359,69 @@ async function webhookSpool(req, res) {
     const db = getDb();
     await expirarPedidosPendentesDiasAnteriores(db);
 
-    // 4. Inserção direta do pedido com status 'disponivel' (aguardando motoboy retirar)
-    // Mecanismo anti-repetição completamente desativado para garantir que nenhum pedido da 99Food ou iFood seja perdido
+    // 4. Proteção Exclusiva para iFood:
+    // O iFood Gestor sempre envia 2 ou mais vias impressas para o mesmo pedido (cozinha, entrega, controle).
+    // Para não duplicar pedidos na tela, garantimos apenas 1 registro por número de pedido iFood por dia,
+    // enriquecendo os dados se uma das vias contiver cliente/endereço mais completos.
+    // 99FOOD e outras origens permanecem 100% sem restrição anti-repetição.
+    if (cleanOrigem === 'IFOOD') {
+      const pedidoExistenteIfood = await db.queryOne(
+        `SELECT id, numero_pedido, status, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, texto_bruto
+         FROM pedidos
+         WHERE origem = 'IFOOD'
+           AND (numero_pedido = ? OR pedido_id_origem = ?)
+           AND DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
+         ORDER BY id ASC
+         LIMIT 1`,
+        [cleanPedidoId, cleanPedidoId]
+      );
+
+      if (pedidoExistenteIfood) {
+        // Se a via subsequente trouxe dados mais detalhados (ex: endereço que a via da cozinha não tinha), enriquece o pedido
+        const updateFields = [];
+        const updateParams = [];
+        if ((!pedidoExistenteIfood.cliente || pedidoExistenteIfood.cliente === 'Cliente') && cleanCliente && cleanCliente !== 'Cliente') {
+          updateFields.push('cliente = ?');
+          updateParams.push(cleanCliente);
+        }
+        if (!pedidoExistenteIfood.endereco && cleanEndereco) {
+          updateFields.push('endereco = ?');
+          updateParams.push(cleanEndereco);
+        }
+        if ((!pedidoExistenteIfood.bairro || pedidoExistenteIfood.bairro === 'Não informado') && cleanBairro) {
+          updateFields.push('bairro = ?');
+          updateParams.push(cleanBairro);
+        }
+        if ((!pedidoExistenteIfood.texto_bruto || pedidoExistenteIfood.texto_bruto.length < 20) && cleanTextoBruto) {
+          updateFields.push('texto_bruto = ?');
+          updateParams.push(cleanTextoBruto);
+        }
+        if (cleanTelefone && !pedidoExistenteIfood.telefone_cliente) {
+          updateFields.push('telefone_cliente = ?');
+          updateParams.push(cleanTelefone);
+        }
+        if (cleanLocalizador && !pedidoExistenteIfood.localizador) {
+          updateFields.push('localizador = ?');
+          updateParams.push(cleanLocalizador);
+        }
+
+        if (updateFields.length > 0) {
+          updateParams.push(pedidoExistenteIfood.id);
+          await db.execute(`UPDATE pedidos SET ${updateFields.join(', ')} WHERE id = ?`, updateParams);
+        }
+
+        const pedidoAtualizado = await db.queryOne(`SELECT * FROM pedidos WHERE id = ?`, [pedidoExistenteIfood.id]);
+
+        return res.json(200, {
+          success: true,
+          duplicado: true,
+          message: `Pedido iFood #${cleanPedidoId} já registrado hoje. Via adicional combinada com sucesso.`,
+          pedido: pedidoAtualizado || pedidoExistenteIfood
+        });
+      }
+    }
+
+    // 5. Inserção do pedido com status 'disponivel' (aguardando motoboy retirar)
     let taxaFinal = !isNaN(Number(taxaEntrega)) && Number(taxaEntrega) > 0 ? Number(taxaEntrega) : 0.0;
     if (taxaFinal === 0) {
       taxaFinal = obterTaxaRepasse(cleanBairro, cleanEndereco, cleanTextoBruto, 'VELOZ');
