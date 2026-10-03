@@ -641,21 +641,24 @@ async function assumirPedido(req, res) {
       });
     }
 
-    // 2. Atualização atômica para evitar concorrência (qualquer status pré-saída sem motoboy atribuído)
+    // 2. Atualização atômica: assim que o motoboy retira no balcão, o pedido já é considerado FINALIZADO (entregue)
     const result = await db.execute(
       `UPDATE pedidos 
-       SET motoboy_id = ?, status = 'em_rota', data_inicio = DATETIME('now', '-3 hours') 
-       WHERE id = ? AND (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL) AND (motoboy_id IS NULL OR motoboy_id = ?)`,
+       SET motoboy_id = ?, 
+           status = 'entregue', 
+           data_inicio = COALESCE(data_inicio, DATETIME('now', '-3 hours')),
+           data_fim = DATETIME('now', '-3 hours') 
+       WHERE id = ? AND (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo', 'em_rota') OR status IS NULL) AND (motoboy_id IS NULL OR motoboy_id = ?)`,
       [motoboyIdNum, pedidoIdNum, motoboyIdNum]
     );
 
     if (result.changes === 0) {
-      // Verificar se já é deste mesmo motoboy
+      // Verificar se já foi retirado por este mesmo motoboy
       const p = await db.queryOne(`SELECT id, motoboy_id, status FROM pedidos WHERE id = ?`, [pedidoIdNum]);
-      if (p && Number(p.motoboy_id) === motoboyIdNum && p.status === 'em_rota') {
+      if (p && Number(p.motoboy_id) === motoboyIdNum && (p.status === 'entregue' || p.status === 'em_rota')) {
         return res.json(200, {
           success: true,
-          message: 'Você já assumiu este pedido anteriormente.',
+          message: 'Você já retirou e finalizou este pedido anteriormente.',
           pedido: p
         });
       }
@@ -679,7 +682,7 @@ async function assumirPedido(req, res) {
 
     return res.json(200, {
       success: true,
-      message: `Pedido #${pedidoAtualizado.numero_pedido} retirado com sucesso! Boa rota!`,
+      message: `Pedido #${pedidoAtualizado.numero_pedido} retirado e finalizado com sucesso!`,
       pedido: pedidoAtualizado
     });
   } catch (error) {
@@ -720,10 +723,10 @@ async function iniciarPedido(req, res) {
       }
     }
 
-    // Inserir pedido com horário de Brasília (UTC-3)
+    // Inserir pedido com horário de Brasília (UTC-3) já finalizado como entregue
     const result = await db.execute(
-      `INSERT INTO pedidos (numero_pedido, motoboy_id, status, origem, pedido_id_origem, data_inicio) 
-       VALUES (?, ?, 'em_rota', 'MANUAL', ?, DATETIME('now', '-3 hours'))`,
+      `INSERT INTO pedidos (numero_pedido, motoboy_id, status, origem, pedido_id_origem, data_inicio, data_fim) 
+       VALUES (?, ?, 'entregue', 'MANUAL', ?, DATETIME('now', '-3 hours'), DATETIME('now', '-3 hours'))`,
       [numPedido, motoboyIdNum, numPedido]
     );
 
