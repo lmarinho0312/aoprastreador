@@ -452,19 +452,54 @@ async function webhookSpool(req, res) {
  * Ignora e expira automaticamente pedidos que ficaram pendentes de entrega
  * de dias anteriores toda vez que a data vira (horário de Brasília).
  * Atualiza status para 'expirado', garantindo que não acumulem no painel da cozinha ou app motoboy.
+/**
+ * Auto-finaliza como 'entregue' os pedidos em rota que não foram finalizados manualmente
+ * pelo motoboy até as 23:59 do dia correspondente (ou de dias anteriores).
+ */
+async function autoFinalizarPedidosEmRotaFimDoDia(db) {
+  try {
+    const result = await db.execute(`
+      UPDATE pedidos 
+      SET status = 'entregue',
+          data_fim = COALESCE(data_fim, DATETIME(DATE(COALESCE(data_inicio, criado_em, DATETIME('now', '-3 hours'))), '+23 hours', '+59 minutes'))
+      WHERE status = 'em_rota'
+        AND motoboy_id IS NOT NULL
+        AND (
+          DATE(COALESCE(data_inicio, criado_em, DATETIME('now', '-3 hours'))) < DATE(DATETIME('now', '-3 hours'))
+          OR TIME(DATETIME('now', '-3 hours')) >= '23:59:00'
+        )
+    `);
+
+    if (result && result.changes > 0) {
+      console.log(`✅ [AUTO-FINALIZAR 23:59] ${result.changes} pedido(s) em rota finalizados automaticamente como entregues.`);
+    }
+    return result?.changes || 0;
+  } catch (err) {
+    console.error('⚠️ Erro ao auto-finalizar pedidos das 23:59:', err.message);
+    return 0;
+  }
+}
+
+/**
+ * Limpeza automática de pedidos pendentes de dias anteriores
  */
 async function expirarPedidosPendentesDiasAnteriores(db) {
   try {
+    // 1. Auto-finaliza pedidos retirados por motoboys como entregues às 23:59
+    await autoFinalizarPedidosEmRotaFimDoDia(db);
+
+    // 2. Pedidos sem motoboy que sobraram no balcão de datas passadas são expirados
     const result = await db.execute(`
       UPDATE pedidos 
       SET status = 'expirado',
           data_fim = COALESCE(data_fim, DATETIME('now', '-3 hours'))
-      WHERE (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo', 'em_rota') OR status IS NULL)
+      WHERE (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL)
+        AND motoboy_id IS NULL
         AND DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) < DATE(DATETIME('now', '-3 hours'))
     `);
 
     if (result && result.changes > 0) {
-      console.log(`🧹 [VIRADA DE DATA] ${result.changes} pedido(s) pendente(s) de data anterior foram ignorados/expirados.`);
+      console.log(`🧹 [LIMPEZA BALCÃO] ${result.changes} pedido(s) não retirados de dias anteriores foram expirados.`);
     }
     return result?.changes || 0;
   } catch (err) {
@@ -641,24 +676,23 @@ async function assumirPedido(req, res) {
       });
     }
 
-    // 2. Atualização atômica: assim que o motoboy retira no balcão, o pedido já é considerado FINALIZADO (entregue)
+    // 2. Atualização atômica para colocar em rota sob responsabilidade do motoboy
     const result = await db.execute(
       `UPDATE pedidos 
        SET motoboy_id = ?, 
-           status = 'entregue', 
-           data_inicio = COALESCE(data_inicio, DATETIME('now', '-3 hours')),
-           data_fim = DATETIME('now', '-3 hours') 
-       WHERE id = ? AND (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo', 'em_rota') OR status IS NULL) AND (motoboy_id IS NULL OR motoboy_id = ?)`,
+           status = 'em_rota', 
+           data_inicio = COALESCE(data_inicio, DATETIME('now', '-3 hours')) 
+       WHERE id = ? AND (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL) AND (motoboy_id IS NULL OR motoboy_id = ?)`,
       [motoboyIdNum, pedidoIdNum, motoboyIdNum]
     );
 
     if (result.changes === 0) {
-      // Verificar se já foi retirado por este mesmo motoboy
+      // Verificar se já é deste mesmo motoboy
       const p = await db.queryOne(`SELECT id, motoboy_id, status FROM pedidos WHERE id = ?`, [pedidoIdNum]);
-      if (p && Number(p.motoboy_id) === motoboyIdNum && (p.status === 'entregue' || p.status === 'em_rota')) {
+      if (p && Number(p.motoboy_id) === motoboyIdNum && p.status === 'em_rota') {
         return res.json(200, {
           success: true,
-          message: 'Você já retirou e finalizou este pedido anteriormente.',
+          message: 'Você já assumiu este pedido anteriormente.',
           pedido: p
         });
       }
@@ -682,7 +716,7 @@ async function assumirPedido(req, res) {
 
     return res.json(200, {
       success: true,
-      message: `Pedido #${pedidoAtualizado.numero_pedido} retirado e finalizado com sucesso!`,
+      message: `Pedido #${pedidoAtualizado.numero_pedido} retirado com sucesso! Boa rota!`,
       pedido: pedidoAtualizado
     });
   } catch (error) {
@@ -723,10 +757,10 @@ async function iniciarPedido(req, res) {
       }
     }
 
-    // Inserir pedido com horário de Brasília (UTC-3) já finalizado como entregue
+    // Inserir pedido com horário de Brasília (UTC-3)
     const result = await db.execute(
-      `INSERT INTO pedidos (numero_pedido, motoboy_id, status, origem, pedido_id_origem, data_inicio, data_fim) 
-       VALUES (?, ?, 'entregue', 'MANUAL', ?, DATETIME('now', '-3 hours'), DATETIME('now', '-3 hours'))`,
+      `INSERT INTO pedidos (numero_pedido, motoboy_id, status, origem, pedido_id_origem, data_inicio) 
+       VALUES (?, ?, 'em_rota', 'MANUAL', ?, DATETIME('now', '-3 hours'))`,
       [numPedido, motoboyIdNum, numPedido]
     );
 
