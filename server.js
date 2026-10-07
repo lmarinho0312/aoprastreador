@@ -6,9 +6,15 @@ const { getDb } = require('./src/database/db');
 const authController = require('./src/controllers/authController');
 const pedidosController = require('./src/controllers/pedidosController');
 const adminController = require('./src/controllers/adminController');
+const { sincronizarTaxasDb } = require('./src/utils/rateResolver');
+
+// Sincroniza taxas dinâmicas das tabelas taxa_bairro e taxa_bairro_speed no startup
+try {
+  sincronizarTaxasDb(getDb()).catch(e => console.warn('⚠️ [Startup] Falha inicial ao carregar taxas:', e.message));
+} catch (_) {}
 
 // ── Roteador ──────────────────────────────────────────────────────────────────
-const routes = { GET: {}, POST: {}, PUT: {}, DELETE: {} };
+const routes = { GET: {}, POST: {}, PUT: {}, DELETE: {}, HEAD: {} };
 
 function registerRoute(method, urlPath, handlerFn) {
   routes[method][urlPath] = handlerFn;
@@ -51,6 +57,33 @@ registerRoute('POST', '/api/pedidos/iniciar', pedidosController.iniciarPedido);
 registerRoute('POST', '/api/pedidos/finalizar', pedidosController.finalizarPedido);
 registerRoute('GET', '/api/pedidos/motoboy', pedidosController.listarPedidosMotoboy);
 registerRoute('POST', '/api/pedidos/webhook-spool', pedidosController.webhookSpool);
+
+// Webhook Oficial iFood Merchant API (App rastv2 / slug rastv)
+const ifoodController = require('./src/controllers/ifoodController');
+registerRoute('GET', '/api/ifood/webhook', ifoodController.healthcheck);
+registerRoute('HEAD', '/api/ifood/webhook', ifoodController.healthcheck);
+registerRoute('POST', '/api/ifood/webhook', ifoodController.webhook);
+registerRoute('GET', '/api/webhook/ifood', ifoodController.healthcheck);
+registerRoute('HEAD', '/api/webhook/ifood', ifoodController.healthcheck);
+registerRoute('POST', '/api/webhook/ifood', ifoodController.webhook);
+
+// Webhook Oficial 99Food / DiDi Open Platform
+const ninetyNineFoodController = require('./src/controllers/ninetyNineFoodController');
+registerRoute('GET', '/api/99food/status', ninetyNineFoodController.checkStatus);
+registerRoute('GET', '/api/99food/webhook', ninetyNineFoodController.handleWebhook);
+registerRoute('HEAD', '/api/99food/webhook', ninetyNineFoodController.handleWebhook);
+registerRoute('POST', '/api/99food/webhook', ninetyNineFoodController.handleWebhook);
+registerRoute('GET', '/api/webhook/99food', ninetyNineFoodController.handleWebhook);
+registerRoute('HEAD', '/api/webhook/99food', ninetyNineFoodController.handleWebhook);
+registerRoute('POST', '/api/webhook/99food', ninetyNineFoodController.handleWebhook);
+registerRoute('GET', '/api/99food/events', ninetyNineFoodController.listRecentEvents);
+registerRoute('POST', '/api/99food/orders/confirm', ninetyNineFoodController.confirmOrderAction);
+registerRoute('POST', '/api/99food/orders/ready', ninetyNineFoodController.readyOrderAction);
+registerRoute('POST', '/api/99food/orders/dispatch', ninetyNineFoodController.dispatchOrderAction);
+registerRoute('POST', '/api/99food/orders/cancel', ninetyNineFoodController.cancelOrderAction);
+registerRoute('GET', '/api/99food/orders/details', ninetyNineFoodController.getOrderDetailsAction);
+registerRoute('GET', '/api/99food/stores/auth-url', ninetyNineFoodController.getAuthorizationUrlAction);
+
 registerRoute('GET', '/api/pedidos/disponiveis', pedidosController.listarPedidosDisponiveis);
 registerRoute('POST', '/api/pedidos/retirar', pedidosController.assumirPedido);
 registerRoute('GET', '/api/pedidos/detalhes', pedidosController.obterDetalhesPedido);
@@ -76,6 +109,8 @@ registerRoute('GET', '/api/admin/fechamento', adminController.obterFechamentoEnt
 registerRoute('POST', '/api/admin/pedidos/manual', adminController.criarPedidoManual);
 registerRoute('POST', '/api/admin/pedidos/limpar-pendentes-antigos', adminController.limparPedidosPendentesAntigos);
 registerRoute('POST', '/api/admin/pedidos/atribuir', adminController.atribuirPedidoMotoboy);
+registerRoute('POST', '/api/admin/pedidos/alterar-taxa', adminController.alterarTaxaPedido);
+registerRoute('POST', '/api/pedidos/alterar-taxa', adminController.alterarTaxaPedido);
 
 // Gestão de Entregadores & Taxas por Bairro (Protegido por Senha)
 registerRoute('POST', '/api/admin/motoboys/verificar-senha', adminController.verificarSenhaMotoboys);
@@ -130,8 +165,14 @@ async function requestHandler(req, res) {
       req.on('data', chunk => { bodyData += chunk; });
       req.on('end', () => {
         try { 
-          if (bodyData) req.body = JSON.parse(bodyData); 
-        } catch (e) {}
+          if (bodyData) {
+            req.rawBody = bodyData;
+            const safeData = bodyData.replace(/"(order_id|app_id|shop_id|event_id)":\s*(\d{15,})/g, '"$1":"$2"');
+            req.body = JSON.parse(safeData);
+          }
+        } catch (e) {
+          try { req.body = JSON.parse(bodyData); } catch (err) {}
+        }
         resolve();
       });
       if (req.readableEnded || req.complete) {
@@ -140,8 +181,11 @@ async function requestHandler(req, res) {
     });
   }
 
-  // Roteamento
-  const routeHandler = routes[req.method] && routes[req.method][pathname];
+  // Roteamento (com fallback de HEAD para GET)
+  let routeHandler = routes[req.method] && routes[req.method][pathname];
+  if (!routeHandler && req.method === 'HEAD' && routes['GET']) {
+    routeHandler = routes['GET'][pathname];
+  }
   if (routeHandler) {
     try {
       return await routeHandler(req, res);

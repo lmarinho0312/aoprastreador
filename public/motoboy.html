@@ -1392,8 +1392,6 @@
       }
 
       container.innerHTML = pedidosFiltrados.map(p => {
-        const taxaRepasse = Number(p.taxa_repasse !== undefined && p.taxa_repasse !== null ? p.taxa_repasse : (p.taxa_entrega || 10.00));
-        const taxaStr = `R$ ${taxaRepasse.toFixed(2).replace('.', ',')}`;
         const tel = p.telefone_cliente ? String(p.telefone_cliente).trim() : '';
         const telLimpo = tel.replace(/\D/g, '');
         const telFormatado = formatarTelefone(tel);
@@ -1419,9 +1417,8 @@
               </div>
             ` : ''}
 
-            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
-              <span style="font-size: 13px; font-weight: 700; color: #34d399;">Taxa repasse: ${taxaStr}</span>
-              <button class="btn btn-gold btn-sm" onclick="retirarPedidoBalcao(${p.id}, '${p.numero_pedido}')">
+            <div style="display: flex; align-items: center; justify-content: flex-end; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
+              <button class="btn btn-gold btn-sm" style="width: 100%; justify-content: center; font-weight: 800; padding: 10px 14px;" onclick="retirarPedidoBalcao(${p.id}, '${p.numero_pedido}')">
                 RETIRAR PEDIDO
               </button>
             </div>

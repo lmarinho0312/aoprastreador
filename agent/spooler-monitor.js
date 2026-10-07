@@ -239,6 +239,15 @@ async function processarArquivoSpool(filePath) {
     return;
   }
 
+  // ── FILTRO DE EXCLUSIVIDADE: SPOOLER APENAS PARA CARDÁPIO WEB / BALCÃO ─────
+  if (parsed.origem === 'IFOOD' || parsed.origem === '99FOOD') {
+    log(`ℹ️ Comanda [${fileName}] identificada como ${parsed.origem} #${parsed.pedidoId}. Descartada do spooler (iFood e 99Food são integrados exclusivamente via Webhook Oficial / API).`);
+    processedCache.add(cacheKeyFile);
+    arquivosPendentes.delete(fileName);
+    salvarCache();
+    return;
+  }
+
   // ── FILTRO DE RETIRADA / BALCÃO ──────────────────────────────────────
   if (parsed.isRetirada) {
     log(`ℹ️ Pedido ${parsed.origem} #${parsed.pedidoId} é para RETIRADA NO LOCAL (não requer motoboy). Ignorando [${fileName}].`);

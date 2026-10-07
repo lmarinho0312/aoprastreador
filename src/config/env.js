@@ -27,5 +27,18 @@ module.exports = {
   TRACCAR_USER: process.env.TRACCAR_USER || 'admin',
   TRACCAR_PASS: process.env.TRACCAR_PASS || 'admin',
   JWT_SECRET: process.env.JWT_SECRET || 'default_secret_key',
-  BALCAO_API_SECRET: process.env.BALCAO_API_SECRET || 'balcao_secret_token_aoponto_2026'
+  BALCAO_API_SECRET: process.env.BALCAO_API_SECRET || 'balcao_secret_token_aoponto_2026',
+  // Configurações iFood (Homologação / Oficial)
+  IFOOD_CLIENT_ID: process.env.IFOOD_CLIENT_ID || 'c88219c5-8ad0-40d1-8f2f-387d9895ce02',
+  IFOOD_CLIENT_SECRET: process.env.IFOOD_CLIENT_SECRET || 'bb0o039xteom0dym0lxp38tos1he9qmnb2qimf81tiotbxuvjg4lf1fxled3hwllvqi1dmx9lc2luhjr4ywkoz7vkkskdfcruun',
+  IFOOD_MERCHANT_ID: process.env.IFOOD_MERCHANT_ID || 'ce4602c7-54ae-4594-855c-a170ff081af9',
+  IFOOD_API_URL: process.env.IFOOD_API_URL || 'https://merchant-api.ifood.com.br',
+  IFOOD_WEBHOOK_SECRET: process.env.IFOOD_WEBHOOK_SECRET || '',
+  // Configurações 99Food (Produção / DiDi Open Platform)
+  FOOD99_APP_ID: process.env.FOOD99_APP_ID || '5764607534449559450',
+  FOOD99_APP_SECRET: process.env.FOOD99_APP_SECRET || '1056bb0b68de904114a8251209b8a70a',
+  FOOD99_AUTH_TOKEN: process.env.FOOD99_AUTH_TOKEN || '',
+  FOOD99_SHOP_ID: process.env.FOOD99_SHOP_ID || '',
+  FOOD99_APP_SHOP_ID: process.env.FOOD99_APP_SHOP_ID || '',
+  FOOD99_API_URL: process.env.FOOD99_API_URL || 'https://openapi.99food.com'
 };

@@ -1340,7 +1340,12 @@
           </div>
 
           <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 13px; color: var(--text-muted);">Taxa de entrega: <strong id="dtlTaxaValor" style="color: var(--text-primary);">R$ 0,00</strong></span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 13px; color: var(--text-muted);">Taxa de entrega: <strong id="dtlTaxaValor" style="color: var(--text-primary);">R$ 0,00</strong></span>
+              <button class="btn btn-secondary btn-sm" onclick="alterarTaxaPedidoPrompt(state.selectedPedidoId)" title="Alterar valor da taxa de entrega deste pedido" style="padding: 2px 8px; font-size: 11px; font-weight: 700; color: #fbbf24; border-color: rgba(245, 158, 11, 0.4);">
+                ✏️ Alterar
+              </button>
+            </div>
             <div style="text-align: right;">
               <span style="font-size: 11px; color: var(--text-muted); display: block;">Total do Pedido</span>
               <strong style="font-size: 18px; color: var(--brand-gold-light);" id="dtlTotalValor">R$ 0,00</strong>
@@ -2081,7 +2086,9 @@
                 ${SVG_ICONS.bike}
                 <span>${p.motoboy ? escapeHtml(p.motoboy.nome) : 'Aguardando motoboy'}</span>
               </span>
-              <span class="order-price">${taxaStr}</span>
+              <span class="order-price" onclick="alterarTaxaPedidoPrompt(${p.id}, ${p.taxa_entrega}); event.stopPropagation();" title="Clique para alterar a taxa de entrega deste pedido" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                ${taxaStr} <span style="font-size: 10px; opacity: 0.7;">✏️</span>
+              </span>
             </div>
 
             <div style="margin-top: 8px; display: flex; gap: 6px;" onclick="event.stopPropagation()">
@@ -2648,7 +2655,9 @@
           ${motoboyInfo}
           <div class="order-meta">
             <span style="display: flex; align-items: center; gap: 4px;">${SVG_ICONS.clock} <span>${p.tempo_decorrido_minutos} min</span></span>
-            <span class="order-price">${taxaStr}</span>
+            <span class="order-price" onclick="alterarTaxaPedidoPrompt(${p.id}, ${p.taxa_entrega}); event.stopPropagation();" title="Clique para alterar a taxa de entrega deste pedido" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+              ${taxaStr} <span style="font-size: 10px; opacity: 0.7;">✏️</span>
+            </span>
           </div>
           ${botaoAcao}
         </div>
@@ -3629,6 +3638,42 @@
       } finally {
         btn.disabled = false;
         btn.textContent = 'CADASTRAR';
+      }
+    }
+
+    // Ação: Alterar Taxa de Entrega de Pedido (em rota, balcão ou entregue)
+    async function alterarTaxaPedidoPrompt(pedidoId, taxaAtual) {
+      if (!pedidoId) return;
+      const idNum = Number(pedidoId);
+      const taxaVal = (taxaAtual !== undefined && !isNaN(taxaAtual) && Number(taxaAtual) > 0) ? Number(taxaAtual) : 10.0;
+      const valorStr = prompt(`Alterar taxa de entrega do Pedido #${idNum}\nInforme o novo valor (R$):`, taxaVal.toFixed(2));
+      if (valorStr === null) return; // Operador cancelou
+
+      const limpo = valorStr.replace('R$', '').trim().replace(',', '.');
+      const novaTaxa = parseFloat(limpo);
+      if (isNaN(novaTaxa) || novaTaxa < 0) {
+        showToast('Valor de taxa inválido. Digite um número positivo.', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/admin/pedidos/alterar-taxa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pedido_id: idNum, taxa: novaTaxa })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(`Taxa do pedido alterada para R$ ${novaTaxa.toFixed(2).replace('.', ',')} com sucesso!`, 'success');
+          carregarTudo(false);
+          if (state.selectedPedidoId === idNum) {
+            abrirDetalhesPedido(idNum);
+          }
+        } else {
+          showToast(data.message || 'Erro ao alterar taxa do pedido.', 'error');
+        }
+      } catch (e) {
+        showToast('Erro de comunicação ao alterar taxa.', 'error');
       }
     }
 

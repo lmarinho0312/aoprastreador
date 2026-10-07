@@ -268,32 +268,18 @@ async function webhookSpool(req, res) {
       if (is99Food && cleanOrigem !== 'IFOOD') {
         cleanOrigem = '99FOOD';
       }
+    }
 
-      // Se cliente não veio, extrai da linha após o número do pedido (#ID)
-      if ((!cleanCliente || cleanCliente === 'Cliente') && cleanOrigem === '99FOOD') {
-        const linhas = cleanTextoBruto.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
-        for (let i = 0; i < linhas.length; i++) {
-          if (linhas[i].includes(`#${cleanPedidoId}`) || linhas[i].match(new RegExp(`#\\s*${cleanPedidoId}\\b`))) {
-            for (let j = i + 1; j < Math.min(i + 5, linhas.length); j++) {
-              const cand = linhas[j].trim();
-              if (cand.length >= 2 && !cand.startsWith('-') && !cand.startsWith('=') && !cand.startsWith('#') && !cand.match(/^(?:Entrega|Previs|Telefone|Localizador|Endere|Obs|O cliente|Subtotal|Total)/i)) {
-                cleanCliente = cand;
-                break;
-              }
-            }
-            break;
-          }
-        }
-      }
-
-      // Se endereço não veio ou veio truncado, extrai bloco multilinha
-      if ((!cleanEndereco || cleanEndereco.length < 5) && cleanOrigem === '99FOOD') {
-        const matchBloco = cleanTextoBruto.match(/Endere[çc]o:\s*([\s\S]*?)(?=\n\s*[-=*_]{4,}|\n\s*Observa|\n\s*Telefone|\n\s*O cliente|\n\s*Cancelar|\n\s*$)/i);
-        if (matchBloco) {
-          let linhasEnd = matchBloco[1].split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
-          cleanEndereco = linhasEnd.join(' ').replace(/\s+/g, ' ').trim();
-        }
-      }
+    // ── FILTRO DE EXCLUSIVIDADE: O Spooler processa apenas Cardápio Web e Balcão ─────
+    // Pedidos de iFood e 99Food são processados exclusivamente por suas APIs / Webhooks oficiais
+    if (cleanOrigem === 'IFOOD' || cleanOrigem === '99FOOD') {
+      console.log(`ℹ️ [SPOOLER DESCARTADO] Pedido ${cleanOrigem} #${cleanPedidoId} descartado no webhook do spooler. Motivo: integração via API/Webhook oficial ativa.`);
+      return res.json(202, {
+        success: false,
+        descartado: true,
+        motivo: 'origem_oficial_plataforma',
+        message: `Pedidos ${cleanOrigem} são recebidos exclusivamente via API/Webhook oficial. Descartado da fila do spooler térmico.`
+      });
     }
 
     // Se bairro não veio ou precisa ser complementado, busca na lista de bairros oficiais de Teresópolis
@@ -593,43 +579,29 @@ async function listarPedidosDisponiveis(req, res) {
       tabelaTaxa = 'taxa_bairro';
     }
 
-    // Regra de Ouro: motoboys de um grupo só veem pedidos expressamente destinados ao seu grupo!
-    // Pedidos sem grupo definido (aguardando seleção da cozinha) NÃO aparecem no app para nenhum grupo.
-    let whereGrupo = '';
-    const params = [];
-
-    if (grupoFiltro) {
-      whereGrupo = `AND p.grupo = ?`;
-      params.push(grupoFiltro);
-    } else {
-      // Se não houver identificação do grupo, nenhum pedido é retornado para impedir vazamento entre grupos
-      whereGrupo = `AND 1 = 0`;
-    }
-
+    // Todos os pedidos disponíveis no balcão de hoje ficam acessíveis para retirada por qualquer motoboy
     const pedidos = await db.query(`
-      SELECT p.id, p.numero_pedido, p.status, p.origem, p.grupo, p.pedido_id_origem, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.texto_bruto, p.criado_em,
+      SELECT p.id, p.numero_pedido, p.status, p.origem, p.grupo, p.pedido_id_origem, p.cliente, p.endereco, p.bairro, p.telefone_cliente, p.localizador, p.texto_bruto, p.criado_em,
              ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(p.criado_em, DATETIME('now', '-3 hours')))) * 1440) as minutos_aguardando
       FROM pedidos p
       WHERE (p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR p.status IS NULL)
         AND (p.motoboy_id IS NULL OR p.status != 'em_rota')
         AND p.status NOT IN ('entregue', 'expirado', 'cancelado')
         AND DATE(COALESCE(p.criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
-        ${whereGrupo}
       ORDER BY p.id DESC
-    `, params);
+    `);
 
     return res.json(200, {
       success: true,
       total: pedidos.length,
       pedidos: pedidos.map(p => {
-        const repasse = obterTaxaRepasse(p.bairro, p.endereco, p.texto_bruto, grupoFiltro || p.grupo || 'VELOZ');
         const bairroNome = obterNomeBairroCanonica(p.bairro, p.endereco, p.texto_bruto) || p.bairro;
         return {
           ...p,
           bairro: bairroNome,
           grupo: p.grupo || null,
-          taxa_repasse: repasse,
-          taxa_entrega: repasse, // Garantir que a taxa exibida para o motoboy seja sempre o repasse oficial Ao Ponto
+          taxa_repasse: null, // Taxa oculta no balcão; calculada e exibida apenas após a retirada pelo motoboy
+          taxa_entrega: null,
           minutos_aguardando: Math.max(0, Math.round(Number(p.minutos_aguardando || 0)))
         };
       })
@@ -657,33 +629,30 @@ async function assumirPedido(req, res) {
     const motoboyIdNum = Number(motoboy_id);
     const db = getDb();
 
-    // 1. Validar se o pedido tem grupo definido e se coincide com o grupo do motoboy
+    // 1. Identificar o motoboy e o grupo a que pertence (SPEED ou VELOZ)
     const motoboy = await db.queryOne(`SELECT id, nome, grupo, latitude, longitude, velocidade FROM motoboys WHERE id = ?`, [motoboyIdNum]);
-    const pedidoAtual = await db.queryOne(`SELECT id, numero_pedido, grupo, status, motoboy_id FROM pedidos WHERE id = ?`, [pedidoIdNum]);
+    if (!motoboy) {
+      return res.json(404, { success: false, message: 'Motoboy não encontrado.' });
+    }
 
+    const pedidoAtual = await db.queryOne(`SELECT id, numero_pedido, bairro, endereco, texto_bruto, grupo, status, motoboy_id FROM pedidos WHERE id = ?`, [pedidoIdNum]);
     if (!pedidoAtual) {
       return res.json(404, { success: false, message: 'Pedido não encontrado.' });
     }
 
-    if (!pedidoAtual.grupo) {
-      return res.json(400, { success: false, message: 'Este pedido ainda está aguardando direcionamento de grupo pela cozinha.' });
-    }
+    const grupoMotoboy = (motoboy && motoboy.grupo) ? String(motoboy.grupo).toUpperCase() : 'VELOZ';
+    const taxaCalculada = obterTaxaRepasse(pedidoAtual.bairro, pedidoAtual.endereco, pedidoAtual.texto_bruto, grupoMotoboy);
 
-    if (motoboy && motoboy.grupo && pedidoAtual.grupo !== motoboy.grupo) {
-      return res.json(403, { 
-        success: false, 
-        message: `Este pedido foi destinado exclusivamente ao grupo ${pedidoAtual.grupo}. Você está registrado no grupo ${motoboy.grupo}.` 
-      });
-    }
-
-    // 2. Atualização atômica para colocar em rota sob responsabilidade do motoboy
+    // 2. Atualização atômica: coloca em rota com o grupo e a taxa calculada para este motoboy
     const result = await db.execute(
       `UPDATE pedidos 
        SET motoboy_id = ?, 
+           grupo = ?,
+           taxa_entrega = ?,
            status = 'em_rota', 
            data_inicio = COALESCE(data_inicio, DATETIME('now', '-3 hours')) 
        WHERE id = ? AND (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL) AND (motoboy_id IS NULL OR motoboy_id = ?)`,
-      [motoboyIdNum, pedidoIdNum, motoboyIdNum]
+      [motoboyIdNum, grupoMotoboy, taxaCalculada, pedidoIdNum, motoboyIdNum]
     );
 
     if (result.changes === 0) {
@@ -879,13 +848,15 @@ async function listarPedidosMotoboy(req, res) {
     return res.json(200, {
       success: true,
       pedidos: pedidos.map(p => {
-        const repasse = obterTaxaRepasse(p.bairro, p.endereco, p.texto_bruto, grupoMotoboy);
+        const repassePadrao = obterTaxaRepasse(p.bairro, p.endereco, p.texto_bruto, grupoMotoboy);
+        const taxaSalva = (p.taxa_entrega !== null && p.taxa_entrega !== undefined && !isNaN(Number(p.taxa_entrega))) ? Number(p.taxa_entrega) : null;
+        const repasse = (taxaSalva !== null && taxaSalva > 0) ? taxaSalva : repassePadrao;
         const bairroNome = obterNomeBairroCanonica(p.bairro, p.endereco, p.texto_bruto) || p.bairro;
         return {
           ...p,
           bairro: bairroNome,
           taxa_repasse: repasse,
-          taxa_entrega: repasse, // Sempre mostrar para o motoboy o repasse oficial Ao Ponto
+          taxa_entrega: repasse, // Reflete taxa oficial ou editada
           minutos_em_rota: Math.max(0, Math.round(Number(p.minutos_em_rota || 0)))
         };
       })
@@ -1115,6 +1086,7 @@ async function obterRendimentosMotoboy(req, res) {
         p.origem,
         p.data_inicio,
         p.data_fim,
+        p.taxa_entrega,
         p.texto_bruto
       FROM pedidos p
       WHERE p.motoboy_id = ?
@@ -1126,7 +1098,8 @@ async function obterRendimentosMotoboy(req, res) {
     let totalTaxas = 0;
 
     const entregasProcessadas = entregas.map(e => {
-      const taxaEfetiva = obterTaxaRepasse(e.bairro, e.endereco, e.texto_bruto, grupoMotoboy);
+      const taxaSalva = (e.taxa_entrega !== null && e.taxa_entrega !== undefined && !isNaN(Number(e.taxa_entrega))) ? Number(e.taxa_entrega) : null;
+      const taxaEfetiva = (taxaSalva !== null && taxaSalva > 0) ? taxaSalva : obterTaxaRepasse(e.bairro, e.endereco, e.texto_bruto, grupoMotoboy);
       const bairroNome = obterNomeBairroCanonica(e.bairro, e.endereco, e.texto_bruto) || e.bairro;
       totalTaxas += taxaEfetiva;
 
