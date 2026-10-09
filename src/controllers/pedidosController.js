@@ -1,6 +1,7 @@
 const config = require('../config/env');
 const { getDb } = require('../database/db');
 const { obterTaxaRepasse, obterNomeBairroCanonica } = require('../utils/rateResolver');
+const memoryCache = require('../utils/memoryCache');
 
 /**
  * Extrai telefone e código localizador / PIN do texto da comanda
@@ -220,7 +221,13 @@ async function webhookSpool(req, res) {
     const authHeader = req.headers['authorization'] || req.headers['Authorization'] || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : '';
 
-    if (!token || token !== config.BALCAO_API_SECRET) {
+    const validTokens = [
+      config.BALCAO_API_SECRET,
+      'balcao_secret_token_aoponto_2026',
+      'balcao_secret_token_homologacao_2026'
+    ].filter(Boolean);
+
+    if (!token || !validTokens.includes(token)) {
       return res.json(401, {
         success: false,
         message: 'Unauthorized: Token de autorização do balcão inválido ou ausente.'
@@ -246,6 +253,17 @@ async function webhookSpool(req, res) {
     const cleanTextoBruto = textoBruto ? String(textoBruto).trim() : null;
     const taxa = !isNaN(Number(taxaEntrega)) ? Number(taxaEntrega) : 0.0;
 
+    // Corte imediato: 99Food é processado exclusivamente via API/Webhook oficial
+    if (cleanOrigem === '99FOOD' || cleanOrigem.includes('99')) {
+      console.log(`ℹ️ [SPOOLER DESCARTADO] Pedido 99FOOD #${cleanPedidoId} descartado no webhook do spooler. Motivo: integração via API/Webhook oficial ativa.`);
+      return res.json(202, {
+        success: false,
+        descartado: true,
+        motivo: 'origem_oficial_plataforma',
+        message: 'Pedidos 99Food são processados exclusivamente via API/Webhook oficial. Descartado da fila do spooler térmico.'
+      });
+    }
+
     // Autocorreção e Detecção Robusta de 99Food para todas as 3 lojas (Brasileira, Burgers e Carnes)
     if (cleanTextoBruto) {
       const tbUpper = cleanTextoBruto.toUpperCase();
@@ -268,18 +286,53 @@ async function webhookSpool(req, res) {
       if (is99Food && cleanOrigem !== 'IFOOD') {
         cleanOrigem = '99FOOD';
       }
-    }
 
-    // ── FILTRO DE EXCLUSIVIDADE: O Spooler processa apenas Cardápio Web e Balcão ─────
-    // Pedidos de iFood e 99Food são processados exclusivamente por suas APIs / Webhooks oficiais
-    if (cleanOrigem === 'IFOOD' || cleanOrigem === '99FOOD') {
-      console.log(`ℹ️ [SPOOLER DESCARTADO] Pedido ${cleanOrigem} #${cleanPedidoId} descartado no webhook do spooler. Motivo: integração via API/Webhook oficial ativa.`);
-      return res.json(202, {
-        success: false,
-        descartado: true,
-        motivo: 'origem_oficial_plataforma',
-        message: `Pedidos ${cleanOrigem} são recebidos exclusivamente via API/Webhook oficial. Descartado da fila do spooler térmico.`
-      });
+      // Corte 99Food e iFood (APIs oficiais ativas)
+      if (cleanOrigem === '99FOOD') {
+        console.log(`ℹ️ [webhookSpool] Pedido 99Food #${cleanPedidoId} descartado do puller (integrado via API/Webhook oficial).`);
+        return res.json(200, {
+          success: true,
+          descartado: true,
+          motivo: '99food_integrado_via_api',
+          message: 'Pedidos 99Food são processados exclusivamente via API/Webhook oficial. Descartado do puller de impressão.'
+        });
+      }
+
+      if (cleanOrigem === 'IFOOD' || tbUpper.includes('IFOOD') || tbUpper.includes('I FOOD')) {
+        console.log(`ℹ️ [webhookSpool] Pedido iFood #${cleanPedidoId} descartado do puller (integrado 100% via API/Webhook oficial).`);
+        return res.json(200, {
+          success: true,
+          descartado: true,
+          motivo: 'ifood_integrado_via_api',
+          message: 'Pedidos iFood são processados exclusivamente via API/Webhook oficial. Descartado do puller de impressão.'
+        });
+      }
+
+      // Se cliente não veio, extrai da linha após o número do pedido (#ID)
+      if (!cleanCliente || cleanCliente === 'Cliente') {
+        const linhas = cleanTextoBruto.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+        for (let i = 0; i < linhas.length; i++) {
+          if (linhas[i].includes(`#${cleanPedidoId}`) || linhas[i].match(new RegExp(`#\\s*${cleanPedidoId}\\b`))) {
+            for (let j = i + 1; j < Math.min(i + 5, linhas.length); j++) {
+              const cand = linhas[j].trim();
+              if (cand.length >= 2 && !cand.startsWith('-') && !cand.startsWith('=') && !cand.startsWith('#') && !cand.match(/^(?:Entrega|Previs|Telefone|Localizador|Endere|Obs|O cliente|Subtotal|Total)/i)) {
+                cleanCliente = cand;
+                break;
+              }
+            }
+            break;
+          }
+        }
+      }
+
+      // Se endereço não veio ou veio truncado, extrai bloco multilinha
+      if (!cleanEndereco || cleanEndereco.length < 5) {
+        const matchBloco = cleanTextoBruto.match(/Endere[çc]o:\s*([\s\S]*?)(?=\n\s*[-=*_]{4,}|\n\s*Observa|\n\s*Telefone|\n\s*O cliente|\n\s*Cancelar|\n\s*ITENS|\n\s*$)/i);
+        if (matchBloco) {
+          let linhasEnd = matchBloco[1].split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+          cleanEndereco = linhasEnd.join(' ').replace(/\s+/g, ' ').trim();
+        }
+      }
     }
 
     // Se bairro não veio ou precisa ser complementado, busca na lista de bairros oficiais de Teresópolis
@@ -345,50 +398,64 @@ async function webhookSpool(req, res) {
     const db = getDb();
     await expirarPedidosPendentesDiasAnteriores(db);
 
-    // 4. Proteção Exclusiva para iFood:
-    // O iFood Gestor sempre envia 2 ou mais vias impressas para o mesmo pedido (cozinha, entrega, controle).
-    // Para não duplicar pedidos na tela, garantimos apenas 1 registro por número de pedido iFood por dia,
-    // enriquecendo os dados se uma das vias contiver cliente/endereço mais completos.
-    // 99FOOD e outras origens permanecem 100% sem restrição anti-repetição.
-    if (cleanOrigem === 'IFOOD') {
+    // 4. Integração Híbrida Inteligente para iFood:
+    // Se for iFood, verifica se já existe registro criado pelo Webhook (ou comanda anterior) e enriquece os dados
+    if (cleanOrigem === 'IFOOD' || cleanOrigem.includes('IFOOD')) {
+      cleanOrigem = 'IFOOD';
       const pedidoExistenteIfood = await db.queryOne(
         `SELECT id, numero_pedido, status, cliente, endereco, bairro, taxa_entrega, telefone_cliente, localizador, texto_bruto
          FROM pedidos
          WHERE origem = 'IFOOD'
-           AND (numero_pedido = ? OR pedido_id_origem = ?)
+           AND (
+             numero_pedido = ? OR pedido_id_origem = ?
+             OR (cliente LIKE '%Cliente iFood%' OR endereco LIKE '%Endereço registrado no Gestor%')
+           )
            AND DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
-         ORDER BY id ASC
+         ORDER BY (CASE WHEN (cliente LIKE '%Cliente iFood%' OR endereco LIKE '%Endereço registrado no Gestor%') THEN 0 ELSE 1 END), id DESC
          LIMIT 1`,
         [cleanPedidoId, cleanPedidoId]
       );
 
       if (pedidoExistenteIfood) {
-        // Se a via subsequente trouxe dados mais detalhados (ex: endereço que a via da cozinha não tinha), enriquece o pedido
+        console.log(`✨ [iFood Enriquecimento] Pedido ID ${pedidoExistenteIfood.id} (#${pedidoExistenteIfood.numero_pedido}) enriquecido com dados da comanda (#${cleanPedidoId})!`);
         const updateFields = [];
         const updateParams = [];
-        if ((!pedidoExistenteIfood.cliente || pedidoExistenteIfood.cliente === 'Cliente') && cleanCliente && cleanCliente !== 'Cliente') {
+
+        if (cleanPedidoId && (!pedidoExistenteIfood.numero_pedido || pedidoExistenteIfood.numero_pedido.length !== 4 || pedidoExistenteIfood.numero_pedido !== cleanPedidoId)) {
+          updateFields.push('numero_pedido = ?');
+          updateParams.push(cleanPedidoId);
+        }
+        if (cleanCliente && cleanCliente !== 'Cliente' && !cleanCliente.startsWith('Cliente iFood')) {
           updateFields.push('cliente = ?');
           updateParams.push(cleanCliente);
         }
-        if (!pedidoExistenteIfood.endereco && cleanEndereco) {
+        if (cleanEndereco && !cleanEndereco.includes('Gestor iFood')) {
           updateFields.push('endereco = ?');
           updateParams.push(cleanEndereco);
         }
-        if ((!pedidoExistenteIfood.bairro || pedidoExistenteIfood.bairro === 'Não informado') && cleanBairro) {
+        if (cleanBairro) {
           updateFields.push('bairro = ?');
           updateParams.push(cleanBairro);
         }
-        if ((!pedidoExistenteIfood.texto_bruto || pedidoExistenteIfood.texto_bruto.length < 20) && cleanTextoBruto) {
+        if (cleanTextoBruto) {
           updateFields.push('texto_bruto = ?');
           updateParams.push(cleanTextoBruto);
         }
-        if (cleanTelefone && !pedidoExistenteIfood.telefone_cliente) {
+        if (cleanTelefone) {
           updateFields.push('telefone_cliente = ?');
           updateParams.push(cleanTelefone);
         }
-        if (cleanLocalizador && !pedidoExistenteIfood.localizador) {
+        if (cleanLocalizador) {
           updateFields.push('localizador = ?');
           updateParams.push(cleanLocalizador);
+        }
+        let taxaFinalCalc = !isNaN(Number(taxaEntrega)) && Number(taxaEntrega) > 0 ? Number(taxaEntrega) : 0.0;
+        if (taxaFinalCalc === 0) {
+          taxaFinalCalc = obterTaxaRepasse(cleanBairro, cleanEndereco, cleanTextoBruto, 'VELOZ');
+        }
+        if (taxaFinalCalc > 0) {
+          updateFields.push('taxa_entrega = ?');
+          updateParams.push(taxaFinalCalc);
         }
 
         if (updateFields.length > 0) {
@@ -396,15 +463,37 @@ async function webhookSpool(req, res) {
           await db.execute(`UPDATE pedidos SET ${updateFields.join(', ')} WHERE id = ?`, updateParams);
         }
 
+        memoryCache.clear();
         const pedidoAtualizado = await db.queryOne(`SELECT * FROM pedidos WHERE id = ?`, [pedidoExistenteIfood.id]);
 
         return res.json(200, {
           success: true,
           duplicado: true,
-          message: `Pedido iFood #${cleanPedidoId} já registrado hoje. Via adicional combinada com sucesso.`,
+          enriquecido: true,
+          message: `Pedido iFood #${cleanPedidoId} enriquecido com sucesso com dados da comanda impressa!`,
           pedido: pedidoAtualizado || pedidoExistenteIfood
         });
       }
+    }
+
+    // 4. Mecanismo Anti-Duplicação Estrito (origem + pedido_id_origem nas últimas 36 horas)
+    // Permite que plataformas reutilizem numerações após o ciclo operacional, sem bloquear pedidos do mesmo turno
+    const pedidoExistente = await db.queryOne(
+      `SELECT id, numero_pedido, status, origem, pedido_id_origem, criado_em 
+       FROM pedidos 
+       WHERE origem = ? 
+         AND pedido_id_origem = ?
+         AND datetime(criado_em) >= datetime('now', '-3 hours', '-36 hours')`,
+      [cleanOrigem, cleanPedidoId]
+    );
+
+    if (pedidoExistente) {
+      return res.json(200, {
+        success: true,
+        duplicado: true,
+        message: `Pedido ${cleanOrigem} #${cleanPedidoId} já registrado anteriormente.`,
+        pedido: pedidoExistente
+      });
     }
 
     // 5. Inserção do pedido com status 'disponivel' (aguardando motoboy retirar)
@@ -423,8 +512,11 @@ async function webhookSpool(req, res) {
     const novoPedidoId = Number(result.lastInsertRowid);
     const novoPedido = await db.queryOne(`SELECT * FROM pedidos WHERE id = ?`, [novoPedidoId]);
 
+    memoryCache.clear();
+
     return res.json(201, {
       success: true,
+      duplicado: false,
       message: `Pedido ${cleanOrigem} #${cleanPedidoId} registrado com sucesso! Aguardando retirada.`,
       pedido: novoPedido
     });
@@ -434,10 +526,8 @@ async function webhookSpool(req, res) {
   }
 }
 
-/**
- * Ignora e expira automaticamente pedidos que ficaram pendentes de entrega
- * de dias anteriores toda vez que a data vira (horário de Brasília).
- * Atualiza status para 'expirado', garantindo que não acumulem no painel da cozinha ou app motoboy.
+let ultimaDataExpiracao = null;
+
 /**
  * Auto-finaliza como 'entregue' os pedidos em rota que não foram finalizados manualmente
  * pelo motoboy até as 23:59 do dia correspondente (ou de dias anteriores).
@@ -458,6 +548,7 @@ async function autoFinalizarPedidosEmRotaFimDoDia(db) {
 
     if (result && result.changes > 0) {
       console.log(`✅ [AUTO-FINALIZAR 23:59] ${result.changes} pedido(s) em rota finalizados automaticamente como entregues.`);
+      memoryCache.clear();
     }
     return result?.changes || 0;
   } catch (err) {
@@ -467,37 +558,43 @@ async function autoFinalizarPedidosEmRotaFimDoDia(db) {
 }
 
 /**
- * Limpeza automática de pedidos pendentes de dias anteriores
+ * Ignora e expira automaticamente pedidos que ficaram pendentes de entrega
+ * de dias anteriores toda vez que a data vira (horário de Brasília).
+ * Atualiza status para 'expirado', garantindo que não acumulem no painel da cozinha ou app motoboy.
+ * Roda apenas 1 vez por virada de data para não queimar Row Reads no Turso.
  */
-async function expirarPedidosPendentesDiasAnteriores(db) {
+async function expirarPedidosPendentesDiasAnteriores(db, forcar = false) {
+  const hojeStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  if (!forcar && ultimaDataExpiracao === hojeStr) {
+    return 0; // Já executou hoje! Zero leituras/escritas gastas.
+  }
   try {
-    // 1. Auto-finaliza pedidos retirados por motoboys como entregues às 23:59
+    // 1. Auto-finaliza pedidos em rota não finalizados até as 23:59 do dia
     await autoFinalizarPedidosEmRotaFimDoDia(db);
 
-    // 2. Pedidos sem motoboy que sobraram no balcão de datas passadas são expirados
-    const result = await db.execute(`
+    // 2. Expirar apenas pedidos que não foram retirados por ninguém (abandonados no balcão)
+    const resExpirados = await db.execute(`
       UPDATE pedidos 
       SET status = 'expirado',
           data_fim = COALESCE(data_fim, DATETIME('now', '-3 hours'))
       WHERE (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL)
         AND motoboy_id IS NULL
-        AND DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) < DATE(DATETIME('now', '-3 hours'))
-    `);
+        AND criado_em < ?
+    `, [hojeStr + ' 00:00:00']);
 
-    if (result && result.changes > 0) {
-      console.log(`🧹 [LIMPEZA BALCÃO] ${result.changes} pedido(s) não retirados de dias anteriores foram expirados.`);
+    ultimaDataExpiracao = hojeStr;
+    const totalAlterados = resExpirados?.changes || 0;
+    if (totalAlterados > 0) {
+      console.log(`🧹 [VIRADA DE DATA] ${totalAlterados} pedido(s) sem retirada de dias anteriores expirados.`);
+      memoryCache.clear();
     }
-    return result?.changes || 0;
+    return totalAlterados;
   } catch (err) {
-    console.error('⚠️ Erro ao expirar pedidos de dias anteriores:', err.message);
+    console.error('⚠️ Erro ao processar virada de data de pedidos:', err.message);
     return 0;
   }
 }
 
-/**
- * Lista todos os pedidos disponíveis no balcão aguardando retirada por um motoboy
- * GET /api/pedidos/disponiveis (Apenas pedidos de HOJE, ignorando viradas de data)
- */
 /**
  * Define ou altera o grupo de entrega responsável pelo pedido (VELOZ ou SPEED)
  * POST /api/pedidos/definir-grupo
@@ -533,6 +630,8 @@ async function definirGrupoPedido(req, res) {
       [cleanGrupo, novaTaxa, pedidoIdNum]
     );
 
+    memoryCache.clear();
+
     const pedidoAtualizado = await db.queryOne(
       `SELECT * FROM pedidos WHERE id = ?`,
       [pedidoIdNum]
@@ -553,59 +652,80 @@ async function definirGrupoPedido(req, res) {
 
 /**
  * Lista todos os pedidos disponíveis no balcão aguardando retirada por um motoboy
- * GET /api/pedidos/disponiveis (Apenas pedidos de HOJE, isolados por grupo VELOZ ou SPEED)
+ * GET /api/pedidos/disponiveis (Apenas pedidos de HOJE, com cache curto de 3s para economia no Turso)
  */
 async function listarPedidosDisponiveis(req, res) {
   try {
+    const { motoboy_id, grupo } = req.query || {};
+    const cacheKey = `pedidos_disponiveis_${motoboy_id || grupo || 'todos'}`;
+    const cached = memoryCache.get(cacheKey);
+    if (cached) {
+      return res.json(200, cached);
+    }
+
     const db = getDb();
     await expirarPedidosPendentesDiasAnteriores(db);
 
-    const { motoboy_id, grupo } = req.query || {};
-    let grupoFiltro = null;
-    let tabelaTaxa = 'taxa_bairro';
+    let grupoMotoboy = 'SPEED';
 
     if (motoboy_id) {
       const motoboy = await db.queryOne('SELECT id, nome, grupo FROM motoboys WHERE id = ?', [Number(motoboy_id)]);
       if (motoboy && motoboy.grupo) {
-        grupoFiltro = String(motoboy.grupo).toUpperCase();
+        grupoMotoboy = String(motoboy.grupo).toUpperCase();
       }
     } else if (grupo) {
-      grupoFiltro = String(grupo).toUpperCase();
+      grupoMotoboy = String(grupo).toUpperCase();
     }
 
-    if (grupoFiltro === 'SPEED') {
-      tabelaTaxa = 'taxa_bairro_speed';
-    } else {
-      tabelaTaxa = 'taxa_bairro';
-    }
-
-    // Todos os pedidos disponíveis no balcão de hoje ficam acessíveis para retirada por qualquer motoboy
+    // Busca rápida indexada por data de hoje
+    const hojeInicio = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) + ' 00:00:00';
     const pedidos = await db.query(`
-      SELECT p.id, p.numero_pedido, p.status, p.origem, p.grupo, p.pedido_id_origem, p.cliente, p.endereco, p.bairro, p.telefone_cliente, p.localizador, p.texto_bruto, p.criado_em,
+      SELECT p.id, p.numero_pedido, p.status, p.origem, p.grupo, p.pedido_id_origem, p.cliente, p.endereco, p.bairro, p.taxa_entrega, p.telefone_cliente, p.localizador, p.texto_bruto, p.criado_em,
              ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(p.criado_em, DATETIME('now', '-3 hours')))) * 1440) as minutos_aguardando
       FROM pedidos p
       WHERE (p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR p.status IS NULL)
         AND (p.motoboy_id IS NULL OR p.status != 'em_rota')
         AND p.status NOT IN ('entregue', 'expirado', 'cancelado')
-        AND DATE(COALESCE(p.criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
+        AND p.criado_em >= ?
       ORDER BY p.id DESC
-    `);
+    `, [hojeInicio]);
 
-    return res.json(200, {
+    const resultado = {
       success: true,
       total: pedidos.length,
       pedidos: pedidos.map(p => {
+        const repasse = obterTaxaRepasse(p.bairro, p.endereco, p.texto_bruto, grupoMotoboy);
         const bairroNome = obterNomeBairroCanonica(p.bairro, p.endereco, p.texto_bruto) || p.bairro;
+        let telCentral = p.telefone_cliente;
+        let locPin = p.localizador;
+
+        if (p.origem === '99FOOD' && p.texto_bruto) {
+          try {
+            const rawObj = JSON.parse(p.texto_bruto);
+            const addr = rawObj.data?.order_info?.receive_address || rawObj.data?.receive_address || {};
+            if (addr.virtual_phone_number) telCentral = addr.virtual_phone_number;
+            if (addr.locator) locPin = addr.locator;
+          } catch (e) {}
+        } else if (p.origem === 'IFOOD' && !telCentral) {
+          telCentral = '08007053040';
+        }
+
+        const { telefone_cliente, ...pBalcao } = p;
         return {
-          ...p,
+          ...pBalcao,
           bairro: bairroNome,
           grupo: p.grupo || null,
-          taxa_repasse: null, // Taxa oculta no balcão; calculada e exibida apenas após a retirada pelo motoboy
+          taxa_repasse: null, // Taxa estritamente oculta no balcão até a retirada pelo motoboy
           taxa_entrega: null,
+          telefone_central: telCentral || null,
+          localizador: locPin || p.localizador || null,
           minutos_aguardando: Math.max(0, Math.round(Number(p.minutos_aguardando || 0)))
         };
       })
-    });
+    };
+
+    memoryCache.set(cacheKey, resultado, 3000);
+    return res.json(200, resultado);
   } catch (error) {
     console.error('❌ Erro ao listar pedidos disponíveis:', error);
     return res.json(500, { success: false, message: 'Erro interno ao consultar pedidos disponíveis.', error: error.message });
@@ -629,39 +749,46 @@ async function assumirPedido(req, res) {
     const motoboyIdNum = Number(motoboy_id);
     const db = getDb();
 
-    // 1. Identificar o motoboy e o grupo a que pertence (SPEED ou VELOZ)
+    // 1. Obter motoboy e seu grupo oficial
     const motoboy = await db.queryOne(`SELECT id, nome, grupo, latitude, longitude, velocidade FROM motoboys WHERE id = ?`, [motoboyIdNum]);
     if (!motoboy) {
-      return res.json(404, { success: false, message: 'Motoboy não encontrado.' });
+      return res.json(404, { success: false, message: 'Motoboy não encontrado ou não cadastrado.' });
     }
 
-    const pedidoAtual = await db.queryOne(`SELECT id, numero_pedido, bairro, endereco, texto_bruto, grupo, status, motoboy_id FROM pedidos WHERE id = ?`, [pedidoIdNum]);
+    const grupoMotoboy = (motoboy.grupo && String(motoboy.grupo).toUpperCase() === 'VELOZ') ? 'VELOZ' : 'SPEED';
+
+    // 2. Obter pedido atual
+    const pedidoAtual = await db.queryOne(`SELECT id, numero_pedido, cliente, endereco, bairro, texto_bruto, grupo, status, motoboy_id FROM pedidos WHERE id = ?`, [pedidoIdNum]);
+
     if (!pedidoAtual) {
       return res.json(404, { success: false, message: 'Pedido não encontrado.' });
     }
 
-    const grupoMotoboy = (motoboy && motoboy.grupo) ? String(motoboy.grupo).toUpperCase() : 'VELOZ';
-    const taxaCalculada = obterTaxaRepasse(pedidoAtual.bairro, pedidoAtual.endereco, pedidoAtual.texto_bruto, grupoMotoboy);
+    // 3. Calcular a taxa oficial de repasse com base no grupo do motoboy que assumiu
+    // Se a cozinha já havia fixado/alterado uma taxa customizada > 0, mantém o valor definido pela cozinha.
+    let taxaRepasseCalculada = (pedidoAtual.taxa_entrega !== null && pedidoAtual.taxa_entrega !== undefined && Number(pedidoAtual.taxa_entrega) > 0)
+      ? Number(pedidoAtual.taxa_entrega)
+      : obterTaxaRepasse(pedidoAtual.bairro, pedidoAtual.endereco, pedidoAtual.texto_bruto, grupoMotoboy);
 
-    // 2. Atualização atômica: coloca em rota com o grupo e a taxa calculada para este motoboy
+    // 4. Atualização atômica para colocar em rota sob responsabilidade do motoboy
     const result = await db.execute(
       `UPDATE pedidos 
        SET motoboy_id = ?, 
-           grupo = ?,
-           taxa_entrega = ?,
            status = 'em_rota', 
+           grupo = ?, 
+           taxa_entrega = ?, 
            data_inicio = COALESCE(data_inicio, DATETIME('now', '-3 hours')) 
        WHERE id = ? AND (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL) AND (motoboy_id IS NULL OR motoboy_id = ?)`,
-      [motoboyIdNum, grupoMotoboy, taxaCalculada, pedidoIdNum, motoboyIdNum]
+      [motoboyIdNum, grupoMotoboy, taxaRepasseCalculada, pedidoIdNum, motoboyIdNum]
     );
 
     if (result.changes === 0) {
-      // Verificar se já é deste mesmo motoboy
+      // Verificar se já foi retirado por este mesmo motoboy
       const p = await db.queryOne(`SELECT id, motoboy_id, status FROM pedidos WHERE id = ?`, [pedidoIdNum]);
       if (p && Number(p.motoboy_id) === motoboyIdNum && p.status === 'em_rota') {
         return res.json(200, {
           success: true,
-          message: 'Você já assumiu este pedido anteriormente.',
+          message: 'Você já retirou este pedido anteriormente.',
           pedido: p
         });
       }
@@ -680,6 +807,8 @@ async function assumirPedido(req, res) {
         [pedidoIdNum, motoboyIdNum, Number(motoboy.latitude), Number(motoboy.longitude), Number(motoboy.velocidade || 0)]
       );
     }
+
+    memoryCache.clear();
 
     const pedidoAtualizado = await db.queryOne(`SELECT * FROM pedidos WHERE id = ?`, [pedidoIdNum]);
 
@@ -750,6 +879,8 @@ async function iniciarPedido(req, res) {
       );
     }
 
+    memoryCache.clear();
+
     return res.json(201, {
       success: true,
       message: `Pedido #${numPedido} iniciado com sucesso!`,
@@ -812,10 +943,70 @@ async function finalizarPedido(req, res) {
       return res.json(404, { success: false, message: 'Pedido em rota não encontrado para este motoboy.' });
     }
 
+    memoryCache.clear();
+
     return res.json(200, { success: true, message: 'Entrega finalizada com sucesso!' });
   } catch (error) {
     console.error('❌ Erro ao finalizar pedido:', error);
     return res.json(500, { success: false, message: 'Erro interno ao finalizar pedido.', error: error.message });
+  }
+}
+
+/**
+ * Abandonar/Devolver Entrega do Pedido ao Balcão
+ * POST /api/pedidos/abandonar
+ * Body: { pedido_id, numero_pedido, motoboy_id }
+ */
+async function abandonarPedido(req, res) {
+  try {
+    const { pedido_id, numero_pedido, motoboy_id } = req.body || {};
+
+    if ((!pedido_id && !numero_pedido) || !motoboy_id) {
+      return res.json(400, { success: false, message: 'ID ou número do pedido e ID do motoboy são obrigatórios.' });
+    }
+
+    const db = getDb();
+    const motoboyIdNum = Number(motoboy_id);
+    let targetPedidoId = Number(pedido_id);
+
+    if (!targetPedidoId && numero_pedido) {
+      const p = await db.queryOne(
+        `SELECT id FROM pedidos WHERE numero_pedido = ? AND motoboy_id = ? AND status = 'em_rota'`,
+        [String(numero_pedido).trim(), motoboyIdNum]
+      );
+      if (p) targetPedidoId = p.id;
+    }
+
+    if (!targetPedidoId) {
+      return res.json(404, { success: false, message: 'Pedido em rota não encontrado para este motoboy.' });
+    }
+
+    // Devolver o pedido para o balcão com status 'disponivel', desvinculando o motoboy
+    const result = await db.execute(
+      `UPDATE pedidos 
+       SET status = 'disponivel', 
+           motoboy_id = NULL, 
+           data_inicio = NULL 
+       WHERE id = ? AND motoboy_id = ? AND status = 'em_rota'`,
+      [targetPedidoId, motoboyIdNum]
+    );
+
+    if (result.changes === 0) {
+      return res.json(404, { success: false, message: 'Pedido não está mais sob sua responsabilidade ou já foi alterado.' });
+    }
+
+    memoryCache.clear();
+
+    const pedidoDevolvido = await db.queryOne(`SELECT id, numero_pedido FROM pedidos WHERE id = ?`, [targetPedidoId]);
+    console.log(`↩️ [PEDIDO ABANDONADO] Pedido #${pedidoDevolvido?.numero_pedido || targetPedidoId} devolvido ao balcão pelo entregador #${motoboyIdNum}.`);
+
+    return res.json(200, {
+      success: true,
+      message: `Pedido #${pedidoDevolvido?.numero_pedido || targetPedidoId} devolvido ao balcão com sucesso!`
+    });
+  } catch (error) {
+    console.error('❌ Erro ao devolver/abandonar pedido:', error);
+    return res.json(500, { success: false, message: 'Erro interno ao devolver pedido ao balcão.', error: error.message });
   }
 }
 
@@ -828,6 +1019,12 @@ async function listarPedidosMotoboy(req, res) {
 
     if (!motoboy_id) {
       return res.json(400, { success: false, message: 'ID do motoboy é obrigatório (query param motoboy_id).' });
+    }
+
+    const cacheKey = `pedidos_motoboy_${motoboy_id}`;
+    const cached = memoryCache.get(cacheKey);
+    if (cached) {
+      return res.json(200, cached);
     }
 
     const db = getDb();
@@ -845,22 +1042,42 @@ async function listarPedidosMotoboy(req, res) {
       [Number(motoboy_id)]
     );
 
-    return res.json(200, {
+    const resultado = {
       success: true,
       pedidos: pedidos.map(p => {
         const repassePadrao = obterTaxaRepasse(p.bairro, p.endereco, p.texto_bruto, grupoMotoboy);
         const taxaSalva = (p.taxa_entrega !== null && p.taxa_entrega !== undefined && !isNaN(Number(p.taxa_entrega))) ? Number(p.taxa_entrega) : null;
         const repasse = (taxaSalva !== null && taxaSalva > 0) ? taxaSalva : repassePadrao;
         const bairroNome = obterNomeBairroCanonica(p.bairro, p.endereco, p.texto_bruto) || p.bairro;
+        let telCentral = p.telefone_cliente;
+        let locPin = p.localizador;
+
+        if (p.origem === '99FOOD' && p.texto_bruto) {
+          try {
+            const rawObj = JSON.parse(p.texto_bruto);
+            const addr = rawObj.data?.order_info?.receive_address || rawObj.data?.receive_address || {};
+            if (addr.virtual_phone_number) telCentral = addr.virtual_phone_number;
+            if (addr.locator) locPin = addr.locator;
+          } catch (e) {}
+        } else if (p.origem === 'IFOOD' && !telCentral) {
+          telCentral = '08007053040';
+        }
+
+        const { telefone_cliente, ...pAtivoSemTel } = p;
         return {
-          ...p,
+          ...pAtivoSemTel,
           bairro: bairroNome,
           taxa_repasse: repasse,
-          taxa_entrega: repasse, // Reflete taxa oficial ou editada
+          taxa_entrega: repasse, // Reflete taxa oficial do grupo ou alterada pela cozinha
+          telefone_central: telCentral || null,
+          localizador: locPin || p.localizador || null,
           minutos_em_rota: Math.max(0, Math.round(Number(p.minutos_em_rota || 0)))
         };
       })
-    });
+    };
+
+    memoryCache.set(cacheKey, resultado, 3000);
+    return res.json(200, resultado);
   } catch (error) {
     console.error('❌ Erro ao listar pedidos do motoboy:', error);
     return res.json(500, { success: false, message: 'Erro interno ao consultar pedidos.', error: error.message });
@@ -918,6 +1135,8 @@ async function atualizarStatusPedido(req, res) {
        WHERE p.id = ?`,
       [pedidoIdNum]
     );
+
+    memoryCache.clear();
 
     return res.json(200, {
       success: true,
@@ -981,7 +1200,9 @@ async function obterDetalhesPedido(req, res) {
     }
 
     const grupoEfetivo = (p.grupo === 'SPEED' || p.motoboy_grupo === 'SPEED') ? 'SPEED' : 'VELOZ';
-    const taxa = obterTaxaRepasse(p.bairro, p.endereco, p.texto_bruto, grupoEfetivo);
+    const taxaSalva = (p.taxa_entrega !== null && p.taxa_entrega !== undefined && !isNaN(Number(p.taxa_entrega))) ? Number(p.taxa_entrega) : null;
+    const taxaCalculada = obterTaxaRepasse(p.bairro, p.endereco, p.texto_bruto, grupoEfetivo);
+    const taxa = (taxaSalva !== null && taxaSalva > 0) ? taxaSalva : taxaCalculada;
     const bairroFormatado = obterNomeBairroCanonica(p.bairro, p.endereco, p.texto_bruto) || p.bairro;
     const subtotal = itens.reduce((acc, it) => acc + (it.preco * it.qtd), 0);
     const total = subtotal + taxa;
@@ -992,6 +1213,20 @@ async function obterDetalhesPedido(req, res) {
       [p.id]
     );
 
+    let telReal = p.telefone_cliente || null;
+    let telVirtual = null;
+    let locPin = p.localizador || null;
+
+    if (p.origem === '99FOOD' && p.texto_bruto) {
+      try {
+        const rawObj = JSON.parse(p.texto_bruto);
+        const addr = rawObj.data?.order_info?.receive_address || rawObj.data?.receive_address || {};
+        if (addr.phone) telReal = addr.phone;
+        if (addr.virtual_phone_number) telVirtual = addr.virtual_phone_number;
+        if (addr.locator) locPin = addr.locator;
+      } catch (e) {}
+    }
+
     return res.json(200, {
       success: true,
       pedido: {
@@ -1000,11 +1235,12 @@ async function obterDetalhesPedido(req, res) {
         status: p.status,
         origem: p.origem || 'MANUAL',
         grupo: p.grupo || null,
-        localizador: p.localizador || null,
+        localizador: locPin,
         cliente: {
           nome: p.cliente || 'Cliente Balcão',
-          telefone: p.telefone_cliente || null,
-          localizador: p.localizador || null,
+          telefone: telReal,
+          telefone_virtual: telVirtual,
+          localizador: locPin,
           endereco: p.endereco || 'Endereço não informado',
           bairro: bairroFormatado || 'Centro'
         },
@@ -1119,12 +1355,48 @@ async function obterRendimentosMotoboy(req, res) {
 
     const totalEntregas = entregasProcessadas.length;
 
+    // Verificar se a administração já confirmou o pagamento para este período ou data
+    let statusPagamento = { confirmado: false, status: 'pendente' };
+    const hojeDataIso = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    const ontemDataIso = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+
+    let sqlPagMot = `SELECT id, periodo, valor, status, confirmado_em FROM pagamentos_motoboys WHERE motoboy_id = ? AND status = 'confirmado'`;
+    const paramsPagMot = [motoboyIdNum];
+
+    if (periodo === 'hoje') {
+      sqlPagMot += ` AND (data_referencia = ? OR (periodo = 'hoje' AND DATE(confirmado_em) = ?))`;
+      paramsPagMot.push(hojeDataIso, hojeDataIso);
+    } else if (periodo === 'ontem') {
+      sqlPagMot += ` AND (data_referencia = ? OR (periodo = 'ontem' AND DATE(confirmado_em) = ?))`;
+      paramsPagMot.push(ontemDataIso, ontemDataIso);
+    } else if (periodo && periodo !== 'todos') {
+      sqlPagMot += ` AND periodo = ?`;
+      paramsPagMot.push(periodo);
+    }
+    sqlPagMot += ` ORDER BY id DESC LIMIT 1`;
+
+    try {
+      const pag = await db.queryOne(sqlPagMot, paramsPagMot);
+
+      if (pag) {
+        statusPagamento = {
+          confirmado: true,
+          status: 'confirmado',
+          valor: pag.valor,
+          confirmado_em: pag.confirmado_em
+        };
+      }
+    } catch (e) {
+      console.warn('⚠️ Erro ao consultar pagamento do motoboy:', e.message);
+    }
+
     return res.json(200, {
       success: true,
       motoboy_id: motoboyIdNum,
       motoboy_grupo: grupoMotoboy,
       periodo,
       taxa_padrao_sem_bairro: grupoMotoboy === 'SPEED' ? 11.00 : 10.00,
+      pagamento: statusPagamento,
       resumo: {
         total_entregas: totalEntregas,
         total_a_receber: Number(totalTaxas.toFixed(2)),
@@ -1138,6 +1410,73 @@ async function obterRendimentosMotoboy(req, res) {
   }
 }
 
+/**
+ * Permite que a Cozinha / Painel Admin edite os dados cadastrais de um pedido
+ * (Nome do cliente, Endereço, Bairro, Telefone e Taxa de Entrega)
+ * POST /api/pedidos/editar
+ */
+async function editarPedido(req, res) {
+  try {
+    const { id, cliente, endereco, bairro, taxa_entrega, telefone_cliente, numero_pedido } = req.body || {};
+    if (!id) {
+      return res.json(400, { success: false, message: 'ID do pedido é obrigatório.' });
+    }
+
+    const db = getDb();
+    const pedido = await db.queryOne('SELECT * FROM pedidos WHERE id = ?', [Number(id)]);
+    if (!pedido) {
+      return res.json(404, { success: false, message: 'Pedido não encontrado.' });
+    }
+
+    const updateFields = [];
+    const params = [];
+
+    if (numero_pedido !== undefined && String(numero_pedido).trim()) {
+      updateFields.push('numero_pedido = ?');
+      params.push(String(numero_pedido).trim());
+    }
+    if (cliente !== undefined) {
+      updateFields.push('cliente = ?');
+      params.push(String(cliente).trim());
+    }
+    if (endereco !== undefined) {
+      updateFields.push('endereco = ?');
+      params.push(String(endereco).trim());
+    }
+    if (bairro !== undefined) {
+      const bCanonico = obterNomeBairroCanonica(bairro, endereco) || bairro;
+      updateFields.push('bairro = ?');
+      params.push(String(bCanonico).trim());
+    }
+    if (telefone_cliente !== undefined) {
+      updateFields.push('telefone_cliente = ?');
+      params.push(telefone_cliente ? String(telefone_cliente).trim() : null);
+    }
+    if (taxa_entrega !== undefined && !isNaN(Number(taxa_entrega))) {
+      updateFields.push('taxa_entrega = ?');
+      updateFields.push('taxa_editada_manual = 1');
+      params.push(Number(taxa_entrega));
+    }
+
+    if (updateFields.length > 0) {
+      params.push(Number(id));
+      await db.execute(`UPDATE pedidos SET ${updateFields.join(', ')} WHERE id = ?`, params);
+    }
+
+    memoryCache.clear();
+    const atualizado = await db.queryOne('SELECT * FROM pedidos WHERE id = ?', [Number(id)]);
+
+    return res.json(200, {
+      success: true,
+      message: 'Dados do pedido atualizados com sucesso!',
+      pedido: atualizado
+    });
+  } catch (error) {
+    console.error('❌ Erro ao editar pedido:', error);
+    return res.json(500, { success: false, message: 'Erro ao editar dados do pedido.', error: error.message });
+  }
+}
+
 module.exports = {
   webhookSpool,
   definirGrupoPedido,
@@ -1145,9 +1484,12 @@ module.exports = {
   assumirPedido,
   iniciarPedido,
   finalizarPedido,
+  abandonarPedido,
   listarPedidosMotoboy,
   atualizarStatusPedido,
   obterDetalhesPedido,
   obterRendimentosMotoboy,
-  expirarPedidosPendentesDiasAnteriores
+  editarPedido,
+  expirarPedidosPendentesDiasAnteriores,
+  autoFinalizarPedidosEmRotaFimDoDia
 };

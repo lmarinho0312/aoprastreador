@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Ao Ponto Carnes — Painel Operacional da Cozinha</title>
-  <link rel="icon" type="image/png" href="/assets/logo-transparent.png">
+  <link rel="apple-touch-icon" href="/assets/icon-512.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/assets/icon-512.png">
+  <link rel="shortcut icon" href="/favicon.ico">
 
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -239,19 +242,17 @@
       -webkit-filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3);
     }
 
-    /* MARCADORES CUSTOMIZADOS NO MAPA */
     .marker-restaurant {
+      background: #dc2626;
+      border: 3px solid #ffffff;
+      color: #ffffff;
+      border-radius: 50%;
       width: 44px;
       height: 44px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #f59e0b, #b45309);
-      border: 3px solid #ffffff;
-      box-shadow: 0 0 20px rgba(245, 158, 11, 0.6), 0 4px 10px rgba(0,0,0,0.5);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #ffffff;
-      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(220, 38, 38, 0.6);
       transition: transform 0.2s ease;
     }
     .marker-restaurant:hover {
@@ -659,6 +660,40 @@
       border-radius: 4px;
       animation: pulse 2s infinite;
     }
+
+    .subtab-motoboy {
+      background: var(--bg-surface-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .subtab-motoboy:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+    .subtab-motoboy.active {
+      background: var(--brand-gold) !important;
+      color: #0b0d12 !important;
+      border-color: var(--brand-gold) !important;
+      font-weight: 800 !important;
+    }
+    .subtab-motoboy.active .badge {
+      background: #0b0d12 !important;
+      color: var(--brand-gold) !important;
+    }
+
+    @media print {
+      body, html {
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+      .app-sidebar, .app-header, .drawer-backdrop, .modal-confirm-overlay, .toast-container,
+      #adminAuthOverlay, #motoboysLockScreen, .btn, .search-box, .filter-pill, .grupo-fech-pill,
+      #boxPeriodoPersonalizado, .stats-container, #containerFechamentoMotoboys {
+        display: none !important;
+      }
+    }
   </style>
 <body>
 
@@ -716,6 +751,7 @@
       <div class="nav-item" id="nav-motoboys" onclick="alternarVisao('motoboys')">
         <span class="nav-icon"><i data-lucide="bike"></i></span>
         <span>Motoboys</span>
+        <span id="badgeNavMotoboysPendentes" style="display: none; margin-left: auto; background: #ef4444; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 10px;">0</span>
       </div>
       <div class="nav-item" id="nav-historico" onclick="alternarVisao('historico')">
         <span class="nav-icon"><i data-lucide="history"></i></span>
@@ -1001,82 +1037,72 @@
       </section>
 
       <!-- ====================================================================
-           VISÃO 3: MAPA FULLSCREEN & ROTAS EM TEMPO REAL
+           VISÃO 3: MAPA FULLSCREEN & ROTAS
            ==================================================================== -->
-      <section id="view-entregas" class="view-section">
+      <section id="view-entregas" class="view-section" style="padding: 0;">
         <div class="mapa-fullscreen-wrapper">
-          <!-- BARRA SUPERIOR DO MAPA -->
+          <!-- BARRA SUPERIOR DE CONTROLE E MONITORAMENTO DO MAPA -->
           <div class="mapa-fullscreen-bar">
             <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-              <div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span class="status-dot-live"></span>
-                  <strong style="font-size: 16px; color: var(--text-primary);">Rastreamento GPS em Tempo Real</strong>
-                </div>
-                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
-                  Posições transmitidas via satélite pelos celulares dos motoboys • Teresópolis/RJ
-                </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="status-dot-live"></span>
+                <strong style="font-size: 14px; color: var(--brand-gold-light);">Radar GPS em Tempo Real</strong>
               </div>
-
-              <!-- CONTADORES AO VIVO -->
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 12px; font-weight: 800; padding: 5px 12px; border-radius: 8px;" id="lblMapaTotalOnline">
+              <div style="display: flex; gap: 8px;">
+                <span id="lblMapaTotalOnline" class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 700;">
                   0 Com GPS Ativo
                 </span>
-                <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); font-size: 12px; font-weight: 800; padding: 5px 12px; border-radius: 8px;" id="lblMapaEmRota">
+                <span id="lblMapaEmRota" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 700;">
                   0 Em Rota
                 </span>
               </div>
             </div>
 
-            <!-- FILTROS E AÇÕES -->
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-              <!-- Filtro de Grupo / Status -->
-              <select id="selectFiltroMapaFullscreen" class="form-select" style="padding: 6px 12px; font-size: 12px; width: auto;" onchange="atualizarMapa()">
-                <option value="todos">Mostrar Todos</option>
-                <option value="em_rota">Apenas Em Rota</option>
-                <option value="disponivel">Apenas Disponíveis</option>
-                <option value="VELOZ">Grupo VELOZ</option>
-                <option value="SPEED">Grupo SPEED</option>
-              </select>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label for="filtroGrupoMapa" style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Filtrar:</label>
+                <select id="filtroGrupoMapa" class="form-input" style="padding: 6px 12px; font-size: 12px; height: 34px;" onchange="atualizarMarcadoresMapa()">
+                  <option value="todos">Todos os Entregadores</option>
+                  <option value="em_rota">Somente Em Rota</option>
+                  <option value="disponivel">Somente Livres / Retorno</option>
+                  <option value="SPEED">Equipe SPEED</option>
+                  <option value="VELOZ">Equipe VELOZ</option>
+                </select>
+              </div>
 
-              <button class="btn btn-secondary btn-sm" onclick="focarTodosMotoboys()" title="Enquadrar todos os motoboys e loja no mapa">
-                <i data-lucide="maximize-2"></i>
+              <button class="btn btn-secondary btn-sm" onclick="focarTodosMotoboys()" title="Enquadrar todos os motoboys e loja matriz">
+                <i data-lucide="maximize" style="width: 14px; height: 14px;"></i>
                 <span>Enquadrar Todos</span>
               </button>
 
-              <button class="btn btn-secondary btn-sm" onclick="centralizarRestaurante()" title="Centralizar na Matriz Ao Ponto">
-                <i data-lucide="map-pin"></i>
+              <button class="btn btn-secondary btn-sm" onclick="centralizarRestaurante()" title="Centralizar na Loja Matriz">
+                <i data-lucide="store" style="width: 14px; height: 14px;"></i>
                 <span>Loja Matriz</span>
               </button>
 
-              <button class="btn btn-gold btn-sm" onclick="carregarTudo(true)" title="Atualizar posições agora">
-                <i data-lucide="refresh-cw"></i>
+              <button class="btn btn-gold btn-sm" onclick="carregarTudo(false)" title="Forçar atualização de posições">
+                <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
                 <span>Atualizar</span>
               </button>
             </div>
           </div>
 
-          <!-- GRID PRINCIPAL DO MAPA + SIDEBAR DE MOTOBOYS -->
+          <!-- GRID: MAPA INTERATIVO + PAINEL LATERAL DE ENTREGADORES -->
           <div class="mapa-content-grid">
-            <!-- ÁREA DO MAPA LEAFLET -->
-            <div class="map-container map-dark-tiles" id="mapFullscreen" style="width: 100%; height: 100%; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); overflow: hidden; min-height: 540px;"></div>
-
-            <!-- SIDEBAR LATERAL: ENTREGADORES NO MAPA -->
+            <div class="map-container map-dark-tiles" id="mapFullscreen" style="border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); min-height: 520px; z-index: 1;"></div>
+            
             <div class="mapa-sidebar">
               <div class="mapa-sidebar-header">
-                <div>
-                  <strong style="font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
-                    <i data-lucide="bike" style="width: 16px; height: 16px; color: var(--brand-gold);"></i>
-                    <span>Entregadores em Campo</span>
-                  </strong>
-                  <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Clique no motoboy para focar</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <i data-lucide="navigation" style="width: 16px; height: 16px; color: var(--brand-gold);"></i>
+                  <strong style="font-size: 13px; color: var(--text-primary);">Entregadores Ativos</strong>
                 </div>
-                <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: var(--brand-gold-light); font-size: 11px; font-weight: 800;" id="badgeQtdMotoboysLista">0</span>
+                <span id="badgeQtdMotoboysLista" class="badge" style="background: var(--brand-gold); color: #0b0d12; font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 10px;">0</span>
               </div>
               <div class="mapa-sidebar-list" id="listaMotoboysMapa">
-                <div style="text-align: center; color: var(--text-muted); font-size: 12px; padding: 20px;">
-                  Buscando posições dos motoboys...
+                <div style="text-align: center; color: var(--text-muted); font-size: 12px; padding: 24px 10px;">
+                  <div style="font-size: 24px; margin-bottom: 6px;">📡</div>
+                  Aguardando sinal GPS dos motoboys...
                 </div>
               </div>
             </div>
@@ -1112,15 +1138,9 @@
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
             <div>
               <h2 class="text-title">Equipe de Entregadores</h2>
-              <p class="text-subtitle">Gestão cadastral, separação por grupos (<strong style="color: #60a5fa;">VELOZ</strong> / <strong style="color: #fbbf24;">SPEED</strong>) e conectividade GPS.</p>
+              <p class="text-subtitle">Gestão cadastral, aprovação de novos cadastros e separação por grupos (<strong style="color: #60a5fa;">VELOZ</strong> / <strong style="color: #fbbf24;">SPEED</strong>).</p>
             </div>
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-              <!-- Filtro de Grupo -->
-              <div style="display: flex; gap: 4px;">
-                <button class="filter-pill active" id="fmgTodos" onclick="filtrarGrupoMotoboys('todos', this)">Todos</button>
-                <button class="filter-pill" id="fmgVeloz" onclick="filtrarGrupoMotoboys('VELOZ', this)">VELOZ</button>
-                <button class="filter-pill" id="fmgSpeed" onclick="filtrarGrupoMotoboys('SPEED', this)">SPEED</button>
-              </div>
               <button class="btn btn-gold btn-sm" onclick="abrirModalCadastrarMotoboy()">
                 <i data-lucide="plus"></i>
                 <span>Novo Entregador</span>
@@ -1135,7 +1155,40 @@
               </button>
             </div>
           </div>
+
+          <!-- SUB-ABAS DE MOTOBOYS: ATIVOS vs CADASTROS PENDENTES -->
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-sm subtab-motoboy active" id="subtabMotoboysAtivos" onclick="alternarSubabaMotoboys('ativos')" style="display: inline-flex; align-items: center; gap: 6px;">
+                <i data-lucide="users" style="width: 14px; height: 14px;"></i>
+                <span>Entregadores Ativos</span>
+                <span class="badge" id="badgeQtdAtivos" style="background: rgba(255,255,255,0.15); font-size: 11px; padding: 2px 7px; border-radius: 10px;">0</span>
+              </button>
+              <button class="btn btn-sm subtab-motoboy" id="subtabMotoboysPendentes" onclick="alternarSubabaMotoboys('pendentes')" style="display: inline-flex; align-items: center; gap: 6px;">
+                <i data-lucide="user-check" style="width: 14px; height: 14px;"></i>
+                <span>Cadastros Pendentes</span>
+                <span class="badge" id="badgeQtdPendentes" style="background: rgba(255,255,255,0.15); color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 10px; font-weight: 800;">0</span>
+              </button>
+            </div>
+
+            <!-- Filtro de Grupo (Exibido apenas na sub-aba Ativos) -->
+            <div id="barFiltrosGrupoMotoboys" style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Filtrar Grupo:</span>
+              <div style="display: flex; gap: 4px;">
+                <button class="filter-pill active" id="fmgTodos" onclick="filtrarGrupoMotoboys('todos', this)">Todos</button>
+                <button class="filter-pill" id="fmgVeloz" onclick="filtrarGrupoMotoboys('VELOZ', this)">VELOZ</button>
+                <button class="filter-pill" id="fmgSpeed" onclick="filtrarGrupoMotoboys('SPEED', this)">SPEED</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- GRID 1: ENTREGADORES ATIVOS -->
           <div id="gridMotoboys" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
+            <!-- Renderizado via JS -->
+          </div>
+
+          <!-- GRID 2: CADASTROS PENDENTES -->
+          <div id="gridMotoboysPendentes" style="display: none; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px;">
             <!-- Renderizado via JS -->
           </div>
         </div>
@@ -1200,6 +1253,10 @@
               <i data-lucide="coins"></i>
               <span>Ver Taxas</span>
             </button>
+            <a href="/fechamento" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border-color: rgba(245, 158, 11, 0.4); color: var(--brand-gold-light);" title="Abrir Fechamento Otimizado para Celular">
+              <i data-lucide="smartphone"></i>
+              <span>Versão Mobile</span>
+            </a>
             <button class="btn btn-secondary btn-sm" onclick="carregarFechamento()">
               <i data-lucide="refresh-cw"></i>
               <span>Atualizar</span>
@@ -1319,10 +1376,19 @@
         <div class="card card-elevated">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
             <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Cliente & Destino</span>
-            <button class="btn btn-gold btn-sm" id="btnWhatsappCliente" onclick="abrirWhatsappCliente()">
-              <i data-lucide="message-circle"></i>
-              <span>WhatsApp</span>
-            </button>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button class="btn btn-secondary btn-sm" id="btnEditarClienteEndereco" onclick="abrirEdicaoClienteEndereco()" style="border-color: rgba(245, 158, 11, 0.4); color: var(--brand-gold-light);" title="Editar Nome, Endereço e Bairro">
+                <span>✏️ Editar</span>
+              </button>
+              <button class="btn btn-secondary btn-sm" id="btnCopiarWhatsappCliente" onclick="copiarWhatsappCliente()" title="Copiar WhatsApp e dados para repasse ao motoboy">
+                <i data-lucide="copy"></i>
+                <span>Copiar Contato</span>
+              </button>
+              <button class="btn btn-gold btn-sm" id="btnWhatsappCliente" onclick="abrirWhatsappCliente()">
+                <i data-lucide="message-circle"></i>
+                <span>WhatsApp</span>
+              </button>
+            </div>
           </div>
           <div style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;" id="dtlClienteNome">--</div>
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
@@ -1330,6 +1396,54 @@
             <div style="font-size: 12px; font-weight: 700; color: #fbbf24; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); padding: 2px 8px; border-radius: var(--radius-sm); font-family: monospace; display: none; align-items: center; gap: 4px;" id="dtlClienteLocalizador">--</div>
           </div>
           <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.4; display: flex; align-items: flex-start; gap: 6px;" id="dtlClienteEndereco">--</div>
+
+          <!-- FORMULÁRIO INLINE DE EDIÇÃO DE DADOS DO CLIENTE / ENDEREÇO -->
+          <div id="formEdicaoCliente" style="display: none; margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.35); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-md);">
+            <div style="font-size: 12px; font-weight: 700; color: var(--brand-gold-light); margin-bottom: 8px;">✏️ Editar Dados da Entrega</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div>
+                <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 2px;">Nome do Cliente:</label>
+                <input type="text" id="inpEditCliente" class="form-control" style="width: 100%; padding: 6px 10px; font-size: 13px;" placeholder="Nome do cliente" />
+              </div>
+              <div>
+                <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 2px;">Endereço de Entrega:</label>
+                <input type="text" id="inpEditEndereco" class="form-control" style="width: 100%; padding: 6px 10px; font-size: 13px;" placeholder="Rua, número, complemento" />
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <div style="flex: 1.5;">
+                  <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 2px;">Bairro:</label>
+                  <input type="text" id="inpEditBairro" class="form-control" style="width: 100%; padding: 6px 10px; font-size: 13px;" placeholder="Bairro" list="dlBairrosEdit" />
+                  <datalist id="dlBairrosEdit">
+                    <option value="Várzea"></option>
+                    <option value="Alto"></option>
+                    <option value="Agriões"></option>
+                    <option value="Barra do Imbuí"></option>
+                    <option value="Tijuca"></option>
+                    <option value="Bom Retiro"></option>
+                    <option value="Pimenteiras"></option>
+                    <option value="Parque do Inga"></option>
+                    <option value="Granja Guarani"></option>
+                    <option value="Santa Cecília"></option>
+                    <option value="Fonte Santa"></option>
+                    <option value="Nossa Sra . de Fatima"></option>
+                    <option value="Caleme"></option>
+                  </datalist>
+                </div>
+                <div style="flex: 1;">
+                  <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 2px;">Taxa (R$):</label>
+                  <input type="number" step="0.50" id="inpEditTaxa" class="form-control" style="width: 100%; padding: 6px 10px; font-size: 13px;" placeholder="10.00" />
+                </div>
+              </div>
+              <div>
+                <label style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 2px;">Telefone:</label>
+                <input type="text" id="inpEditTelefone" class="form-control" style="width: 100%; padding: 6px 10px; font-size: 13px;" placeholder="Telefone ou WhatsApp" />
+              </div>
+              <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="fecharEdicaoClienteEndereco()">Cancelar</button>
+                <button type="button" class="btn btn-gold btn-sm" onclick="salvarEdicaoClienteEndereco()">Salvar Dados</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ITENS DA COMANDA -->
@@ -1342,7 +1456,7 @@
           <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 13px; color: var(--text-muted);">Taxa de entrega: <strong id="dtlTaxaValor" style="color: var(--text-primary);">R$ 0,00</strong></span>
-              <button class="btn btn-secondary btn-sm" onclick="alterarTaxaPedidoPrompt(state.selectedPedidoId)" title="Alterar valor da taxa de entrega deste pedido" style="padding: 2px 8px; font-size: 11px; font-weight: 700; color: #fbbf24; border-color: rgba(245, 158, 11, 0.4);">
+              <button class="btn btn-secondary btn-sm" id="btnEditarTaxaDtl" style="padding: 2px 7px; font-size: 11px; border-color: rgba(245, 158, 11, 0.4); color: var(--brand-gold-light);" onclick="alterarTaxaPedidoAtualPrompt()" title="Alterar valor da taxa de repasse">
                 ✏️ Alterar
               </button>
             </div>
@@ -1622,6 +1736,29 @@
         <button class="btn btn-secondary btn-icon" onclick="fecharModalTabelaTaxas()">✕</button>
       </div>
 
+      <!-- FORMULÁRIO DE INCLUSÃO DE NOVO BAIRRO / TAXA -->
+      <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 12px;">
+        <div style="font-size: 12px; font-weight: 800; color: var(--text-primary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+          <i data-lucide="plus-circle" style="width: 15px; height: 15px; color: var(--accent-primary);"></i>
+          <span>Cadastrar Novo Bairro ou Taxa</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 140px 1fr 110px auto; gap: 8px; align-items: center;">
+          <select id="novoTaxaGrupo" class="form-input" style="padding: 6px 8px; font-size: 12px; font-weight: 700;">
+            <option value="AMBOS">SPEED & VELOZ</option>
+            <option value="SPEED">Apenas SPEED</option>
+            <option value="VELOZ">Apenas VELOZ</option>
+          </select>
+          <input type="text" id="novoTaxaBairro" class="form-input" placeholder="Nome do bairro (ex: Granja Florestal)" style="padding: 6px 10px; font-size: 12px;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="font-size: 11px; font-weight: 800; color: var(--brand-gold);">R$</span>
+            <input type="number" id="novoTaxaValor" class="form-input" placeholder="10.00" step="0.50" min="0" style="padding: 6px 8px; font-size: 12px; font-weight: 700;">
+          </div>
+          <button type="button" class="btn btn-gold btn-sm" onclick="adicionarNovoBairroTaxa()" style="padding: 6px 12px; font-size: 12px; font-weight: 800; white-space: nowrap;">
+            <span>+ Adicionar</span>
+          </button>
+        </div>
+      </div>
+
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
         <div style="display: flex; gap: 6px;">
           <button class="filter-pill active" id="tabTaxaSpeed" onclick="alternarAbaTaxas('SPEED')">Tabela SPEED</button>
@@ -1720,6 +1857,7 @@
       filtroLista: 'todos',
       pedidos: [],
       motoboys: [],
+      subabaMotoboys: 'ativos',
       stats: {},
       selectedPedidoId: null,
       pedidoDetalheCache: null,
@@ -1728,7 +1866,7 @@
       markersDashboard: {},
       markersFullscreen: {},
       pollingTimer: null,
-      restauranteCoords: [-22.4123, -42.9664] // Teresópolis - RJ (Ao Ponto Carnes)
+      restauranteCoords: [-22.42232, -42.97864] // Rua Coronel Antônio Santiago, 70 - Agriões, Teresópolis - RJ
     };
 
     // Helper SVG Icons Centralizado
@@ -1742,7 +1880,9 @@
       edit: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
       message: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
       map: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/></svg>',
-      utensils: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/><path d="M15 2v14a4 4 0 0 1-4 4H9"/><path d="M6 2v20"/><path d="M6 6h4"/></svg>'
+      utensils: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/><path d="M15 2v14a4 4 0 0 1-4 4H9"/><path d="M6 2v20"/><path d="M6 6h4"/></svg>',
+      trash: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+      copy: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>'
     };
 
     // Inicialização protegida por Autenticação
@@ -1797,11 +1937,32 @@
       iniciarMapaDashboard();
       carregarTudo();
 
-      // Polling inteligente estrito a cada 5 segundos
-      if (state.pollingTimer) clearInterval(state.pollingTimer);
-      state.pollingTimer = setInterval(() => {
-        carregarTudo(false);
-      }, 5000);
+      // Polling inteligente adaptativo (8s ativo, 30s em background)
+      function agendarPolling() {
+        if (state.pollingTimer) clearInterval(state.pollingTimer);
+        const intervalo = document.hidden ? 30000 : 8000;
+        state.pollingTimer = setInterval(() => {
+          carregarTudo(false);
+        }, intervalo);
+      }
+
+      agendarPolling();
+
+      // Suporte a navegação direta por URL hash ou parâmetro (ex: #fechamento ou ?view=fechamento)
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const viewParam = urlParams.get('view') || urlParams.get('tab') || window.location.hash.replace('#', '');
+        if (['fechamento', 'pedidos', 'entregas', 'motoboys', 'historico'].includes(viewParam)) {
+          setTimeout(() => alternarVisao(viewParam), 250);
+        }
+      } catch (e) {}
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          carregarTudo(false);
+        }
+        agendarPolling();
+      });
     }
 
     // Relógio dinâmico e saudação
@@ -1927,7 +2088,6 @@
             state.mapFullscreen.invalidateSize(true);
             atualizarMarcadoresMapa();
           }
-          if (window.lucide) lucide.createIcons();
         }, 150);
       } else if (visao === 'motoboys') {
         verificarAbaMotoboysDesbloqueada();
@@ -2041,17 +2201,7 @@
         const statusBorderClass = `status-border-${badgeInfo.classe.replace('badge-', '')}`;
 
         let grupoHtml = '';
-        if (!p.grupo) {
-          grupoHtml = `
-            <div style="margin-top: 6px; padding: 6px 8px; background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.35); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 6px;" onclick="event.stopPropagation()">
-              <span style="font-size: 10px; font-weight: 800; color: #fbbf24;">DESTINAR:</span>
-              <div style="display: flex; gap: 4px;">
-                <button class="btn-grupo-selecionar btn-grupo-speed" onclick="definirGrupoPedido(${p.id}, 'SPEED'); event.stopPropagation();" title="Destinar entrega ao grupo SPEED">SPEED</button>
-                <button class="btn-grupo-selecionar btn-grupo-veloz" onclick="definirGrupoPedido(${p.id}, 'VELOZ'); event.stopPropagation();" title="Destinar entrega ao grupo VELOZ">VELOZ</button>
-              </div>
-            </div>
-          `;
-        } else {
+        if (p.grupo) {
           const isSpeed = p.grupo === 'SPEED';
           grupoHtml = `
             <span class="badge-grupo-pedido ${isSpeed ? 'badge-grupo-speed' : 'badge-grupo-veloz'}" onclick="alternarGrupoPedido(${p.id}, '${p.grupo}'); event.stopPropagation();" title="Clique para transferir de grupo">
@@ -2069,8 +2219,8 @@
                 <span class="status-badge ${badgeInfo.classe}">${badgeInfo.label}</span>
               </div>
               <div style="display: flex; gap: 4px; align-items: center;">
-                ${p.grupo ? grupoHtml : ''}
-                <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem, p.texto_bruto)}</span>
+                ${grupoHtml}
+                ${renderizarOrigemBadge(p.origem)}
               </div>
             </div>
 
@@ -2079,22 +2229,21 @@
               <span>${escapeHtml(p.endereco)} ${p.bairro ? '— ' + escapeHtml(p.bairro) : ''}</span>
             </div>
 
-            ${!p.grupo ? grupoHtml : ''}
-
             <div class="order-meta">
               <span class="order-motoboy">
                 ${SVG_ICONS.bike}
                 <span>${p.motoboy ? escapeHtml(p.motoboy.nome) : 'Aguardando motoboy'}</span>
               </span>
-              <span class="order-price" onclick="alterarTaxaPedidoPrompt(${p.id}, ${p.taxa_entrega}); event.stopPropagation();" title="Clique para alterar a taxa de entrega deste pedido" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-                ${taxaStr} <span style="font-size: 10px; opacity: 0.7;">✏️</span>
-              </span>
+              ${(!p.status || ['disponivel', 'aguardando_retirada', 'pronto', 'em_preparo'].includes(p.status)) ? '' : `<span class="order-price">${taxaStr}</span>`}
             </div>
 
             <div style="margin-top: 8px; display: flex; gap: 6px;" onclick="event.stopPropagation()">
-              <button class="btn btn-sm ${p.motoboy ? 'btn-secondary' : 'btn-gold'}" onclick="abrirModalAtribuirEntregador(${p.id}); event.stopPropagation();" style="font-size: 11px; padding: 4px 8px; font-weight: 700; width: 100%; justify-content: center; display: inline-flex; align-items: center; gap: 6px;">
+              <button class="btn btn-sm ${p.motoboy ? 'btn-secondary' : 'btn-gold'}" onclick="abrirModalAtribuirEntregador(${p.id}); event.stopPropagation();" style="flex: 1; font-size: 11px; padding: 4px 8px; font-weight: 700; justify-content: center; display: inline-flex; align-items: center; gap: 6px;">
                 ${SVG_ICONS.bike}
                 <span>${p.motoboy ? 'Trocar (' + escapeHtml(p.motoboy.nome) + ')' : 'Atribuir Entregador'}</span>
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="descartarPedido(${p.id}, '${escapeHtml(p.numero_pedido)}'); event.stopPropagation();" title="Descartar pedido do sistema" style="padding: 4px 8px; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); display: inline-flex; align-items: center; justify-content: center;">
+                ${SVG_ICONS.trash}
               </button>
             </div>
           </div>
@@ -2123,23 +2272,32 @@
       return 'origem-manual';
     }
 
-    function obterOrigemNome(origem, textoBruto) {
+    function obterOrigemNome(origem) {
       const o = (origem || '').toUpperCase();
-      const txt = (textoBruto || '').toUpperCase();
+      if (o.includes('IFOOD')) return 'iFood';
+      if (o.includes('99')) return '99 Food';
+      if (o.includes('CARDAPIO')) return 'Cardápio';
+      return 'Balcão';
+    }
 
-      let subloja = '';
-      if (txt.includes('COMIDAS BRASILEIRAS') || txt.includes('COMIDA BRASILEIRA')) {
-        subloja = ' • Brasileira';
-      } else if (txt.includes('BURGER') || txt.includes('SANDUICH') || txt.includes('SANDUÏCH')) {
-        subloja = ' • Burgers';
-      } else if (txt.includes('AO PONTO CARNES') || txt.includes('AO PONTO CARNE')) {
-        subloja = ' • Carnes';
+    function renderizarOrigemBadge(origem) {
+      const o = (origem || '').toUpperCase();
+
+      if (o.includes('IFOOD')) {
+        return `<img src="/assets/iFood-New-Logo-Small.png" alt="iFood" title="iFood" style="height: 24px; width: 24px; object-fit: contain; display: inline-block; vertical-align: middle; image-rendering: -webkit-optimize-contrast;">`;
       }
-
-      if (o.includes('IFOOD')) return `iFood${subloja}`;
-      if (o.includes('99')) return `99 Food${subloja}`;
-      if (o.includes('CARDAPIO')) return `Cardápio${subloja}`;
-      return subloja ? `Balcão${subloja}` : 'Balcão';
+      if (o.includes('99')) {
+        return `<img src="/assets/Logotipo_da_99.svg" alt="99 Food" title="99 Food" style="height: 24px; width: 24px; object-fit: contain; display: inline-block; vertical-align: middle; image-rendering: -webkit-optimize-contrast;">`;
+      }
+      if (o.includes('CARDAPIO')) {
+        return `<span class="origem-badge origem-cardapio_web" style="display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.35); height: 28px; box-sizing: border-box; vertical-align: middle;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          <span>Cardápio</span>
+        </span>`;
+      }
+      return `<span class="origem-badge origem-manual" style="display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.35); height: 28px; box-sizing: border-box; vertical-align: middle;">
+        <span>Balcão</span>
+      </span>`;
     }
 
     function filtrarStatusLista(status, btn) {
@@ -2221,24 +2379,21 @@
         .bindPopup(`
           <div style="padding: 6px 8px; text-align: center;">
             <strong style="color: var(--brand-gold-light); font-size: 14px;">AO PONTO CARNES</strong><br>
-            <span style="font-size: 11px; color: var(--text-muted);">Loja Matriz • Teresópolis/RJ</span>
+            <span style="font-size: 11px; color: var(--text-muted);">Rua Coronel Antônio Santiago, 70 • Agriões</span>
           </div>
         `)
         .addTo(state.mapDashboard);
     }
 
-    // MAPA FULLSCREEN & CENTRO DE CONTROLE DE ROTAS (VISÃO 3)
+    // MAPA FULLSCREEN (VISÃO 3)
     function iniciarMapaFullscreen() {
       const container = document.getElementById('mapFullscreen');
       if (!container || state.mapFullscreen) return;
 
       state.mapFullscreen = L.map('mapFullscreen', {
         center: state.restauranteCoords,
-        zoom: 14,
-        zoomControl: false
+        zoom: 14
       });
-
-      L.control.zoom({ position: 'bottomright' }).addTo(state.mapFullscreen);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -2352,7 +2507,7 @@
       `;
     }
 
-    // Atualizar Filtro do Mapa (chamado pelo selectFiltroMapa ou selectFiltroMapaFullscreen)
+    // Atualizar Filtro do Mapa (chamado pelo selectFiltroMapa ou filtroGrupoMapa)
     function atualizarMapa() {
       atualizarMarcadoresMapa();
     }
@@ -2361,13 +2516,13 @@
     function atualizarMarcadoresMapa() {
       if (!state.motoboysMapa) return;
 
-      const filtroFs = document.getElementById('selectFiltroMapaFullscreen')?.value;
+      const filtroFs = document.getElementById('filtroGrupoMapa')?.value;
       const filtroDash = document.getElementById('selectFiltroMapa')?.value;
       const filtro = filtroFs || filtroDash || 'todos';
 
       // Sincronizar os selects se ambos existirem
-      if (document.getElementById('selectFiltroMapaFullscreen') && filtroFs !== filtro) {
-        document.getElementById('selectFiltroMapaFullscreen').value = filtro;
+      if (document.getElementById('filtroGrupoMapa') && filtroFs !== filtro) {
+        document.getElementById('filtroGrupoMapa').value = filtro;
       }
       if (document.getElementById('selectFiltroMapa') && filtroDash !== filtro) {
         document.getElementById('selectFiltroMapa').value = filtro;
@@ -2591,16 +2746,22 @@
               ${SVG_ICONS.bike}
               <span>Atribuir</span>
             </button>
+            <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); display: inline-flex; align-items: center; justify-content: center;" onclick="descartarPedido(${p.id}, '${escapeHtml(p.numero_pedido)}'); event.stopPropagation();" title="Descartar pedido do sistema">
+              ${SVG_ICONS.trash}
+            </button>
           </div>
         `;
       } else if (colTipo === 'rota') {
         botaoAcao = `
           <div style="margin-top: 8px; display: flex; gap: 5px;">
-            <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px;" onclick="abrirDetalhesPedido(${p.id})">Rota</button>
+            <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px;" onclick="abrirDetalhesPedido(${p.id})">Detalhes</button>
             <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px;" onclick="abrirModalAtribuirEntregador(${p.id})" title="Substituir entregador">Trocar</button>
             <button class="btn btn-success btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="alterarStatusPedido(${p.id}, 'entregue')">
               ${SVG_ICONS.check}
               <span>Concluir</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" style="padding: 4px 6px; color: #ef4444; border-color: rgba(239, 68, 68, 0.35); display: inline-flex; align-items: center; justify-content: center;" onclick="descartarPedido(${p.id}, '${escapeHtml(p.numero_pedido)}'); event.stopPropagation();" title="Descartar pedido do sistema">
+              ${SVG_ICONS.trash}
             </button>
           </div>
         `;
@@ -2620,17 +2781,7 @@
       }
 
       let grupoKanban = '';
-      if (!p.grupo) {
-        grupoKanban = `
-          <div style="margin: 8px 0 6px; padding: 6px 8px; background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.35); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
-            <span style="font-size: 10px; font-weight: 800; color: #fbbf24;">DESTINAR:</span>
-            <div style="display: flex; gap: 4px;">
-              <button class="btn-grupo-selecionar btn-grupo-speed" onclick="definirGrupoPedido(${p.id}, 'SPEED'); event.stopPropagation();" title="Destinar ao grupo SPEED">SPEED</button>
-              <button class="btn-grupo-selecionar btn-grupo-veloz" onclick="definirGrupoPedido(${p.id}, 'VELOZ'); event.stopPropagation();" title="Destinar ao grupo VELOZ">VELOZ</button>
-            </div>
-          </div>
-        `;
-      } else {
+      if (p.grupo) {
         const isSpeed = p.grupo === 'SPEED';
         grupoKanban = `
           <span class="badge-grupo-pedido ${isSpeed ? 'badge-grupo-speed' : 'badge-grupo-veloz'}" onclick="alternarGrupoPedido(${p.id}, '${p.grupo}')" title="Clique para transferir de grupo">
@@ -2644,20 +2795,27 @@
           <div class="order-card-row">
             <strong class="order-number">#${p.numero_pedido}</strong>
             <div style="display: flex; gap: 4px; align-items: center;">
-              ${p.grupo ? grupoKanban : ''}
+              ${grupoKanban}
               ${p.localizador ? `<span style="font-size: 10px; font-weight: 700; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); padding: 1px 6px; border-radius: 4px; font-family: monospace;">PIN: ${p.localizador}</span>` : ''}
-              <span class="origem-badge ${obterOrigemClasse(p.origem)}">${obterOrigemNome(p.origem, p.texto_bruto)}</span>
+              ${renderizarOrigemBadge(p.origem)}
             </div>
           </div>
           <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">${escapeHtml(p.cliente)}</div>
           <div class="order-address">${SVG_ICONS.mapPin} <span>${escapeHtml(p.endereco)}</span></div>
-          ${!p.grupo ? grupoKanban : ''}
+          ${(p.cliente && p.cliente.includes('Cliente iFood') || p.endereco && p.endereco.includes('Gestor iFood')) ? `
+            <div style="font-size: 11px; color: #fbbf24; background: rgba(245, 158, 11, 0.12); border: 1px dashed rgba(245, 158, 11, 0.4); padding: 4px 8px; border-radius: 4px; margin-top: 5px; display: flex; align-items: center; justify-content: space-between; cursor: pointer;" onclick="abrirDetalhesPedido(${p.id}); setTimeout(abrirEdicaoClienteEndereco, 250); event.stopPropagation();" title="Clique para informar nome e endereço deste pedido">
+              <span>⚠️ Endereço no Gestor</span>
+              <span style="font-weight: 800; text-decoration: underline;">✏️ Preencher</span>
+            </div>
+          ` : ''}
           ${motoboyInfo}
           <div class="order-meta">
             <span style="display: flex; align-items: center; gap: 4px;">${SVG_ICONS.clock} <span>${p.tempo_decorrido_minutos} min</span></span>
-            <span class="order-price" onclick="alterarTaxaPedidoPrompt(${p.id}, ${p.taxa_entrega}); event.stopPropagation();" title="Clique para alterar a taxa de entrega deste pedido" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-              ${taxaStr} <span style="font-size: 10px; opacity: 0.7;">✏️</span>
-            </span>
+            ${colTipo === 'aguardando' ? '' : `
+            <span class="order-price" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" onclick="alterarTaxaPedidoPrompt(${p.id}, ${p.taxa_entrega || p.taxa_repasse || 0}); event.stopPropagation();" title="Clique para alterar a taxa deste pedido">
+              <span>${taxaStr}</span>
+              <span style="font-size: 11px; opacity: 0.7;">✏️</span>
+            </span>`}
           </div>
           ${botaoAcao}
         </div>
@@ -2668,87 +2826,216 @@
       return `<div style="text-align: center; color: var(--text-muted); padding: 30px 10px; font-size: 12px;">${msg}</div>`;
     }
 
-    // RENDERIZAR GESTÃO DE MOTOBOYS
+    // SUB-ABAS E RENDERIZAÇÃO DE GESTÃO DE MOTOBOYS
+    function alternarSubabaMotoboys(subaba) {
+      state.subabaMotoboys = subaba;
+      const tabAtivos = document.getElementById('subtabMotoboysAtivos');
+      const tabPendentes = document.getElementById('subtabMotoboysPendentes');
+      const barFiltros = document.getElementById('barFiltrosGrupoMotoboys');
+      const gridAtivos = document.getElementById('gridMotoboys');
+      const gridPendentes = document.getElementById('gridMotoboysPendentes');
+
+      if (subaba === 'pendentes') {
+        if (tabAtivos) tabAtivos.classList.remove('active');
+        if (tabPendentes) tabPendentes.classList.add('active');
+        if (barFiltros) barFiltros.style.display = 'none';
+        if (gridAtivos) gridAtivos.style.display = 'none';
+        if (gridPendentes) gridPendentes.style.display = 'grid';
+      } else {
+        if (tabAtivos) tabAtivos.classList.add('active');
+        if (tabPendentes) tabPendentes.classList.remove('active');
+        if (barFiltros) barFiltros.style.display = 'flex';
+        if (gridAtivos) gridAtivos.style.display = 'grid';
+        if (gridPendentes) gridPendentes.style.display = 'none';
+      }
+      renderizarMotoboys();
+      if (window.lucide) lucide.createIcons();
+    }
+
     function renderizarMotoboys() {
-      const container = document.getElementById('gridMotoboys');
-      if (!container) return;
+      const containerAtivos = document.getElementById('gridMotoboys');
+      const containerPendentes = document.getElementById('gridMotoboysPendentes');
+      if (!containerAtivos || !containerPendentes) return;
 
       const todos = state.motoboys || [];
-      const countVeloz = todos.filter(m => (m.grupo || 'VELOZ').toUpperCase() === 'VELOZ').length;
-      const countSpeed = todos.filter(m => (m.grupo || 'VELOZ').toUpperCase() === 'SPEED').length;
+      const pendentes = todos.filter(m => m.status_aprovacao === 'pendente');
+      const ativos = todos.filter(m => m.status_aprovacao !== 'pendente');
+
+      // Atualizar contadores das sub-abas e da barra lateral
+      const badgeAtivos = document.getElementById('badgeQtdAtivos');
+      const badgePendentes = document.getElementById('badgeQtdPendentes');
+      const badgeNav = document.getElementById('badgeNavMotoboysPendentes');
+
+      if (badgeAtivos) badgeAtivos.textContent = ativos.length;
+      if (badgePendentes) {
+        badgePendentes.textContent = pendentes.length;
+        if (pendentes.length > 0) {
+          badgePendentes.style.background = '#ef4444';
+          badgePendentes.style.animation = 'pulse 1.5s infinite';
+        } else {
+          badgePendentes.style.background = 'rgba(255,255,255,0.15)';
+          badgePendentes.style.animation = 'none';
+        }
+      }
+
+      if (badgeNav) {
+        if (pendentes.length > 0) {
+          badgeNav.textContent = pendentes.length;
+          badgeNav.style.display = 'inline-block';
+        } else {
+          badgeNav.style.display = 'none';
+        }
+      }
+
+      // Contagem para botões de filtro dos entregadores ativos
+      const countVeloz = ativos.filter(m => (m.grupo || 'VELOZ').toUpperCase() === 'VELOZ').length;
+      const countSpeed = ativos.filter(m => (m.grupo || 'VELOZ').toUpperCase() === 'SPEED').length;
 
       const btnT = document.getElementById('fmgTodos');
       const btnV = document.getElementById('fmgVeloz');
       const btnS = document.getElementById('fmgSpeed');
-      if (btnT) btnT.textContent = `Todos (${todos.length})`;
+      if (btnT) btnT.textContent = `Todos (${ativos.length})`;
       if (btnV) btnV.textContent = `VELOZ (${countVeloz})`;
       if (btnS) btnS.textContent = `SPEED (${countSpeed})`;
 
-      let lista = todos;
+      // ── 1. RENDERIZAR ENTREGADORES ATIVOS ──
+      let listaAtivos = ativos;
       if (state.filtroGrupoMotoboys && state.filtroGrupoMotoboys !== 'todos') {
-        lista = lista.filter(m => (m.grupo || 'VELOZ').toUpperCase() === state.filtroGrupoMotoboys.toUpperCase());
+        listaAtivos = listaAtivos.filter(m => (m.grupo || 'VELOZ').toUpperCase() === state.filtroGrupoMotoboys.toUpperCase());
       }
 
-      if (lista.length === 0) {
-        container.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;"><div class="empty-state-title">Nenhum entregador encontrado neste grupo</div></div>`;
-        return;
-      }
+      if (listaAtivos.length === 0) {
+        containerAtivos.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;"><div class="empty-state-title">Nenhum entregador ativo encontrado neste grupo</div></div>`;
+      } else {
+        containerAtivos.innerHTML = listaAtivos.map(m => {
+          const isOnline = m.status !== 'offline';
+          const isSpeed = (m.grupo || 'VELOZ').toUpperCase() === 'SPEED';
+          const statusBadge = m.status === 'em_rota' 
+            ? `<span class="status-badge badge-rota">Em Rota (${m.qtd_pedidos})</span>`
+            : (isOnline ? `<span class="status-badge badge-retirada">Disponível</span>` : `<span class="status-badge badge-problema">Offline</span>`);
 
-      container.innerHTML = lista.map(m => {
-        const isOnline = m.status !== 'offline';
-        const isSpeed = (m.grupo || 'VELOZ').toUpperCase() === 'SPEED';
-        const statusBadge = m.status === 'em_rota' 
-          ? `<span class="status-badge badge-rota">Em Rota (${m.qtd_pedidos})</span>`
-          : (isOnline ? `<span class="status-badge badge-retirada">Disponível</span>` : `<span class="status-badge badge-problema">Offline</span>`);
-
-        return `
-          <div class="card card-elevated" style="display: flex; flex-direction: column; gap: 12px; border-top: 3px solid ${isSpeed ? '#f59e0b' : '#3b82f6'};">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="width: 42px; height: 42px; border-radius: 50%; background: var(--bg-card-hover); border: 2px solid ${isOnline ? 'var(--status-entregue)' : 'var(--border-subtle)'}; display: flex; align-items: center; justify-content: center; color: var(--accent-primary);">
-                  ${SVG_ICONS.bike}
+          return `
+            <div class="card card-elevated" style="display: flex; flex-direction: column; gap: 12px; border-top: 3px solid ${isSpeed ? '#f59e0b' : '#3b82f6'};">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <div style="width: 42px; height: 42px; border-radius: 50%; background: var(--bg-card-hover); border: 2px solid ${isOnline ? 'var(--status-entregue)' : 'var(--border-subtle)'}; display: flex; align-items: center; justify-content: center; color: var(--accent-primary);">
+                    ${SVG_ICONS.bike}
+                  </div>
+                  <div>
+                    <strong style="font-size: 15px; display: block;">${escapeHtml(m.nome)}</strong>
+                    <span style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+                      ${SVG_ICONS.phone} <span>${formatarTelefone(m.telefone)}</span>
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <strong style="font-size: 15px; display: block;">${escapeHtml(m.nome)}</strong>
-                  <span style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
-                    ${SVG_ICONS.phone} <span>${formatarTelefone(m.telefone)}</span>
-                  </span>
-                </div>
+                ${statusBadge}
               </div>
-              ${statusBadge}
-            </div>
 
-            <!-- Seletor de Grupo do Entregador -->
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: var(--bg-surface); border-radius: var(--radius-sm);">
-              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Grupo da Equipe:</span>
-              <select style="background: #181d27; color: ${isSpeed ? '#fbbf24' : '#60a5fa'}; font-weight: 800; border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 3px 8px; font-size: 12px; cursor: pointer;" onchange="alterarGrupoMotoboyDirect(${m.id}, this.value)">
-                <option value="VELOZ" ${!isSpeed ? 'selected' : ''}>VELOZ</option>
-                <option value="SPEED" ${isSpeed ? 'selected' : ''}>SPEED</option>
-              </select>
-            </div>
+              <!-- Seletor de Grupo do Entregador -->
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: var(--bg-surface); border-radius: var(--radius-sm);">
+                <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Grupo da Equipe:</span>
+                <select style="background: #181d27; color: ${isSpeed ? '#fbbf24' : '#60a5fa'}; font-weight: 800; border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 3px 8px; font-size: 12px; cursor: pointer;" onchange="alterarGrupoMotoboyDirect(${m.id}, this.value)">
+                  <option value="VELOZ" ${!isSpeed ? 'selected' : ''}>VELOZ</option>
+                  <option value="SPEED" ${isSpeed ? 'selected' : ''}>SPEED</option>
+                </select>
+              </div>
 
-            <div style="background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between;">
-              <span>Velocidade: <strong style="color: var(--text-primary);">${m.velocidade} km/h</strong></span>
-              <span>GPS: <strong style="color: ${m.latitude ? 'var(--status-rota-text)' : 'var(--text-faint)'};">${m.latitude ? 'Ativo' : 'Pendente'}</strong></span>
-            </div>
+              <div style="background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between;">
+                <span>Velocidade: <strong style="color: var(--text-primary);">${m.velocidade} km/h</strong></span>
+                <span>GPS: <strong style="color: ${m.latitude ? 'var(--status-rota-text)' : 'var(--text-faint)'};">${m.latitude ? 'Ativo' : 'Pendente'}</strong></span>
+              </div>
 
-            <div style="display: flex; gap: 6px;">
-              <button class="btn btn-secondary btn-sm" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="abrirModalEditarMotoboy(${m.id})">
-                ${SVG_ICONS.edit}
-                <span>Editar</span>
-              </button>
-              <button class="btn btn-secondary btn-sm" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="abrirWhatsappMotoboy('${m.telefone}')">
-                ${SVG_ICONS.message}
-                <span>WhatsApp</span>
-              </button>
-              <button class="btn btn-gold btn-sm" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="focarMotoboyNoMapa(${m.id})">
-                ${SVG_ICONS.map}
-                <span>Mapa</span>
-              </button>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn btn-secondary btn-sm" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="abrirModalEditarMotoboy(${m.id})">
+                  ${SVG_ICONS.edit}
+                  <span>Editar</span>
+                </button>
+                <button class="btn btn-secondary btn-sm" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="abrirWhatsappMotoboy('${m.telefone}')">
+                  ${SVG_ICONS.message}
+                  <span>WhatsApp</span>
+                </button>
+                <button class="btn btn-gold btn-sm" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px;" onclick="focarMotoboyNoMapa(${m.id})">
+                  ${SVG_ICONS.map}
+                  <span>Mapa</span>
+                </button>
+                <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; border-color: rgba(239, 68, 68, 0.4); color: #ef4444; display: inline-flex; align-items: center; justify-content: center;" onclick="excluirMotoboyAtivoPrompt(${m.id}, '${escapeHtml(m.nome)}')" title="Excluir este entregador">
+                  ${SVG_ICONS.trash}
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // ── 2. RENDERIZAR CADASTROS PENDENTES DE APROVAÇÃO ──
+      if (pendentes.length === 0) {
+        containerPendentes.innerHTML = `
+          <div class="empty-state" style="grid-column: 1/-1; padding: 48px 16px;">
+            <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(52, 211, 153, 0.1); border: 2px solid rgba(52, 211, 153, 0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: #34d399;">
+              ${SVG_ICONS.check}
+            </div>
+            <div class="empty-state-title" style="font-size: 16px;">Nenhum cadastro pendente no momento</div>
+            <div class="empty-state-desc" style="max-width: 460px; margin: 8px auto 0;">
+              Quando um novo motoboy se cadastrar pelo aplicativo, a solicitação aparecerá aqui para você aprovar e definir o grupo (<strong style="color: #60a5fa;">VELOZ</strong> ou <strong style="color: #fbbf24;">SPEED</strong>).
             </div>
           </div>
         `;
-      }).join('');
+      } else {
+        containerPendentes.innerHTML = pendentes.map(m => {
+          const dataCadastro = m.criado_em ? m.criado_em.substring(0, 16).replace('T', ' ') : 'Recente';
+          return `
+            <div class="card card-elevated" style="display: flex; flex-direction: column; gap: 14px; border-top: 4px solid #f59e0b; background: linear-gradient(180deg, rgba(245, 158, 11, 0.04) 0%, var(--bg-surface) 100%);">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <div style="width: 44px; height: 44px; border-radius: 50%; background: rgba(245, 158, 11, 0.15); border: 2px solid #f59e0b; display: flex; align-items: center; justify-content: center; color: #fbbf24;">
+                    ${SVG_ICONS.bike}
+                  </div>
+                  <div>
+                    <strong style="font-size: 16px; display: block; color: var(--text-primary);">${escapeHtml(m.nome)}</strong>
+                    <span style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+                      ${SVG_ICONS.phone} <span>${formatarTelefone(m.telefone)}</span>
+                    </span>
+                  </div>
+                </div>
+                <span class="status-badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);">
+                  Aguardando Aprovação
+                </span>
+              </div>
+
+              <div style="background: var(--bg-surface); padding: 8px 12px; border-radius: var(--radius-sm); font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+                <span>Solicitado em: <strong style="color: var(--text-primary);">${dataCadastro}</strong></span>
+                <button class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;" onclick="abrirWhatsappMotoboy('${m.telefone}')">
+                  ${SVG_ICONS.message}
+                  <span>Chamar no Zap</span>
+                </button>
+              </div>
+
+              <!-- Seleção de Grupo para Aprovação -->
+              <div style="padding: 10px 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+                <label style="display: block; font-size: 11px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">
+                  DESTINAR AO GRUPO:
+                </label>
+                <select id="selGrupoPendente_${m.id}" style="width: 100%; background: #181d27; color: var(--text-primary); font-weight: 700; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 8px 10px; font-size: 13px; cursor: pointer;">
+                  <option value="VELOZ" ${(m.grupo || 'VELOZ').toUpperCase() === 'VELOZ' ? 'selected' : ''}>VELOZ (Entrega Padrão)</option>
+                  <option value="SPEED" ${(m.grupo || '').toUpperCase() === 'SPEED' ? 'selected' : ''}>SPEED (Entrega Rápida)</option>
+                </select>
+              </div>
+
+              <!-- Ações: Aprovar ou Recusar -->
+              <div style="display: flex; gap: 8px; margin-top: auto;">
+                <button class="btn btn-secondary btn-sm" style="flex: 1; border-color: rgba(239, 68, 68, 0.4); color: #ef4444; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 5px;" onclick="recusarCadastroMotoboy(${m.id}, '${escapeHtml(m.nome)}')">
+                  ${SVG_ICONS.trash}
+                  <span>Recusar</span>
+                </button>
+                <button class="btn btn-gold btn-sm" style="flex: 1.8; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none;" onclick="aprovarCadastroMotoboy(${m.id})">
+                  ${SVG_ICONS.check}
+                  <span>Aprovar Cadastro</span>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
     }
 
     // FILTRAR E RENDERIZAR HISTÓRICO
@@ -2777,7 +3064,7 @@
             <div class="order-num-time">
               <strong class="order-number">#${e.numero_pedido}</strong>
               <span class="status-badge badge-entregue">Entregue</span>
-              <span class="origem-badge ${obterOrigemClasse(e.origem)}">${obterOrigemNome(e.origem, e.texto_bruto)}</span>
+              ${renderizarOrigemBadge(e.origem, e.texto_bruto)}
             </div>
             <span style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
               ${SVG_ICONS.clock} <span>Concluído em ${e.tempo_decorrido_minutos} min</span>
@@ -2808,8 +3095,11 @@
           state.pedidoDetalheCache = p;
 
           document.getElementById('dtlNumeroPedido').textContent = `#${p.numero_pedido}`;
-          document.getElementById('dtlOrigem').textContent = obterOrigemNome(p.origem, p.texto_bruto);
-          document.getElementById('dtlOrigem').className = `origem-badge ${obterOrigemClasse(p.origem)}`;
+          const elOrigem = document.getElementById('dtlOrigem');
+          if (elOrigem) {
+            elOrigem.innerHTML = renderizarOrigemBadge(p.origem, p.texto_bruto);
+            elOrigem.className = '';
+          }
 
           const badge = obterBadgeStatus(p.status);
           document.getElementById('dtlStatus').textContent = badge.label;
@@ -2870,17 +3160,86 @@
 
     function fecharDetalhesPedido(e) {
       if (e && e.target && e.target.id !== 'drawerPedido') return;
+      fecharEdicaoClienteEndereco();
       document.getElementById('drawerPedido').classList.remove('open');
+    }
+
+    function abrirEdicaoClienteEndereco() {
+      const p = state.pedidoDetalheCache;
+      if (!p) return;
+      const form = document.getElementById('formEdicaoCliente');
+      if (!form) return;
+      form.style.display = 'block';
+
+      const nomeLimpo = (p.cliente.nome && !p.cliente.nome.startsWith('Cliente iFood')) ? p.cliente.nome : '';
+      const endLimpo = (p.cliente.endereco && !p.cliente.endereco.includes('Gestor iFood')) ? p.cliente.endereco : '';
+
+      document.getElementById('inpEditCliente').value = nomeLimpo;
+      document.getElementById('inpEditEndereco').value = endLimpo;
+      document.getElementById('inpEditBairro').value = p.cliente.bairro || 'Várzea';
+      document.getElementById('inpEditTaxa').value = (p.financeiro && p.financeiro.taxa_entrega) ? p.financeiro.taxa_entrega : 10;
+      document.getElementById('inpEditTelefone').value = p.cliente.telefone || '';
+      document.getElementById('inpEditCliente').focus();
+    }
+
+    function fecharEdicaoClienteEndereco() {
+      const form = document.getElementById('formEdicaoCliente');
+      if (form) form.style.display = 'none';
+    }
+
+    async function salvarEdicaoClienteEndereco() {
+      const p = state.pedidoDetalheCache;
+      if (!p) return;
+
+      const cliente = document.getElementById('inpEditCliente').value.trim();
+      const endereco = document.getElementById('inpEditEndereco').value.trim();
+      const bairro = document.getElementById('inpEditBairro').value.trim();
+      const taxa = parseFloat(document.getElementById('inpEditTaxa').value) || 0;
+      const telefone = document.getElementById('inpEditTelefone').value.trim();
+
+      if (!endereco) {
+        showToast('Informe ao menos o endereço para salvar.', 'warning');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/pedidos/editar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: p.id,
+            cliente: cliente || 'Cliente',
+            endereco: endereco,
+            bairro: bairro || 'Várzea',
+            taxa_entrega: taxa,
+            telefone_cliente: telefone || null
+          })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast('Dados de entrega atualizados com sucesso!', 'success');
+          fecharEdicaoClienteEndereco();
+          await abrirDetalhesPedido(p.id);
+          carregarTudo(false);
+        } else {
+          showToast(data.message || 'Erro ao salvar dados', 'error');
+        }
+      } catch (e) {
+        console.error('Erro ao salvar dados do pedido:', e);
+        showToast('Falha na comunicação ao salvar dados.', 'error');
+      }
     }
 
     function renderizarAcoesDrawer(p) {
       const footer = document.getElementById('dtlFooterAcoes');
       if (!footer) return;
 
+      const btnDescartar = `<button class="btn btn-secondary" style="border-color: rgba(239, 68, 68, 0.4); color: #ef4444; padding: 6px 12px; display: inline-flex; align-items: center; gap: 4px;" onclick="descartarPedido(${p.id}, '${escapeHtml(p.numero_pedido)}')">${SVG_ICONS.trash} <span>Descartar</span></button>`;
+
       if (p.status === 'disponivel' || p.status === 'aguardando_retirada' || p.status === 'pronto' || p.status === 'em_preparo') {
         footer.innerHTML = `
           <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
-          <button class="btn btn-secondary" style="flex: 1; border-color: rgba(239, 68, 68, 0.4); color: #ef4444;" onclick="cancelarPedidoDrawer(${p.id})">Cancelar Pedido</button>
+          ${btnDescartar}
           <button class="btn btn-gold" style="flex: 1.4; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" onclick="abrirModalAtribuirEntregador(${p.id})">
             ${SVG_ICONS.bike}
             <span>Atribuir Entregador</span>
@@ -2889,6 +3248,7 @@
       } else if (p.status === 'em_rota') {
         footer.innerHTML = `
           <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
+          ${btnDescartar}
           <button class="btn btn-secondary" style="flex: 1.1;" onclick="abrirModalAtribuirEntregador(${p.id})" title="Substituir entregador">Trocar Entregador</button>
           <button class="btn btn-success" style="flex: 1.2; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" onclick="alterarStatusPedido(${p.id}, 'entregue')">
             ${SVG_ICONS.check}
@@ -2898,6 +3258,7 @@
       } else {
         footer.innerHTML = `
           <button class="btn btn-secondary" style="flex: 1;" onclick="fecharDetalhesPedido()">Fechar</button>
+          ${btnDescartar}
         `;
       }
     }
@@ -2905,6 +3266,32 @@
     async function cancelarPedidoDrawer(pedidoId) {
       if (!confirm('Deseja realmente cancelar este pedido e removê-lo da fila ativa?')) return;
       await alterarStatusPedido(pedidoId, 'cancelado');
+    }
+
+    async function descartarPedido(pedidoId, numeroPedido) {
+      const num = numeroPedido || pedidoId;
+      const confirmMsg = `Deseja realmente DESCARTAR o pedido #${num} permanentemente do sistema?\n\nEle será removido completamente do banco de dados.`;
+      if (!confirm(confirmMsg)) return;
+
+      try {
+        const res = await fetch('/api/admin/pedidos/descartar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pedido_id: Number(pedidoId) })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message || `Pedido #${num} descartado com sucesso!`, 'success');
+          if (document.getElementById('drawerPedido')?.classList.contains('open')) {
+            fecharDetalhesPedido();
+          }
+          carregarTudo(false);
+        } else {
+          showToast(data.message || 'Erro ao descartar pedido.', 'error');
+        }
+      } catch (err) {
+        showToast('Erro de conexão ao descartar pedido.', 'error');
+      }
     }
 
     async function limparPendentesAntigos() {
@@ -2946,10 +3333,70 @@
 
     // Ações de Contato
     function abrirWhatsappCliente() {
-      if (!state.pedidoDetalheCache || !state.pedidoDetalheCache.cliente.telefone) return;
-      const tel = state.pedidoDetalheCache.cliente.telefone.replace(/\D/g, '');
-      const msg = encodeURIComponent(`Olá, ${state.pedidoDetalheCache.cliente.nome}! Aqui é da Ao Ponto Carnes referente ao seu pedido #${state.pedidoDetalheCache.numero_pedido}.`);
+      const p = state.pedidoDetalheCache;
+      if (!p) return;
+      const telRaw = (p.cliente && p.cliente.telefone) ? p.cliente.telefone : p.telefone_cliente;
+      if (!telRaw) {
+        showToast('Nenhum telefone disponível para este pedido.', 'info');
+        return;
+      }
+      const tel = telRaw.replace(/\D/g, '');
+      const clienteNome = (p.cliente && p.cliente.nome) ? p.cliente.nome : (p.cliente || 'Cliente');
+      const msg = encodeURIComponent(`Olá, ${clienteNome}! Aqui é da Ao Ponto Carnes referente ao seu pedido #${p.numero_pedido}.`);
       window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
+    }
+
+    function copiarWhatsappCliente() {
+      const p = state.pedidoDetalheCache;
+      if (!p) return;
+      const telRaw = (p.cliente && p.cliente.telefone) ? p.cliente.telefone : p.telefone_cliente;
+      if (!telRaw) {
+        showToast('Nenhum telefone disponível para este cliente.', 'info');
+        return;
+      }
+      const telLimpo = telRaw.replace(/\D/g, '');
+      const telFmt = formatarTelefone(telRaw);
+      const loc = (p.cliente && p.cliente.localizador) ? p.cliente.localizador : p.localizador;
+      const clienteNome = (p.cliente && p.cliente.nome) ? p.cliente.nome : (p.cliente || 'Cliente');
+      const enderecoFmt = (p.cliente && p.cliente.endereco) ? `${p.cliente.endereco}${p.cliente.bairro ? ' — ' + p.cliente.bairro : ''}` : (p.endereco || '');
+
+      let textoParaCopiar = `*Pedido #${p.numero_pedido} — ${clienteNome}*\n📞 Contato Cliente: ${telFmt}`;
+      if (enderecoFmt) {
+        textoParaCopiar += `\n📍 Endereço: ${enderecoFmt}`;
+      }
+      if (loc) {
+        textoParaCopiar += `\n🔑 PIN / Localizador: ${loc}`;
+      }
+      if (telLimpo.length >= 10 && !telLimpo.startsWith('0800')) {
+        textoParaCopiar += `\n💬 Link WhatsApp: https://wa.me/55${telLimpo}`;
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textoParaCopiar).then(() => {
+          showToast('Dados e WhatsApp copiados para repasse!', 'success');
+        }).catch(() => {
+          copiarTextoFallbackAdmin(textoParaCopiar);
+        });
+      } else {
+        copiarTextoFallbackAdmin(textoParaCopiar);
+      }
+    }
+
+    function copiarTextoFallbackAdmin(texto) {
+      const ta = document.createElement('textarea');
+      ta.value = texto;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast('Copiado para a área de transferência!', 'success');
+      } catch (e) {
+        showToast('Não foi possível copiar automaticamente.', 'error');
+      }
+      document.body.removeChild(ta);
     }
 
     function abrirWhatsappMotoboy(telefone) {
@@ -3256,6 +3703,7 @@
         const res = await fetch(`/api/admin/fechamento?periodo=${periodoFechamentoAtivo}&motoboy_id=${motoboyId}&grupo=${grupoFechamentoAtivo}${extraParams}&_t=${t}`, { cache: 'no-store' });
         const data = await res.json();
         if (data.success) {
+          state.ultimoFechamentoData = data;
           renderizarFechamento(data);
         }
       } catch (err) {
@@ -3357,11 +3805,38 @@
                   <span><strong>${m.total_entregas}</strong> entregas</span>
                   <span style="color: var(--text-muted);">${isSpeed ? 'Tabela Speed' : 'Tabela Oficial Veloz'}</span>
                 </div>
-                <div style="display: flex; gap: 8px;">
-                  <a class="btn btn-success btn-sm" style="flex: 1; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" href="https://wa.me/55${tel}?text=${msgWhats}" target="_blank">
-                    ${SVG_ICONS.message}
-                    <span>WhatsApp</span>
-                  </a>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <!-- Chave Pix com botão de cópia automática -->
+                  <div style="background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.35); border-radius: var(--radius-sm); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <div style="font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">
+                      <span style="color: var(--text-muted); font-size: 10px; display: block; text-transform: uppercase; font-weight: 700;">Chave Pix:</span>
+                      <strong style="color: ${m.chave_pix ? 'var(--brand-gold-light)' : 'var(--text-muted)'}; font-family: monospace; font-size: 12px;">${m.chave_pix ? escapeHtml(m.chave_pix) : 'Não cadastrada'}</strong>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 11px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;" onclick="copiarChavePixMotoboy('${escapeHtml(m.chave_pix || '')}')">
+                      ${SVG_ICONS.copy}
+                      <span>Copiar Pix</span>
+                    </button>
+                  </div>
+
+                  <!-- Ações: WhatsApp & Confirmar Pagamento -->
+                  <div style="display: flex; gap: 8px;">
+                    <a class="btn btn-secondary btn-sm" style="flex: 1; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" href="https://wa.me/55${tel}?text=${msgWhats}" target="_blank">
+                      ${SVG_ICONS.message}
+                      <span>WhatsApp</span>
+                    </a>
+
+                    ${m.pagamento_confirmado ? `
+                      <button type="button" class="btn btn-success btn-sm" style="flex: 1.3; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); cursor: pointer;" onclick="confirmarPagamentoAdmin(${m.motoboy_id}, '${escapeHtml(m.nome)}', ${m.total_taxas}, 'estornar')" title="Clique se desejar desfazer ou marcar como pendente">
+                        ${SVG_ICONS.check}
+                        <span>Pago</span>
+                      </button>
+                    ` : `
+                      <button type="button" class="btn btn-gold btn-sm" style="flex: 1.3; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 800;" onclick="confirmarPagamentoAdmin(${m.motoboy_id}, '${escapeHtml(m.nome)}', ${m.total_taxas}, 'confirmar')">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        <span>Confirmar Pagamento</span>
+                      </button>
+                    `}
+                  </div>
                 </div>
               </div>
             `;
@@ -3412,8 +3887,301 @@
       }
     }
 
+    function copiarChavePixMotoboy(chavePix) {
+      if (!chavePix || !chavePix.trim()) {
+        showToast('Este motoboy ainda não cadastrou sua chave Pix.', 'info');
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(chavePix).then(() => {
+          showToast(`Chave Pix copiada: ${chavePix}`, 'success');
+        }).catch(() => {
+          copiarTextoFallbackAdmin(chavePix);
+        });
+      } else {
+        copiarTextoFallbackAdmin(chavePix);
+      }
+    }
+
+    async function confirmarPagamentoAdmin(motoboyId, motoboyNome, valor, acao = 'confirmar') {
+      const valorFmt = Number(valor || 0).toFixed(2).replace('.', ',');
+      const textoPrompt = acao === 'estornar'
+        ? `Deseja desfazer a confirmação de pagamento de ${motoboyNome}?`
+        : `Deseja confirmar o pagamento de R$ ${valorFmt} para ${motoboyNome}?`;
+
+      if (!confirm(textoPrompt)) {
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/confirmar-pagamento', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            motoboy_id: motoboyId,
+            periodo: periodoFechamentoAtivo,
+            valor: valor,
+            acao: acao
+          })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(acao === 'estornar' ? `Pagamento de ${motoboyNome} desfeito com sucesso!` : `Pagamento de ${motoboyNome} confirmado com sucesso!`, 'success');
+          carregarFechamento();
+        } else {
+          showToast(data.message || 'Erro ao processar pagamento.', 'error');
+        }
+      } catch (err) {
+        showToast('Erro de conexão ao processar pagamento.', 'error');
+      }
+    }
+
     function imprimirFechamento() {
-      window.print();
+      const data = state.ultimoFechamentoData;
+      if (!data || !data.entregas_detalhadas || data.entregas_detalhadas.length === 0) {
+        showToast('Nenhuma entrega para imprimir no período selecionado.', 'info');
+        return;
+      }
+
+      // Identificar o período filtrado
+      let labelPeriodo = 'Hoje';
+      if (periodoFechamentoAtivo === 'ontem') labelPeriodo = 'Ontem';
+      else if (periodoFechamentoAtivo === 'semana') labelPeriodo = 'Esta Semana';
+      else if (periodoFechamentoAtivo === 'mes') labelPeriodo = 'Este Mês';
+      else if (periodoFechamentoAtivo === 'todos') labelPeriodo = 'Histórico Completo';
+      else if (periodoFechamentoAtivo === 'personalizado') {
+        const dtIni = document.getElementById('inpFechDataInicio')?.value || '';
+        const dtFim = document.getElementById('inpFechDataFim')?.value || '';
+        if (dtIni && dtFim) {
+          const [y1, m1, d1] = dtIni.split('-');
+          const [y2, m2, d2] = dtFim.split('-');
+          labelPeriodo = `${d1}/${m1}/${y1} a ${d2}/${m2}/${y2}`;
+        } else if (dtIni) {
+          labelPeriodo = `A partir de ${dtIni}`;
+        } else if (dtFim) {
+          labelPeriodo = `Até ${dtFim}`;
+        }
+      }
+
+      // Identificar o entregador filtrado
+      const selMotoboy = document.getElementById('selectFiltroMotoboy');
+      let nomeEntregador = 'Todos os Entregadores';
+      if (selMotoboy && selMotoboy.value && selMotoboy.value !== 'todos') {
+        nomeEntregador = selMotoboy.options[selMotoboy.selectedIndex]?.text || 'Entregador Selecionado';
+      }
+
+      const agora = new Date();
+      const emissaoStr = agora.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) + ' às ' + agora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+
+      const totalEntregas = data.entregas_detalhadas.length;
+      let totalValor = 0;
+
+      const linhasHtml = data.entregas_detalhadas.map((e, index) => {
+        const taxa = Number(e.taxa_repasse || 0);
+        totalValor += taxa;
+        const bgZebra = index % 2 === 1 ? '#f9fafb' : '#ffffff';
+        const numPedido = escapeHtml(String(e.numero_pedido || '').trim());
+        const bairro = escapeHtml(String(e.bairro || 'Centro / Não informado').trim());
+        const valorFmt = taxa.toFixed(2).replace('.', ',');
+
+        return `
+          <tr style="background: ${bgZebra}; border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 6px 10px; font-weight: 700; color: #111827; font-family: monospace; font-size: 13px;">#${numPedido}</td>
+            <td style="padding: 6px 10px; color: #374151; font-size: 13px;">${bairro}</td>
+            <td style="padding: 6px 10px; text-align: right; font-weight: 700; color: #111827; font-size: 13px;">R$ ${valorFmt}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const totalFmt = totalValor.toFixed(2).replace('.', ',');
+
+      const relatorioHtml = `
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <title>Relatório de Fechamento — Ao Ponto Carnes</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 12mm 15mm;
+            }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+              color: #111827;
+              background: #ffffff;
+              padding: 10px;
+              font-size: 13px;
+              line-height: 1.4;
+            }
+            .header-doc {
+              border-bottom: 2px solid #111827;
+              padding-bottom: 10px;
+              margin-bottom: 14px;
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+            }
+            .title-doc {
+              font-size: 18px;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 0.03em;
+              color: #111827;
+            }
+            .subtitle-doc {
+              font-size: 12px;
+              font-weight: 600;
+              color: #4b5563;
+              margin-top: 2px;
+            }
+            .meta-box {
+              background: #f3f4f6;
+              border: 1px solid #e5e7eb;
+              border-radius: 6px;
+              padding: 8px 12px;
+              margin-bottom: 14px;
+              display: flex;
+              justify-content: space-between;
+              flex-wrap: wrap;
+              gap: 8px;
+              font-size: 12px;
+            }
+            .meta-item strong {
+              color: #111827;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 14px;
+            }
+            th {
+              background: #f3f4f6;
+              border-top: 1px solid #111827;
+              border-bottom: 2px solid #111827;
+              padding: 8px 10px;
+              font-size: 12px;
+              font-weight: 800;
+              color: #111827;
+              text-transform: uppercase;
+              letter-spacing: 0.04em;
+            }
+            .total-card {
+              border-top: 2px solid #111827;
+              border-bottom: 2px solid #111827;
+              padding: 10px 14px;
+              background: #f9fafb;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              font-size: 14px;
+              margin-bottom: 24px;
+            }
+            .total-card strong {
+              font-size: 16px;
+              color: #111827;
+            }
+            .audit-signature-area {
+              margin-top: 30px;
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              padding-top: 20px;
+              font-size: 12px;
+              color: #4b5563;
+            }
+            .sign-line {
+              width: 250px;
+              border-top: 1px solid #9ca3af;
+              text-align: center;
+              padding-top: 6px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-doc">
+            <div>
+              <div class="title-doc">Ao Ponto Carnes</div>
+              <div class="subtitle-doc">Fechamento & Auditoria de Entregas</div>
+            </div>
+            <div style="text-align: right; font-size: 11px; color: #6b7280;">
+              <div>Emissão do Relatório</div>
+              <strong style="color: #111827;">${emissaoStr}</strong>
+            </div>
+          </div>
+
+          <div class="meta-box">
+            <div class="meta-item">Período: <strong>${labelPeriodo}</strong></div>
+            <div class="meta-item">Entregador: <strong>${nomeEntregador}</strong></div>
+            <div class="meta-item">Total de Pedidos: <strong>${totalEntregas}</strong></div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: left; width: 30%;">Nº Pedido</th>
+                <th style="text-align: left; width: 45%;">Bairro</th>
+                <th style="text-align: right; width: 25%;">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${linhasHtml}
+            </tbody>
+          </table>
+
+          <div class="total-card">
+            <span>Total de Entregas Auditadas: <strong>${totalEntregas}</strong></span>
+            <span>Valor Total a Pagar: <strong>R$ ${totalFmt}</strong></span>
+          </div>
+
+          <div class="audit-signature-area">
+            <div>
+              <p>Relatório gerado pelo Sistema Oficial de Entregas Ao Ponto.</p>
+              <p>Conforme tabela oficial por bairro.</p>
+            </div>
+            <div class="sign-line">
+              Assinatura / Conferência
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      let printFrame = document.getElementById('iframeImpressaoFechamento');
+      if (!printFrame) {
+        printFrame = document.createElement('iframe');
+        printFrame.id = 'iframeImpressaoFechamento';
+        printFrame.style.position = 'fixed';
+        printFrame.style.right = '0';
+        printFrame.style.bottom = '0';
+        printFrame.style.width = '0';
+        printFrame.style.height = '0';
+        printFrame.style.border = 'none';
+        document.body.appendChild(printFrame);
+      }
+
+      printFrame.contentDocument.open();
+      printFrame.contentDocument.write(relatorioHtml);
+      printFrame.contentDocument.close();
+
+      setTimeout(() => {
+        try {
+          printFrame.contentWindow.focus();
+          printFrame.contentWindow.print();
+        } catch (err) {
+          const win = window.open('', '_blank');
+          if (win) {
+            win.document.write(relatorioHtml);
+            win.document.close();
+            win.focus();
+            win.print();
+          }
+        }
+      }, 250);
     }
 
     // ── GESTÃO DE MOTOBOYS & GRUPOS (PROTEGIDO POR SENHA) ────────────────────
@@ -3641,18 +4409,80 @@
       }
     }
 
-    // Ação: Alterar Taxa de Entrega de Pedido (em rota, balcão ou entregue)
-    async function alterarTaxaPedidoPrompt(pedidoId, taxaAtual) {
-      if (!pedidoId) return;
-      const idNum = Number(pedidoId);
-      const taxaVal = (taxaAtual !== undefined && !isNaN(taxaAtual) && Number(taxaAtual) > 0) ? Number(taxaAtual) : 10.0;
-      const valorStr = prompt(`Alterar taxa de entrega do Pedido #${idNum}\nInforme o novo valor (R$):`, taxaVal.toFixed(2));
-      if (valorStr === null) return; // Operador cancelou
+    // Aprovação e Recusa de Cadastros Pendentes
+    async function aprovarCadastroMotoboy(motoboyId) {
+      const selectGrupo = document.getElementById(`selGrupoPendente_${motoboyId}`);
+      const grupo = selectGrupo ? selectGrupo.value : 'VELOZ';
 
-      const limpo = valorStr.replace('R$', '').trim().replace(',', '.');
-      const novaTaxa = parseFloat(limpo);
+      try {
+        const res = await fetch('/api/admin/motoboys/aprovar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ motoboy_id: motoboyId, grupo })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message || 'Cadastro aprovado com sucesso!', 'success');
+          carregarTudo(false);
+        } else {
+          showToast(data.message || 'Erro ao aprovar cadastro.', 'error');
+        }
+      } catch (err) {
+        showToast('Erro de comunicação ao aprovar cadastro.', 'error');
+      }
+    }
+
+    async function recusarCadastroMotoboy(motoboyId, nome) {
+      if (!confirm(`Tem certeza que deseja recusar e excluir a solicitação de cadastro de "${nome}"?`)) return;
+
+      try {
+        const res = await fetch('/api/admin/motoboys/recusar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ motoboy_id: motoboyId })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message || 'Cadastro recusado com sucesso.', 'info');
+          carregarTudo(false);
+        } else {
+          showToast(data.message || 'Erro ao recusar cadastro.', 'error');
+        }
+      } catch (err) {
+        showToast('Erro de comunicação ao recusar cadastro.', 'error');
+      }
+    }
+
+    // Exclusão definitiva de entregador ativo com confirmação
+    async function excluirMotoboyAtivoPrompt(motoboyId, nome) {
+      if (!confirm(`ATENÇÃO: Deseja realmente EXCLUIR definitivamente o cadastro de "${nome}" do sistema?`)) return;
+      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
+
+      try {
+        const res = await fetch('/api/admin/motoboys/excluir', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ motoboy_id: motoboyId, senha_admin: senhaAdmin })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message || 'Entregador excluído com sucesso.', 'success');
+          carregarTudo(false);
+        } else {
+          showToast(data.message || 'Erro ao excluir entregador.', 'error');
+        }
+      } catch (err) {
+        showToast('Erro ao conectar ao servidor para excluir.', 'error');
+      }
+    }
+
+    // Alteração de taxa de pedido pela Cozinha
+    async function alterarTaxaPedidoPrompt(pedidoId, taxaAtual) {
+      const valorStr = prompt(`Digite a nova Taxa de Entrega para este pedido (R$):`, Number(taxaAtual || 0).toFixed(2));
+      if (valorStr === null) return;
+      const novaTaxa = parseFloat(valorStr.replace(',', '.'));
       if (isNaN(novaTaxa) || novaTaxa < 0) {
-        showToast('Valor de taxa inválido. Digite um número positivo.', 'error');
+        alert('Valor de taxa inválido!');
         return;
       }
 
@@ -3660,21 +4490,28 @@
         const res = await fetch('/api/admin/pedidos/alterar-taxa', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pedido_id: idNum, taxa: novaTaxa })
+          body: JSON.stringify({ pedido_id: pedidoId, taxa: novaTaxa })
         });
         const data = await res.json();
         if (res.ok && data.success) {
-          showToast(`Taxa do pedido alterada para R$ ${novaTaxa.toFixed(2).replace('.', ',')} com sucesso!`, 'success');
+          showToast(data.message || 'Taxa atualizada com sucesso!', 'success');
           carregarTudo(false);
-          if (state.selectedPedidoId === idNum) {
-            abrirDetalhesPedido(idNum);
+          if ((state.pedidoDetalheCache && state.pedidoDetalheCache.id === pedidoId) || (state.pedidoSelecionado && state.pedidoSelecionado.id === pedidoId)) {
+            abrirDetalhesPedido(pedidoId);
           }
         } else {
-          showToast(data.message || 'Erro ao alterar taxa do pedido.', 'error');
+          showToast(data.message || 'Erro ao alterar taxa.', 'error');
         }
-      } catch (e) {
+      } catch (err) {
         showToast('Erro de comunicação ao alterar taxa.', 'error');
       }
+    }
+
+    function alterarTaxaPedidoAtualPrompt() {
+      const p = state.pedidoDetalheCache || state.pedidoSelecionado;
+      if (!p) return;
+      const taxaAtual = p.financeiro?.taxa_entrega || p.taxa_entrega || p.taxa_repasse || 0;
+      alterarTaxaPedidoPrompt(p.id, taxaAtual);
     }
 
     // Ações de Direcionamento de Pedido
@@ -3836,6 +4673,57 @@
         }
       } catch (err) {
         showToast('Erro de conexão ao atualizar taxa.', 'error');
+      }
+    }
+
+    async function adicionarNovoBairroTaxa() {
+      const inpBairro = document.getElementById('novoTaxaBairro');
+      const inpValor = document.getElementById('novoTaxaValor');
+      const selGrupo = document.getElementById('novoTaxaGrupo');
+
+      const bairro = inpBairro ? inpBairro.value.trim() : '';
+      const taxa = inpValor ? parseFloat(inpValor.value) : NaN;
+      const grupoDestino = selGrupo ? selGrupo.value : 'AMBOS';
+
+      if (!bairro) {
+        showToast('Informe o nome do bairro.', 'error');
+        if (inpBairro) inpBairro.focus();
+        return;
+      }
+      if (isNaN(taxa) || taxa < 0) {
+        showToast('Informe um valor de taxa válido (R$).', 'error');
+        if (inpValor) inpValor.focus();
+        return;
+      }
+
+      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
+
+      try {
+        const grupos = grupoDestino === 'AMBOS' ? ['SPEED', 'VELOZ'] : [grupoDestino];
+        for (const g of grupos) {
+          const res = await fetch('/api/admin/taxas/atualizar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              bairro,
+              taxa,
+              grupo: g,
+              senha_admin: senhaAdmin
+            })
+          });
+          const data = await res.json();
+          if (!data || !data.success) {
+            showToast(data.message || `Erro ao salvar taxa para ${g}.`, 'error');
+            return;
+          }
+        }
+
+        showToast(`Bairro "${bairro}" cadastrado com sucesso (R$ ${taxa.toFixed(2)})!`, 'success');
+        if (inpBairro) inpBairro.value = '';
+        if (inpValor) inpValor.value = '';
+        await carregarTaxasAdmin();
+      } catch (err) {
+        showToast('Erro de conexão ao cadastrar novo bairro.', 'error');
       }
     }
 
