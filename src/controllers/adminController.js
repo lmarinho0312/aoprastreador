@@ -1,10 +1,16 @@
 const { getDb } = require('../database/db');
 const { getPosicoesMotoboys } = require('../services/traccarService');
 const { expirarPedidosPendentesDiasAnteriores } = require('./pedidosController');
-const { obterTaxaRepasse, obterNomeBairroCanonica, sincronizarTaxasDb, atualizarCacheLocalTaxa } = require('../utils/rateResolver');
+const { obterTaxaRepasse, obterNomeBairroCanonica } = require('../utils/rateResolver');
+const memoryCache = require('../utils/memoryCache');
 
 async function getPosicoesMapa(req, res) {
   try {
+    const cached = memoryCache.get('admin_posicoes_mapa');
+    if (cached) {
+      return res.json(200, cached);
+    }
+
     const db = getDb();
     await expirarPedidosPendentesDiasAnteriores(db);
 
@@ -14,7 +20,9 @@ async function getPosicoesMapa(req, res) {
     );
 
     if (!motoboys || motoboys.length === 0) {
-      return res.json(200, { success: true, traccar_online: false, motoboys: [] });
+      const respVazia = { success: true, traccar_online: false, motoboys: [] };
+      memoryCache.set('admin_posicoes_mapa', respVazia, 3000);
+      return res.json(200, respVazia);
     }
 
     const pedidosEmRota = await db.query(
@@ -22,7 +30,7 @@ async function getPosicoesMapa(req, res) {
               ROUND((julianday('now') - julianday(data_inicio)) * 1440) as minutos_em_rota
        FROM pedidos 
        WHERE status = 'em_rota' 
-         AND DATE(COALESCE(data_inicio, criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
+         AND DATE(COALESCE(criado_em, DATETIME('now', '-3 hours')), '-2 hours') = DATE(DATETIME('now', '-3 hours'), '-2 hours')
        ORDER BY data_inicio ASC`
     );
 
@@ -117,14 +125,17 @@ async function getPosicoesMapa(req, res) {
       };
     });
 
-    return res.json(200, {
+    const responseData = {
       success: true,
       timestamp: new Date().toISOString(),
       traccar_online: temGpsRealEmAlgumMotoboy || gpsInfo.traccar_online,
       total_motoboys: motoboys.length,
       total_pedidos_em_rota: pedidosEmRota.length,
       data: resultado
-    });
+    };
+
+    memoryCache.set('admin_posicoes_mapa', responseData, 3000);
+    return res.json(200, responseData);
   } catch (error) {
     console.error('❌ Erro ao obter posições para o mapa:', error);
     return res.json(500, { success: false, message: 'Erro interno ao consultar mapa da cozinha.', error: error.message });
@@ -137,45 +148,35 @@ async function getPosicoesMapa(req, res) {
  */
 async function getDashboardStats(req, res) {
   try {
+    const cached = memoryCache.get('admin_dashboard_stats');
+    if (cached) {
+      return res.json(200, cached);
+    }
+
     const db = getDb();
     await expirarPedidosPendentesDiasAnteriores(db);
 
-    const [aguardandoRes, emRotaRes, entreguesRes, totalRes, faturamentoRes, motoboysCountRes] = await Promise.all([
+    const [statsRes, motoboysCountRes] = await Promise.all([
       db.queryOne(`
-        SELECT COUNT(*) as count FROM pedidos 
-        WHERE (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL) 
-          AND motoboy_id IS NULL 
-          AND status NOT IN ('entregue', 'expirado', 'cancelado')
-          AND DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
-      `),
-      db.queryOne(`
-        SELECT COUNT(*) as count FROM pedidos 
-        WHERE status = 'em_rota'
-          AND DATE(COALESCE(data_inicio, criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
-      `),
-      db.queryOne(`
-        SELECT COUNT(*) as count FROM pedidos 
-        WHERE status = 'entregue'
-          AND DATE(COALESCE(data_fim, data_inicio, criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
-      `),
-      db.queryOne(`
-        SELECT COUNT(*) as count FROM pedidos
-        WHERE DATE(COALESCE(criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
-          AND status NOT IN ('expirado', 'cancelado')
-      `),
-      db.queryOne(`
-        SELECT COALESCE(SUM(taxa_entrega), 0) as total_taxas FROM pedidos 
-        WHERE status = 'entregue'
-          AND DATE(COALESCE(data_fim, data_inicio, criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))
+        SELECT 
+          COUNT(CASE WHEN (status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo', 'confirmado') OR (status = 'em_entrega' AND motoboy_id IS NULL) OR status IS NULL) 
+                          AND motoboy_id IS NULL 
+                          AND status NOT IN ('entregue', 'expirado', 'cancelado') THEN 1 END) as aguardando,
+          COUNT(CASE WHEN status = 'em_rota' OR (status = 'em_entrega' AND motoboy_id IS NOT NULL) THEN 1 END) as em_rota,
+          COUNT(CASE WHEN status = 'entregue' THEN 1 END) as entregues,
+          COUNT(CASE WHEN status NOT IN ('expirado', 'cancelado') THEN 1 END) as total,
+          COALESCE(SUM(CASE WHEN status = 'entregue' THEN taxa_entrega ELSE 0 END), 0) as total_taxas
+        FROM pedidos 
+        WHERE DATE(COALESCE(criado_em, DATETIME('now', '-3 hours')), '-2 hours') = DATE(DATETIME('now', '-3 hours'), '-2 hours')
       `),
       db.queryOne(`SELECT COUNT(*) as count FROM motoboys`)
     ]);
 
-    const aguardando = Number(aguardandoRes?.count || 0);
-    const emRota = Number(emRotaRes?.count || 0);
-    const entregues = Number(entreguesRes?.count || 0);
-    const total = Number(totalRes?.count || 0);
-    const faturamentoTaxas = Number(faturamentoRes?.total_taxas || 0);
+    const aguardando = Number(statsRes?.aguardando || 0);
+    const emRota = Number(statsRes?.em_rota || 0);
+    const entregues = Number(statsRes?.entregues || 0);
+    const total = Number(statsRes?.total || 0);
+    const faturamentoTaxas = Number(statsRes?.total_taxas || 0);
     const totalMotoboys = Number(motoboysCountRes?.count || 0);
 
     // Estimativa de faturamento operacional do dia (ticket médio + taxas)
@@ -183,7 +184,7 @@ async function getDashboardStats(req, res) {
       ? (entregues * 45.80) + faturamentoTaxas 
       : 0;
 
-    return res.json(200, {
+    const responseData = {
       success: true,
       timestamp: new Date().toISOString(),
       stats: {
@@ -195,7 +196,10 @@ async function getDashboardStats(req, res) {
         faturamento_hoje: Number(faturamentoEstimado.toFixed(2)),
         total_motoboys: totalMotoboys
       }
-    });
+    };
+
+    memoryCache.set('admin_dashboard_stats', responseData, 3000);
+    return res.json(200, responseData);
   } catch (error) {
     console.error('❌ Erro ao obter estatísticas:', error);
     return res.json(500, { success: false, message: 'Erro ao obter estatísticas do dashboard.', error: error.message });
@@ -208,6 +212,12 @@ async function getDashboardStats(req, res) {
  */
 async function listarTodosPedidos(req, res) {
   try {
+    const cacheKey = 'admin_pedidos_' + JSON.stringify(req.query || {});
+    const cached = memoryCache.get(cacheKey);
+    if (cached) {
+      return res.json(200, cached);
+    }
+
     const db = getDb();
     await expirarPedidosPendentesDiasAnteriores(db);
 
@@ -220,15 +230,15 @@ async function listarTodosPedidos(req, res) {
              p.texto_bruto, p.data_inicio, p.data_fim, p.criado_em,
              m.id as motoboy_id, m.nome as motoboy_nome, m.telefone as motoboy_telefone, m.grupo as motoboy_grupo,
              CASE 
-               WHEN p.status = 'em_rota' AND p.data_inicio IS NOT NULL THEN
-                 ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(p.data_inicio)) * 1440)
-               WHEN p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR p.status IS NULL THEN
+               WHEN (p.status = 'em_rota' OR (p.status = 'em_entrega' AND p.motoboy_id IS NOT NULL)) AND p.data_inicio IS NOT NULL THEN
+                  ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(p.data_inicio)) * 1440)
+                WHEN p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo', 'confirmado') OR (p.status = 'em_entrega' AND p.motoboy_id IS NULL) OR p.status IS NULL THEN
                  ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(p.criado_em, DATETIME('now', '-3 hours')))) * 1440)
                WHEN p.status = 'entregue' AND p.data_fim IS NOT NULL AND p.data_inicio IS NOT NULL THEN
                  ROUND((julianday(p.data_fim) - julianday(p.data_inicio)) * 1440)
                ELSE 0
              END as tempo_decorrido_minutos,
-             (SELECT COUNT(*) FROM pedido_rotas pr WHERE pr.pedido_id = p.id) as total_pontos_gps
+             0 as total_pontos_gps
       FROM pedidos p
       LEFT JOIN motoboys m ON p.motoboy_id = m.id
     `;
@@ -246,10 +256,10 @@ async function listarTodosPedidos(req, res) {
     } else {
       // Regra de virada de data: por padrão no painel ativo da cozinha, apenas pedidos de HOJE são exibidos
       if (data === 'hoje') {
-        conditions.push(`DATE(COALESCE(p.criado_em, DATETIME('now', '-3 hours'))) = DATE(DATETIME('now', '-3 hours'))`);
+        conditions.push(`DATE(COALESCE(p.criado_em, DATETIME('now', '-3 hours')), '-2 hours') = DATE(DATETIME('now', '-3 hours'), '-2 hours')`);
       } else if (data && data !== 'todos' && data !== 'all') {
-        conditions.push(`DATE(COALESCE(p.criado_em, DATETIME('now', '-3 hours'))) = ?`);
-        params.push(data);
+        conditions.push(`p.criado_em >= ? AND p.criado_em <= ?`);
+        params.push(`${data} 00:00:00`, `${data} 23:59:59`);
       }
 
       // Ignora pedidos cancelados ou expirados na visualização operacional normal
@@ -260,7 +270,9 @@ async function listarTodosPedidos(req, res) {
 
     if (status && status !== 'todos' && status !== 'all') {
       if (status === 'aguardando' || status === 'disponivel' || status === 'balcao' || status === 'pronto') {
-        conditions.push(`(p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo') OR status IS NULL) AND p.motoboy_id IS NULL AND (p.status != 'entregue' OR p.status IS NULL)`);
+        conditions.push(`(p.status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo', 'confirmado') OR (p.status = 'em_entrega' AND p.motoboy_id IS NULL) OR p.status IS NULL) AND p.motoboy_id IS NULL AND (p.status != 'entregue' OR p.status IS NULL)`);
+      } else if (status === 'em_rota') {
+        conditions.push(`(p.status = 'em_rota' OR (p.status = 'em_entrega' AND p.motoboy_id IS NOT NULL))`);
       } else {
         conditions.push(`p.status = ?`);
         params.push(status);
@@ -275,13 +287,13 @@ async function listarTodosPedidos(req, res) {
 
     const pedidos = await db.query(query, params);
 
-    return res.json(200, {
+    const responseData = {
       success: true,
       total: pedidos.length,
       pedidos: pedidos.map(p => {
         const grupoEfetivo = (p.grupo === 'SPEED' || p.motoboy_grupo === 'SPEED') ? 'SPEED' : (p.grupo === 'VELOZ' || p.motoboy_grupo === 'VELOZ' ? 'VELOZ' : 'VELOZ');
         const repasse = obterTaxaRepasse(p.bairro, p.endereco, p.texto_bruto, grupoEfetivo);
-        const bairroFormatado = obterNomeBairroCanonica(p.bairro, p.endereco, p.texto_bruto);
+        const bairroFormatado = obterNomeBairroCanonica(p.bairro, p.endereco, p.texto_bruto) || p.bairro;
         const taxaSalva = (p.taxa_entrega !== null && p.taxa_entrega !== undefined && !isNaN(Number(p.taxa_entrega))) ? Number(p.taxa_entrega) : null;
         const repasseFinal = (taxaSalva !== null && taxaSalva > 0) ? taxaSalva : repasse;
         return {
@@ -311,7 +323,10 @@ async function listarTodosPedidos(req, res) {
           total_pontos_gps: Number(p.total_pontos_gps || 0)
         };
       })
-    });
+    };
+
+    memoryCache.set(cacheKey, responseData, 3000);
+    return res.json(200, responseData);
   } catch (error) {
     console.error('❌ Erro ao listar todos os pedidos:', error);
     return res.json(500, { success: false, message: 'Erro ao listar pedidos.', error: error.message });
@@ -324,9 +339,14 @@ async function listarTodosPedidos(req, res) {
  */
 async function listarMotoboysAdmin(req, res) {
   try {
+    const cached = memoryCache.get('admin_motoboys');
+    if (cached) {
+      return res.json(200, cached);
+    }
+
     const db = getDb();
     const motoboys = await db.query(
-      `SELECT id, nome, telefone, traccar_device_id, latitude, longitude, velocidade, ultima_atualizacao, criado_em, grupo FROM motoboys ORDER BY id ASC`
+      `SELECT id, nome, telefone, traccar_device_id, latitude, longitude, velocidade, ultima_atualizacao, criado_em, grupo, status FROM motoboys ORDER BY id ASC`
     );
 
     const pedidosAtivos = await db.query(
@@ -360,17 +380,22 @@ async function listarMotoboysAdmin(req, res) {
         longitude: m.longitude,
         velocidade: Number(m.velocidade || 0),
         ultima_atualizacao: m.ultima_atualizacao,
+        criado_em: m.criado_em,
         status: statusCalculado,
+        status_aprovacao: m.status || 'aprovado',
         qtd_pedidos: pedidos.length,
         pedidos_em_rota: pedidos
       };
     });
 
-    return res.json(200, {
+    const responseData = {
       success: true,
       total: resultado.length,
       motoboys: resultado
-    });
+    };
+
+    memoryCache.set('admin_motoboys', responseData, 3000);
+    return res.json(200, responseData);
   } catch (error) {
     console.error('❌ Erro ao listar motoboys:', error);
     return res.json(500, { success: false, message: 'Erro ao listar motoboys.', error: error.message });
@@ -392,16 +417,16 @@ async function obterFechamentoEntregas(req, res) {
 
     switch (periodo) {
       case 'hoje':
-        dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em)) = DATE(DATETIME('now', '-3 hours'))`;
+        dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em, DATETIME('now', '-3 hours')), '-2 hours') = DATE(DATETIME('now', '-3 hours'), '-2 hours')`;
         break;
       case 'ontem':
-        dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em)) = DATE(DATETIME('now', '-3 hours', '-1 day'))`;
+        dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em, DATETIME('now', '-3 hours')), '-2 hours') = DATE(DATETIME('now', '-3 hours'), '-2 hours', '-1 day')`;
         break;
       case 'semana':
-        dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em)) >= DATE(DATETIME('now', '-3 hours', 'weekday 0', '-7 days'))`;
+        dataFiltro = `AND DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em, DATETIME('now', '-3 hours')), '-2 hours') >= DATE(DATETIME('now', '-3 hours'), '-2 hours', 'weekday 0', '-7 days')`;
         break;
       case 'mes':
-        dataFiltro = `AND strftime('%Y-%m', COALESCE(p.data_fim, p.data_inicio, p.criado_em)) = strftime('%Y-%m', DATETIME('now', '-3 hours'))`;
+        dataFiltro = `AND strftime('%Y-%m', DATE(COALESCE(p.data_fim, p.data_inicio, p.criado_em, DATETIME('now', '-3 hours')), '-2 hours')) = strftime('%Y-%m', DATE(DATETIME('now', '-3 hours'), '-2 hours'))`;
         break;
       case 'personalizado': {
         let dtIni = String(data_inicio || '').trim();
@@ -458,7 +483,8 @@ async function obterFechamentoEntregas(req, res) {
         p.texto_bruto,
         m.nome as motoboy_nome,
         m.telefone as motoboy_telefone,
-        m.grupo as motoboy_grupo
+        m.grupo as motoboy_grupo,
+        m.chave_pix as motoboy_chave_pix
       FROM pedidos p
       LEFT JOIN motoboys m ON p.motoboy_id = m.id
       WHERE p.status = 'entregue'
@@ -468,6 +494,40 @@ async function obterFechamentoEntregas(req, res) {
         ${grupoFiltro}
       ORDER BY p.data_fim DESC
     `, params);
+
+    // Buscar pagamentos já confirmados pela administração para os motoboys neste período específico
+    let pagamentosConfirmados = [];
+    const dTurno = new Date(Date.now() - (3 * 3600000) - (2 * 3600000));
+    const hojeDataIso = dTurno.toISOString().split('T')[0];
+    const ontemDataIso = new Date(dTurno.getTime() - 86400000).toISOString().split('T')[0];
+    
+    let sqlPag = `SELECT motoboy_id, periodo, data_referencia, status, confirmado_em, valor FROM pagamentos_motoboys WHERE status = 'confirmado'`;
+    const paramsPag = [];
+
+    if (periodo === 'hoje') {
+      sqlPag += ` AND (data_referencia = ? OR (periodo = 'hoje' AND DATE(confirmado_em) = ?))`;
+      paramsPag.push(hojeDataIso, hojeDataIso);
+    } else if (periodo === 'ontem') {
+      sqlPag += ` AND (data_referencia = ? OR (periodo = 'ontem' AND DATE(confirmado_em) = ?))`;
+      paramsPag.push(ontemDataIso, ontemDataIso);
+    } else if (periodo === 'personalizado' && req.query.data_inicio) {
+      sqlPag += ` AND data_referencia >= ? AND data_referencia <= ?`;
+      paramsPag.push(req.query.data_inicio, req.query.data_fim || req.query.data_inicio);
+    } else if (periodo && periodo !== 'todos') {
+      sqlPag += ` AND periodo = ?`;
+      paramsPag.push(periodo);
+    }
+
+    try {
+      pagamentosConfirmados = await db.query(sqlPag, paramsPag);
+    } catch (e) {
+      console.warn('⚠️ Consulta a pagamentos_motoboys ignorada:', e.message);
+    }
+
+    const mapaPagamentos = {};
+    for (const pg of pagamentosConfirmados) {
+      mapaPagamentos[pg.motoboy_id] = pg;
+    }
 
     const porMotoboy = {};
     let totalGeralEntregas = 0;
@@ -482,11 +542,15 @@ async function obterFechamentoEntregas(req, res) {
       totalGeralTaxas += taxaEfetiva;
 
       if (!porMotoboy[e.motoboy_id]) {
+        const pag = mapaPagamentos[e.motoboy_id];
         porMotoboy[e.motoboy_id] = {
           motoboy_id: e.motoboy_id,
           nome: e.motoboy_nome,
           telefone: e.motoboy_telefone,
           grupo: e.motoboy_grupo || 'VELOZ',
+          chave_pix: e.motoboy_chave_pix || null,
+          pagamento_confirmado: !!pag,
+          pagamento_confirmado_em: pag ? pag.confirmado_em : null,
           total_entregas: 0,
           total_taxas: 0,
           entregas: []
@@ -518,7 +582,7 @@ async function obterFechamentoEntregas(req, res) {
         origem: e.origem,
         data_inicio: e.data_inicio,
         data_fim: e.data_fim,
-        motoboy: { id: e.motoboy_id, nome: e.motoboy_nome, telefone: e.motoboy_telefone, grupo: e.motoboy_grupo || 'VELOZ' },
+        motoboy: { id: e.motoboy_id, nome: e.motoboy_nome, telefone: e.motoboy_telefone, grupo: e.motoboy_grupo || 'VELOZ', chave_pix: e.motoboy_chave_pix || null },
         taxa_repasse: taxaEfetiva
       };
     });
@@ -540,6 +604,7 @@ async function obterFechamentoEntregas(req, res) {
         entregadores_ativos: resumoPorMotoboy.length
       },
       por_motoboy: resumoPorMotoboy,
+      motoboys: resumoPorMotoboy,
       entregas_detalhadas: entregasDetalhadas
     });
   } catch (error) {
@@ -590,15 +655,10 @@ async function criarPedidoManual(req, res) {
       [cleanPedidoId, cleanGrupo, cleanOrigem, cleanPedidoId, cleanCliente, cleanEndereco, cleanBairro, taxa, cleanTelefone, cleanLocalizador, cleanTextoBruto]
     );
 
-    let novoPedidoId = Number(result.lastInsertRowid);
-    let novoPedido = null;
-    if (novoPedidoId && !isNaN(novoPedidoId)) {
-      novoPedido = await db.queryOne(`SELECT * FROM pedidos WHERE id = ?`, [novoPedidoId]);
-    }
-    if (!novoPedido) {
-      novoPedido = await db.queryOne(`SELECT * FROM pedidos WHERE numero_pedido = ? ORDER BY id DESC LIMIT 1`, [cleanPedidoId]);
-      if (novoPedido) novoPedidoId = Number(novoPedido.id);
-    }
+    const novoPedidoId = Number(result.lastInsertRowid);
+    const novoPedido = await db.queryOne(`SELECT * FROM pedidos WHERE id = ?`, [novoPedidoId]);
+
+    memoryCache.clear();
 
     return res.json(201, {
       success: true,
@@ -618,7 +678,8 @@ async function criarPedidoManual(req, res) {
 async function limparPedidosPendentesAntigos(req, res) {
   try {
     const db = getDb();
-    const count = await expirarPedidosPendentesDiasAnteriores(db);
+    const count = await expirarPedidosPendentesDiasAnteriores(db, true);
+    memoryCache.clear();
     return res.json(200, {
       success: true,
       count,
@@ -700,6 +761,8 @@ async function atualizarMotoboy(req, res) {
       [motoboyId]
     );
 
+    memoryCache.clear();
+
     return res.json(200, {
       success: true,
       message: `Entregador "${cleanNome}" atualizado com sucesso! (Grupo: ${cleanGrupo})`,
@@ -740,15 +803,17 @@ async function cadastrarMotoboyAdmin(req, res) {
     const hashedPassword = hashPassword(String(senha).trim());
 
     const result = await db.execute(
-      `INSERT INTO motoboys (nome, telefone, senha, traccar_device_id, grupo) VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO motoboys (nome, telefone, senha, traccar_device_id, grupo, status) VALUES (?, ?, ?, ?, ?, 'aprovado')`,
       [String(nome).trim(), cleanTelefone, hashedPassword, cleanDeviceId, cleanGrupo]
     );
 
     const novoId = Number(result.lastInsertRowid);
     const novoMotoboy = await db.queryOne(
-      'SELECT id, nome, telefone, traccar_device_id, grupo, criado_em FROM motoboys WHERE id = ?',
+      'SELECT id, nome, telefone, traccar_device_id, grupo, criado_em, status FROM motoboys WHERE id = ?',
       [novoId]
     );
+
+    memoryCache.clear();
 
     return res.json(201, {
       success: true,
@@ -758,6 +823,81 @@ async function cadastrarMotoboyAdmin(req, res) {
   } catch (error) {
     console.error('❌ Erro ao cadastrar motoboy pelo admin:', error);
     return res.json(500, { success: false, message: 'Erro ao cadastrar entregador.', error: error.message });
+  }
+}
+
+/**
+ * Aprovar Cadastro de Motoboy Pendente
+ * POST /api/admin/motoboys/aprovar
+ * Body: { motoboy_id, grupo }
+ */
+async function aprovarMotoboy(req, res) {
+  try {
+    const { motoboy_id, grupo } = req.body || {};
+    if (!motoboy_id) {
+      return res.json(400, { success: false, message: 'ID do entregador é obrigatório.' });
+    }
+
+    let cleanGrupo = grupo ? String(grupo).trim().toUpperCase() : 'VELOZ';
+    if (cleanGrupo !== 'VELOZ' && cleanGrupo !== 'SPEED') cleanGrupo = 'VELOZ';
+
+    const db = getDb();
+    const result = await db.execute(
+      `UPDATE motoboys SET status = 'aprovado', grupo = ? WHERE id = ?`,
+      [cleanGrupo, Number(motoboy_id)]
+    );
+
+    if (result.changes === 0) {
+      return res.json(404, { success: false, message: 'Entregador não encontrado.' });
+    }
+
+    const m = await db.queryOne(
+      'SELECT id, nome, telefone, grupo, status FROM motoboys WHERE id = ?',
+      [Number(motoboy_id)]
+    );
+
+    memoryCache.clear();
+
+    return res.json(200, {
+      success: true,
+      message: `Cadastro de "${m.nome}" APROVADO com sucesso no grupo ${cleanGrupo}!`,
+      motoboy: m
+    });
+  } catch (error) {
+    console.error('❌ Erro ao aprovar motoboy:', error);
+    return res.json(500, { success: false, message: 'Erro ao aprovar cadastro.', error: error.message });
+  }
+}
+
+/**
+ * Recusar / Excluir Cadastro de Motoboy Pendente
+ * POST /api/admin/motoboys/recusar
+ * Body: { motoboy_id }
+ */
+async function recusarMotoboy(req, res) {
+  try {
+    const { motoboy_id } = req.body || {};
+    if (!motoboy_id) {
+      return res.json(400, { success: false, message: 'ID do entregador é obrigatório.' });
+    }
+
+    const db = getDb();
+    const m = await db.queryOne('SELECT id, nome FROM motoboys WHERE id = ?', [Number(motoboy_id)]);
+    if (!m) {
+      return res.json(404, { success: false, message: 'Entregador não encontrado.' });
+    }
+
+    await db.execute('DELETE FROM motoboys WHERE id = ?', [Number(motoboy_id)]);
+
+    memoryCache.clear();
+
+    return res.json(200, {
+      success: true,
+      message: `Cadastro de "${m.nome}" foi recusado e removido do sistema.`
+    });
+  } catch (error) {
+    console.error('❌ Erro ao recusar motoboy:', error);
+    return res.json(500, { success: false, message: 'Erro ao recusar cadastro.', error: error.message });
   }
 }
 
@@ -809,9 +949,13 @@ async function atualizarTaxaBairro(req, res) {
       [cleanBairro, cleanTaxa]
     );
 
-    // Atualiza imediatamente o cache de taxas em memória para efeito instantâneo
-    atualizarCacheLocalTaxa(cleanGrupo, cleanBairro, cleanTaxa);
-    await sincronizarTaxasDb(db, true);
+    try {
+      const { atualizarCacheLocalTaxa, sincronizarTaxasDb } = require('../utils/rateResolver');
+      atualizarCacheLocalTaxa(cleanGrupo, cleanBairro, cleanTaxa);
+      await sincronizarTaxasDb(db, true);
+    } catch (_) {}
+
+    memoryCache.clear();
 
     return res.json(200, {
       success: true,
@@ -899,6 +1043,8 @@ async function atribuirPedidoMotoboy(req, res) {
       [pedidoIdNum]
     );
 
+    memoryCache.clear();
+
     return res.json(200, {
       success: true,
       message: `Pedido #${pedido.numero_pedido} atribuído com sucesso a ${motoboy.nome} (${grupoFinal})!`,
@@ -911,9 +1057,116 @@ async function atribuirPedidoMotoboy(req, res) {
 }
 
 /**
+ * Descartar / Excluir Pedido Manualmente do Sistema
+ * POST /api/admin/pedidos/descartar
+ */
+async function descartarPedido(req, res) {
+  try {
+    const { pedido_id, id } = req.body || req.query || {};
+    const pedidoIdNum = Number(pedido_id || id);
+    if (!pedidoIdNum || isNaN(pedidoIdNum)) {
+      return res.json(400, { success: false, message: 'ID do pedido é obrigatório.' });
+    }
+
+    const db = getDb();
+    const pedido = await db.queryOne('SELECT id, numero_pedido FROM pedidos WHERE id = ?', [pedidoIdNum]);
+    if (!pedido) {
+      return res.json(404, { success: false, message: 'Pedido não encontrado.' });
+    }
+
+    // Excluir rotas GPS vinculadas caso existam
+    await db.execute('DELETE FROM pedido_rotas WHERE pedido_id = ?', [pedidoIdNum]);
+    // Excluir o pedido permanentemente do sistema
+    await db.execute('DELETE FROM pedidos WHERE id = ?', [pedidoIdNum]);
+
+    memoryCache.clear();
+
+    return res.json(200, {
+      success: true,
+      message: `Pedido #${pedido.numero_pedido} descartado com sucesso do sistema!`
+    });
+  } catch (error) {
+    console.error('❌ Erro ao descartar pedido:', error);
+    return res.json(500, { success: false, message: 'Erro ao descartar pedido.', error: error.message });
+  }
+}
+
+/**
+ * Confirmação de Pagamento de Fechamento do Motoboy
+ * POST /api/admin/confirmar-pagamento
+ */
+async function confirmarPagamentoMotoboy(req, res) {
+  try {
+    const { motoboy_id, periodo = 'hoje', valor = 0, data_referencia, acao } = req.body || {};
+    if (!motoboy_id) {
+      return res.json(400, { success: false, message: 'motoboy_id é obrigatório.' });
+    }
+    const db = getDb();
+
+    // Determina a data de referência exata (horário de Brasília)
+    let dataRef = data_referencia;
+    if (!dataRef || dataRef === 'hoje') {
+      dataRef = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    } else if (dataRef === 'ontem' || periodo === 'ontem') {
+      dataRef = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    }
+
+    const motoboyIdNum = Number(motoboy_id);
+    const motoboy = await db.queryOne('SELECT id, nome FROM motoboys WHERE id = ?', [motoboyIdNum]);
+    if (!motoboy) {
+      return res.json(404, { success: false, message: 'Entregador não encontrado ou não cadastrado.' });
+    }
+
+    // Suporte a estorno / reversão de pagamento
+    if (acao === 'estornar' || acao === 'remover') {
+      await db.execute(`
+        DELETE FROM pagamentos_motoboys 
+        WHERE motoboy_id = ? AND (data_referencia = ? OR (periodo = ? AND DATE(confirmado_em) = ?))
+      `, [motoboyIdNum, dataRef, String(periodo), dataRef]);
+
+      memoryCache.clear();
+
+      return res.json(200, {
+        success: true,
+        message: 'Confirmação de pagamento desfeita com sucesso.',
+        motoboy_id: motoboyIdNum,
+        status: 'pendente'
+      });
+    }
+
+    // Confirmação com limpeza prévia para idempotência absoluta (evita registros duplicados)
+    await db.execute(`
+      DELETE FROM pagamentos_motoboys 
+      WHERE motoboy_id = ? AND (data_referencia = ? OR (periodo = ? AND DATE(confirmado_em) = ?))
+    `, [motoboyIdNum, dataRef, String(periodo), dataRef]);
+
+    await db.execute(`
+      INSERT INTO pagamentos_motoboys (motoboy_id, periodo, data_referencia, valor, status, confirmado_em)
+      VALUES (?, ?, ?, ?, 'confirmado', DATETIME('now', '-3 hours'))
+    `, [motoboyIdNum, String(periodo), dataRef, Number(valor || 0)]);
+
+    memoryCache.clear();
+
+    return res.json(200, {
+      success: true,
+      message: 'Pagamento confirmado com sucesso!',
+      motoboy_id: motoboyIdNum,
+      data_referencia: dataRef,
+      valor: Number(valor || 0),
+      status: 'confirmado',
+      confirmado_em: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Erro ao confirmar pagamento:', error);
+    return res.json(500, { success: false, message: 'Erro ao confirmar pagamento.', error: error.message });
+  }
+}
+
+/**
  * Altera o valor da taxa de entrega/repasse de um pedido individual (mesmo já em rota ou no balcão)
  * POST /api/admin/pedidos/alterar-taxa
  * Body: { pedido_id, taxa }
+ * Restrito ao Painel da Cozinha / Administração
  */
 async function alterarTaxaPedido(req, res) {
   try {
@@ -942,7 +1195,6 @@ async function alterarTaxaPedido(req, res) {
     await db.execute('UPDATE pedidos SET taxa_entrega = ? WHERE id = ?', [novaTaxa, targetId]);
 
     try {
-      const memoryCache = require('../utils/memoryCache');
       memoryCache.clear();
     } catch (_) {}
 
@@ -961,12 +1213,47 @@ async function alterarTaxaPedido(req, res) {
   }
 }
 
+/**
+ * Excluir Cadastro de Motoboy (tanto pendente quanto aprovado) protegido por senha de admin
+ * POST /api/admin/motoboys/excluir
+ * Body: { motoboy_id, senha_admin }
+ */
+async function excluirMotoboyAdmin(req, res) {
+  try {
+    const { motoboy_id, senha_admin } = req.body || {};
+    if (senha_admin && String(senha_admin).trim() !== SENHA_GESTAO_MOTOBOYS) {
+      return res.json(401, { success: false, message: 'Senha de administrador inválida.' });
+    }
+    if (!motoboy_id) {
+      return res.json(400, { success: false, message: 'ID do entregador é obrigatório.' });
+    }
+
+    const db = getDb();
+    const m = await db.queryOne('SELECT id, nome FROM motoboys WHERE id = ?', [Number(motoboy_id)]);
+    if (!m) {
+      return res.json(404, { success: false, message: 'Entregador não encontrado.' });
+    }
+
+    await db.execute('DELETE FROM motoboys WHERE id = ?', [Number(motoboy_id)]);
+    memoryCache.clear();
+
+    return res.json(200, {
+      success: true,
+      message: `Cadastro de "${m.nome}" foi excluído com sucesso do sistema.`
+    });
+  } catch (error) {
+    console.error('❌ Erro ao excluir motoboy:', error);
+    return res.json(500, { success: false, message: 'Erro ao excluir entregador.', error: error.message });
+  }
+}
+
 module.exports = {
   getPosicoesMapa,
   getDashboardStats,
   listarTodosPedidos,
   listarMotoboysAdmin,
   obterFechamentoEntregas,
+  confirmarPagamentoMotoboy,
   criarPedidoManual,
   limparPedidosPendentesAntigos,
   verificarSenhaMotoboys,
@@ -975,5 +1262,10 @@ module.exports = {
   obterTaxasBairros,
   atualizarTaxaBairro,
   atribuirPedidoMotoboy,
+  descartarPedido,
+  aprovarMotoboy,
+  recusarMotoboy,
+  excluirMotoboyAdmin,
   alterarTaxaPedido
 };
+
