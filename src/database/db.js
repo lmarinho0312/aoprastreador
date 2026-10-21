@@ -29,6 +29,10 @@ function getDb() {
         try {
           return await fn();
         } catch (err) {
+          // Erros de constraint (ex: UNIQUE) não são erros de rede e não devem sofrer retry
+          if (err && err.message && (err.message.includes('UNIQUE') || err.message.includes('constraint'))) {
+            throw err;
+          }
           attempt++;
           if (attempt >= maxRetries) {
             console.error(`❌ Falha definitiva na operação com Turso após ${attempt} tentativas:`, err.message);
@@ -91,15 +95,119 @@ function getDb() {
 
   // MODO LOCAL: node:sqlite nativo do Node.js v22+
   const { DatabaseSync } = require('node:sqlite');
-  const dbPath = path.resolve(__dirname, '../../', config.DB_PATH);
-  const dbDir = path.dirname(dbPath);
+  let dbPath = path.resolve(__dirname, '../../', config.DB_PATH);
 
+  // Na Vercel (serverless) sem Turso, o sistema de arquivos raiz é estritamente Read-Only.
+  // Usamos o diretório /tmp onde temos permissão de escrita para o SQLite.
+  if (process.env.VERCEL && !config.TURSO_URL) {
+    dbPath = path.join('/tmp', 'homologacao.sqlite');
+  }
+
+  const dbDir = path.dirname(dbPath);
   if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
   }
 
   const localDb = new DatabaseSync(dbPath);
   localDb.exec('PRAGMA foreign_keys = ON;');
+
+  // Garante que todas as tabelas existam automaticamente
+  try {
+    localDb.exec(`
+CREATE TABLE IF NOT EXISTS motoboys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    telefone TEXT UNIQUE NOT NULL,
+    senha TEXT NOT NULL,
+    traccar_device_id TEXT UNIQUE NOT NULL,
+    grupo TEXT NOT NULL DEFAULT 'VELOZ',
+    latitude REAL,
+    longitude REAL,
+    velocidade REAL DEFAULT 0,
+    ultima_atualizacao DATETIME,
+    status TEXT NOT NULL DEFAULT 'aprovado',
+    chave_pix TEXT,
+    criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS pedidos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    numero_pedido TEXT NOT NULL,
+    motoboy_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'disponivel',
+    grupo TEXT NULL,
+    origem TEXT DEFAULT 'MANUAL',
+    pedido_id_origem TEXT,
+    cliente TEXT,
+    endereco TEXT,
+    bairro TEXT,
+    taxa_entrega REAL DEFAULT 0.0,
+    telefone_cliente TEXT,
+    localizador TEXT,
+    texto_bruto TEXT,
+    data_inicio DATETIME NULL,
+    data_fim DATETIME NULL,
+    criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (motoboy_id) REFERENCES motoboys(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS pedido_rotas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pedido_id INTEGER NOT NULL,
+    motoboy_id INTEGER NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    velocidade REAL DEFAULT 0,
+    criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (pedido_id) REFERENCES pedidos(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS taxa_bairro (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bairro TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    taxa REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS taxa_bairro_speed (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bairro TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    taxa REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS pagamentos_motoboys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    motoboy_id INTEGER NOT NULL,
+    periodo TEXT NOT NULL,
+    data_referencia TEXT NOT NULL,
+    valor REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'confirmado',
+    criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+    confirmado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+    confirmado_por TEXT DEFAULT 'ADMIN',
+    FOREIGN KEY (motoboy_id) REFERENCES motoboys(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS ifood_events (
+    id TEXT PRIMARY KEY,
+    code TEXT NOT NULL,
+    order_id TEXT,
+    merchant_id TEXT,
+    payload TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pedidos_motoboy_status ON pedidos(motoboy_id, status);
+CREATE INDEX IF NOT EXISTS idx_pedidos_status ON pedidos(status);
+CREATE INDEX IF NOT EXISTS idx_pedidos_criado_em ON pedidos(criado_em);
+CREATE INDEX IF NOT EXISTS idx_pedidos_status_criado ON pedidos(status, criado_em);
+CREATE INDEX IF NOT EXISTS idx_pedidos_origem_id ON pedidos(origem, pedido_id_origem);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pedidos_ifood_unique_origem ON pedidos(origem, pedido_id_origem) WHERE origem = 'IFOOD' AND pedido_id_origem IS NOT NULL AND pedido_id_origem != '';
+CREATE INDEX IF NOT EXISTS idx_ifood_events_order_id ON ifood_events(order_id);
+CREATE INDEX IF NOT EXISTS idx_ifood_events_created_at ON ifood_events(created_at DESC);
+    `);
+  } catch (err) {
+    console.warn('⚠️ Inicialização de schema local:', err.message);
+  }
 
   // Adaptar a API local para ter os mesmos métodos assíncronos
   dbInstance = {
