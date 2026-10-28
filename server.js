@@ -168,12 +168,25 @@ registerRoute('POST', '/api/99food/orders/cancel', requireAdmin(ninetyNineFoodCo
 registerRoute('GET', '/api/99food/orders/details', requireAdmin(ninetyNineFoodController.getOrderDetailsAction));
 registerRoute('GET', '/api/99food/stores/auth-url', requireAdmin(ninetyNineFoodController.getAuthorizationUrlAction));
 
+// ── Integração Oficial CardápioWeb (Partner API v1) ───────────────────────────
+const cardapioWebController = require('./src/controllers/cardapioWebController');
+registerRoute('GET', '/api/cardapioweb/status', cardapioWebController.checkStatus);
+registerRoute('GET', '/api/cardapioweb/webhook', cardapioWebController.handleWebhook);
+registerRoute('HEAD', '/api/cardapioweb/webhook', cardapioWebController.handleWebhook);
+registerRoute('POST', '/api/cardapioweb/webhook', cardapioWebController.handleWebhook);
+registerRoute('GET', '/api/cardapioweb/events', cardapioWebController.listRecentEvents);
+registerRoute('GET', '/api/cardapioweb/orders/details', requireAdmin(cardapioWebController.getOrderDetailsAction));
+registerRoute('POST', '/api/cardapioweb/orders/confirm', requireAdmin(cardapioWebController.confirmOrderAction));
+registerRoute('POST', '/api/cardapioweb/orders/ready', requireAdmin(cardapioWebController.readyOrderAction));
+registerRoute('POST', '/api/cardapioweb/orders/finalize', requireAdmin(cardapioWebController.finalizeOrderAction));
+registerRoute('POST', '/api/cardapioweb/orders/cancel', requireAdmin(cardapioWebController.cancelOrderAction));
+
 // ── Handler principal (usado pela Vercel e pelo servidor local) ────────────────
 async function requestHandler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Auth-Token, X-Gestao-Token');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Auth-Token, X-Gestao-Token, X-API-KEY, X-Webhook-Token');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -201,7 +214,7 @@ async function requestHandler(req, res) {
   };
 
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  const pathname = parsedUrl.pathname;
+  const pathname = parsedUrl.pathname.length > 1 ? parsedUrl.pathname.replace(/\/+$/, '') : parsedUrl.pathname;
   req.query = Object.fromEntries(parsedUrl.searchParams);
 
   // Parsear body se não existir ou se não tiver sido parseado pela Vercel

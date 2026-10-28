@@ -414,10 +414,10 @@ async function webhookSpool(req, res) {
     const pedidoExistente = await db.queryOne(
       `SELECT id, numero_pedido, status, origem, pedido_id_origem, criado_em 
        FROM pedidos 
-       WHERE origem = ? 
-         AND pedido_id_origem = ?
-         AND datetime(criado_em) >= datetime('now', '-3 hours', '-36 hours')`,
-      [cleanOrigem, cleanPedidoId]
+       /* anti-duplicacao no turno */
+       WHERE origem = ?
+         AND (pedido_id_origem = ? OR numero_pedido = ?) AND criado_em >= ?`,
+      [cleanOrigem, cleanPedidoId, cleanPedidoId, obterLimitesTurnoOperacional().inicioTurnoHoje]
     );
 
     if (pedidoExistente) {
@@ -1146,6 +1146,26 @@ async function obterDetalhesPedido(req, res) {
 
     // Parse dos itens a partir do texto bruto da comanda (ou itens padrão se texto bruto genérico)
     let itens = [];
+    if (p.texto_bruto && String(p.texto_bruto).trim().startsWith('{')) {
+      try {
+        const parsedRaw = JSON.parse(p.texto_bruto);
+        const rawItems = parsedRaw.items || parsedRaw.data?.order_info?.products || [];
+        if (Array.isArray(rawItems) && rawItems.length > 0) {
+          itens = rawItems.map(it => {
+            const opts = Array.isArray(it.options) && it.options.length > 0
+              ? it.options.map(o => `${o.quantity && o.quantity > 1 ? o.quantity + 'x ' : ''}${o.name}`).join(', ')
+              : '';
+            const obsParts = [opts, it.observation || it.observations || ''].filter(Boolean);
+            return {
+              nome: it.name || it.item_name || 'Item',
+              qtd: Number(it.quantity || it.amount || 1),
+              preco: Number(it.unit_price || it.unitPrice || it.price || 0),
+              obs: obsParts.join(' | ') || undefined
+            };
+          });
+        }
+      } catch (e) {}
+    }
     if (p.texto_bruto && p.texto_bruto.includes('\n')) {
       const lines = p.texto_bruto.split('\n');
       lines.forEach(l => {
