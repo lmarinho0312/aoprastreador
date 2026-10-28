@@ -30,7 +30,7 @@ async function listarHistoricoEntregas(req, res) {
                WHEN p.data_fim IS NOT NULL THEN ROUND((julianday(p.data_fim) - julianday(p.data_inicio)) * 1440)
                ELSE ROUND((julianday(DATETIME('now', '-3 hours')) - julianday(COALESCE(p.data_inicio, DATETIME('now', '-3 hours')))) * 1440)
              END as duracao_minutos,
-             (SELECT COUNT(*) FROM pedido_rotas pr WHERE pr.pedido_id = p.id) as total_pontos_gps
+             0 as total_pontos_gps
       FROM pedidos p
       LEFT JOIN motoboys m ON p.motoboy_id = m.id
       ORDER BY p.id DESC

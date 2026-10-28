@@ -7,18 +7,37 @@ const authController = require('./src/controllers/authController');
 const pedidosController = require('./src/controllers/pedidosController');
 const adminController = require('./src/controllers/adminController');
 const { sincronizarTaxasDb } = require('./src/utils/rateResolver');
+const { extractAuthFromRequest } = require('./src/utils/authToken');
 
 // Sincronizar cache de taxas das tabelas Turso no startup
 try {
   sincronizarTaxasDb(getDb()).catch(() => {});
 } catch (_) {}
 
-// ── Roteador ──────────────────────────────────────────────────────────────────
+// ── Roteador e Middlewares de Autenticação ────────────────────────────────────
 const routes = { GET: {}, POST: {}, PUT: {}, DELETE: {}, HEAD: {} };
 
 function registerRoute(method, urlPath, handlerFn) {
   if (!routes[method]) routes[method] = {};
   routes[method][urlPath] = handlerFn;
+}
+
+function requireAuth(handlerFn) {
+  return async (req, res) => {
+    if (!req.auth || (req.auth.role !== 'motoboy' && req.auth.role !== 'admin')) {
+      return res.json(401, { success: false, message: 'Sessão não autenticada. Faça login novamente.' });
+    }
+    return handlerFn(req, res);
+  };
+}
+
+function requireAdmin(handlerFn) {
+  return async (req, res) => {
+    if (!req.auth || req.auth.role !== 'admin') {
+      return res.json(401, { success: false, message: 'Acesso restrito à administração / cozinha.' });
+    }
+    return handlerFn(req, res);
+  };
 }
 
 // ── Registro de Rotas ─────────────────────────────────────────────────────────
@@ -51,60 +70,61 @@ registerRoute('GET', '/api/health', async (req, res) => {
 registerRoute('POST', '/api/auth/login', authController.login);
 registerRoute('POST', '/api/auth/register', authController.register);
 registerRoute('POST', '/api/auth/admin-login', authController.loginAdmin);
-registerRoute('POST', '/api/auth/admin-alterar-senha', authController.alterarSenhaAdmin);
+registerRoute('POST', '/api/auth/session-token', authController.renovarTokenSessao);
+registerRoute('POST', '/api/auth/admin-alterar-senha', requireAdmin(authController.alterarSenhaAdmin));
 
-// Pedidos
-registerRoute('POST', '/api/pedidos/iniciar', pedidosController.iniciarPedido);
-registerRoute('POST', '/api/pedidos/finalizar', pedidosController.finalizarPedido);
-registerRoute('POST', '/api/pedidos/abandonar', pedidosController.abandonarPedido);
-registerRoute('GET', '/api/pedidos/motoboy', pedidosController.listarPedidosMotoboy);
+// Pedidos (Protegidos por Token de Motoboy ou Admin)
+registerRoute('POST', '/api/pedidos/iniciar', requireAuth(pedidosController.iniciarPedido));
+registerRoute('POST', '/api/pedidos/finalizar', requireAuth(pedidosController.finalizarPedido));
+registerRoute('POST', '/api/pedidos/abandonar', requireAuth(pedidosController.abandonarPedido));
+registerRoute('GET', '/api/pedidos/motoboy', requireAuth(pedidosController.listarPedidosMotoboy));
 registerRoute('POST', '/api/pedidos/webhook-spool', pedidosController.webhookSpool);
-registerRoute('GET', '/api/pedidos/disponiveis', pedidosController.listarPedidosDisponiveis);
-registerRoute('POST', '/api/pedidos/retirar', pedidosController.assumirPedido);
-registerRoute('GET', '/api/pedidos/detalhes', pedidosController.obterDetalhesPedido);
-registerRoute('POST', '/api/pedidos/editar', pedidosController.editarPedido);
-registerRoute('POST', '/api/pedidos/status', pedidosController.atualizarStatusPedido);
-registerRoute('POST', '/api/pedidos/definir-grupo', pedidosController.definirGrupoPedido);
+registerRoute('GET', '/api/pedidos/disponiveis', requireAuth(pedidosController.listarPedidosDisponiveis));
+registerRoute('POST', '/api/pedidos/retirar', requireAuth(pedidosController.assumirPedido));
+registerRoute('GET', '/api/pedidos/detalhes', requireAdmin(pedidosController.obterDetalhesPedido));
+registerRoute('POST', '/api/pedidos/editar', requireAdmin(pedidosController.editarPedido));
+registerRoute('POST', '/api/pedidos/status', requireAdmin(pedidosController.atualizarStatusPedido));
+registerRoute('POST', '/api/pedidos/definir-grupo', requireAdmin(pedidosController.definirGrupoPedido));
 
 const posicaoController = require('./src/controllers/posicaoController');
 
-// Posição GPS em Tempo Real
+// Posição GPS em Tempo Real (Compatível com App Web e LocationService Nativo Android APK)
 registerRoute('POST', '/api/motoboy/posicao', posicaoController.atualizarPosicaoMotoboy);
 registerRoute('GET', '/api/traccar/location', posicaoController.webhookTraccarClient);
 registerRoute('POST', '/api/traccar/location', posicaoController.webhookTraccarClient);
 
-// Admin / Dashboard, Mapa e Histórico
+// Admin / Dashboard, Mapa e Histórico (Restrito ao Painel da Cozinha / Admin)
 const historicoController = require('./src/controllers/historicoController');
-registerRoute('GET', '/api/admin/stats', adminController.getDashboardStats);
-registerRoute('GET', '/api/admin/pedidos', adminController.listarTodosPedidos);
-registerRoute('GET', '/api/admin/motoboys', adminController.listarMotoboysAdmin);
-registerRoute('GET', '/api/admin/posicoes-mapa', adminController.getPosicoesMapa);
-registerRoute('GET', '/api/admin/historico', historicoController.listarHistoricoEntregas);
-registerRoute('GET', '/api/admin/historico/rota', historicoController.obterRotaPedido);
-registerRoute('GET', '/api/admin/fechamento', adminController.obterFechamentoEntregas);
-registerRoute('POST', '/api/admin/pedidos/manual', adminController.criarPedidoManual);
-registerRoute('POST', '/api/admin/pedidos/limpar-pendentes-antigos', adminController.limparPedidosPendentesAntigos);
-registerRoute('POST', '/api/admin/pedidos/atribuir', adminController.atribuirPedidoMotoboy);
-registerRoute('POST', '/api/admin/pedidos/alterar-taxa', adminController.alterarTaxaPedido);
-registerRoute('POST', '/api/pedidos/alterar-taxa', adminController.alterarTaxaPedido);
-registerRoute('POST', '/api/admin/pedidos/descartar', adminController.descartarPedido);
-registerRoute('DELETE', '/api/pedidos/descartar', adminController.descartarPedido);
+registerRoute('GET', '/api/admin/stats', requireAdmin(adminController.getDashboardStats));
+registerRoute('GET', '/api/admin/pedidos', requireAdmin(adminController.listarTodosPedidos));
+registerRoute('GET', '/api/admin/motoboys', requireAdmin(adminController.listarMotoboysAdmin));
+registerRoute('GET', '/api/admin/posicoes-mapa', requireAdmin(adminController.getPosicoesMapa));
+registerRoute('GET', '/api/admin/historico', requireAdmin(historicoController.listarHistoricoEntregas));
+registerRoute('GET', '/api/admin/historico/rota', requireAdmin(historicoController.obterRotaPedido));
+registerRoute('GET', '/api/admin/fechamento', requireAdmin(adminController.obterFechamentoEntregas));
+registerRoute('POST', '/api/admin/pedidos/manual', requireAdmin(adminController.criarPedidoManual));
+registerRoute('POST', '/api/admin/pedidos/limpar-pendentes-antigos', requireAdmin(adminController.limparPedidosPendentesAntigos));
+registerRoute('POST', '/api/admin/pedidos/atribuir', requireAdmin(adminController.atribuirPedidoMotoboy));
+registerRoute('POST', '/api/admin/pedidos/alterar-taxa', requireAdmin(adminController.alterarTaxaPedido));
+registerRoute('POST', '/api/pedidos/alterar-taxa', requireAdmin(adminController.alterarTaxaPedido));
+registerRoute('POST', '/api/admin/pedidos/descartar', requireAdmin(adminController.descartarPedido));
+registerRoute('DELETE', '/api/pedidos/descartar', requireAdmin(adminController.descartarPedido));
 
-// Gestão de Entregadores & Taxas por Bairro (Protegido por Senha)
-registerRoute('POST', '/api/admin/motoboys/verificar-senha', adminController.verificarSenhaMotoboys);
-registerRoute('POST', '/api/admin/motoboys/atualizar', adminController.atualizarMotoboy);
-registerRoute('POST', '/api/admin/motoboys/cadastrar', adminController.cadastrarMotoboyAdmin);
-registerRoute('POST', '/api/admin/motoboys/aprovar', adminController.aprovarMotoboy);
-registerRoute('POST', '/api/admin/motoboys/recusar', adminController.recusarMotoboy);
-registerRoute('POST', '/api/admin/motoboys/excluir', adminController.excluirMotoboyAdmin);
-registerRoute('GET', '/api/admin/taxas', adminController.obterTaxasBairros);
-registerRoute('POST', '/api/admin/taxas/atualizar', adminController.atualizarTaxaBairro);
-registerRoute('POST', '/api/admin/confirmar-pagamento', adminController.confirmarPagamentoMotoboy);
+// Gestão de Entregadores & Taxas por Bairro (Protegido por Senha + Sessão Admin)
+registerRoute('POST', '/api/admin/motoboys/verificar-senha', requireAdmin(adminController.verificarSenhaMotoboys));
+registerRoute('POST', '/api/admin/motoboys/atualizar', requireAdmin(adminController.atualizarMotoboy));
+registerRoute('POST', '/api/admin/motoboys/cadastrar', requireAdmin(adminController.cadastrarMotoboyAdmin));
+registerRoute('POST', '/api/admin/motoboys/aprovar', requireAdmin(adminController.aprovarMotoboy));
+registerRoute('POST', '/api/admin/motoboys/recusar', requireAdmin(adminController.recusarMotoboy));
+registerRoute('POST', '/api/admin/motoboys/excluir', requireAdmin(adminController.excluirMotoboyAdmin));
+registerRoute('GET', '/api/admin/taxas', requireAdmin(adminController.obterTaxasBairros));
+registerRoute('POST', '/api/admin/taxas/atualizar', requireAdmin(adminController.atualizarTaxaBairro));
+registerRoute('POST', '/api/admin/confirmar-pagamento', requireAdmin(adminController.confirmarPagamentoMotoboy));
 
 // Chave Pix e Rendimentos Motoboy
-registerRoute('POST', '/api/motoboys/chave-pix', authController.salvarChavePix);
-registerRoute('POST', '/api/motoboy/chave-pix', authController.salvarChavePix);
-registerRoute('GET', '/api/motoboy/rendimentos', pedidosController.obterRendimentosMotoboy);
+registerRoute('POST', '/api/motoboys/chave-pix', requireAuth(authController.salvarChavePix));
+registerRoute('POST', '/api/motoboy/chave-pix', requireAuth(authController.salvarChavePix));
+registerRoute('GET', '/api/motoboy/rendimentos', requireAuth(pedidosController.obterRendimentosMotoboy));
 
 // ── Homologação Oficial iFood API ─────────────────────────────────────────────
 const ifoodController = require('./src/controllers/ifoodController');
@@ -125,15 +145,15 @@ registerRoute('HEAD', '/api/ifood/webhook', (req, res) => res.json(200, {
 }));
 registerRoute('POST', '/api/ifood/webhook', ifoodController.handleWebhook);
 registerRoute('GET', '/api/ifood/events', ifoodController.listRecentEvents);
-registerRoute('POST', '/api/ifood/orders/confirm', ifoodController.confirmOrderAction);
-registerRoute('POST', '/api/ifood/orders/dispatch', ifoodController.dispatchOrderAction);
-registerRoute('POST', '/api/ifood/orders/cancel', ifoodController.cancelOrderAction);
-registerRoute('GET', '/api/ifood/orders/reasons', ifoodController.getCancellationReasonsAction);
-registerRoute('POST', '/api/ifood/simulate', ifoodController.simulateEvent);
+registerRoute('POST', '/api/ifood/orders/confirm', requireAdmin(ifoodController.confirmOrderAction));
+registerRoute('POST', '/api/ifood/orders/dispatch', requireAdmin(ifoodController.dispatchOrderAction));
+registerRoute('POST', '/api/ifood/orders/cancel', requireAdmin(ifoodController.cancelOrderAction));
+registerRoute('GET', '/api/ifood/orders/reasons', requireAdmin(ifoodController.getCancellationReasonsAction));
+registerRoute('POST', '/api/ifood/simulate', requireAdmin(ifoodController.simulateEvent));
 registerRoute('GET', '/api/ifood/ping', ifoodController.pingPresenceAction);
 registerRoute('POST', '/api/ifood/ping', ifoodController.pingPresenceAction);
 registerRoute('GET', '/api/ifood/config', ifoodController.getConfig);
-registerRoute('POST', '/api/ifood/config', ifoodController.setConfig);
+registerRoute('POST', '/api/ifood/config', requireAdmin(ifoodController.setConfig));
 
 // ── Homologação Oficial 99Food / DiDi Open Platform ───────────────────────────
 const ninetyNineFoodController = require('./src/controllers/ninetyNineFoodController');
@@ -141,19 +161,19 @@ registerRoute('GET', '/api/99food/status', ninetyNineFoodController.checkStatus)
 registerRoute('GET', '/api/99food/webhook', ninetyNineFoodController.handleWebhook);
 registerRoute('POST', '/api/99food/webhook', ninetyNineFoodController.handleWebhook);
 registerRoute('GET', '/api/99food/events', ninetyNineFoodController.listRecentEvents);
-registerRoute('POST', '/api/99food/orders/confirm', ninetyNineFoodController.confirmOrderAction);
-registerRoute('POST', '/api/99food/orders/ready', ninetyNineFoodController.readyOrderAction);
-registerRoute('POST', '/api/99food/orders/dispatch', ninetyNineFoodController.dispatchOrderAction);
-registerRoute('POST', '/api/99food/orders/cancel', ninetyNineFoodController.cancelOrderAction);
-registerRoute('GET', '/api/99food/orders/details', ninetyNineFoodController.getOrderDetailsAction);
-registerRoute('GET', '/api/99food/stores/auth-url', ninetyNineFoodController.getAuthorizationUrlAction);
+registerRoute('POST', '/api/99food/orders/confirm', requireAdmin(ninetyNineFoodController.confirmOrderAction));
+registerRoute('POST', '/api/99food/orders/ready', requireAdmin(ninetyNineFoodController.readyOrderAction));
+registerRoute('POST', '/api/99food/orders/dispatch', requireAdmin(ninetyNineFoodController.dispatchOrderAction));
+registerRoute('POST', '/api/99food/orders/cancel', requireAdmin(ninetyNineFoodController.cancelOrderAction));
+registerRoute('GET', '/api/99food/orders/details', requireAdmin(ninetyNineFoodController.getOrderDetailsAction));
+registerRoute('GET', '/api/99food/stores/auth-url', requireAdmin(ninetyNineFoodController.getAuthorizationUrlAction));
 
 // ── Handler principal (usado pela Vercel e pelo servidor local) ────────────────
 async function requestHandler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Auth-Token, X-Gestao-Token');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -208,6 +228,7 @@ async function requestHandler(req, res) {
   }
 
   // Roteamento
+  req.auth = extractAuthFromRequest(req);
   const routeHandler = routes[req.method] && routes[req.method][pathname];
   if (routeHandler) {
     try {

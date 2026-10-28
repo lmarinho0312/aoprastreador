@@ -1885,6 +1885,65 @@
       copy: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>'
     };
 
+    // Interceptor transparente de autenticação Admin: injeta Bearer token e renova sessões legadas sem deslogar o operador
+    (function configurarInterceptorAuthAdmin() {
+      const originalFetch = window.fetch.bind(window);
+      let promessaRenovacao = null;
+
+      async function garantirTokenAdmin() {
+        if (!state.admin || !state.admin.usuario) return null;
+        if (state.admin.token) return state.admin.token;
+
+        if (!promessaRenovacao) {
+          promessaRenovacao = (async () => {
+            try {
+              const res = await originalFetch('/api/auth/session-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  role: 'admin',
+                  id: state.admin.id,
+                  usuario: state.admin.usuario
+                })
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data && data.token && state.admin) {
+                  state.admin.token = data.token;
+                  localStorage.setItem('adminSession', JSON.stringify(state.admin));
+                  return data.token;
+                }
+              }
+            } catch (e) {}
+            return null;
+          })().finally(() => {
+            promessaRenovacao = null;
+          });
+        }
+        return promessaRenovacao;
+      }
+
+      window.fetch = async function(input, init = {}) {
+        const urlStr = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+        const isApiCall = urlStr.startsWith('/api/') || urlStr.includes('/api/');
+        const isAuthPublic = urlStr.includes('/api/auth/admin/login') || urlStr.includes('/api/auth/session-token');
+
+        if (isApiCall && !isAuthPublic && state.admin) {
+          const token = await garantirTokenAdmin();
+          const gestaoToken = sessionStorage.getItem('admin_gestao_token');
+          const headers = new Headers(init.headers || {});
+          if (token && !headers.has('Authorization')) {
+            headers.set('Authorization', `Bearer ${token}`);
+          }
+          if (gestaoToken && !headers.has('X-Gestao-Token')) {
+            headers.set('X-Gestao-Token', gestaoToken);
+          }
+          init = { ...init, headers };
+        }
+        return originalFetch(input, init);
+      };
+    })();
+
     // Inicialização protegida por Autenticação
     document.addEventListener('DOMContentLoaded', () => {
       verificarAutenticacaoAdmin();
@@ -4238,6 +4297,7 @@
         if (res.ok && data.success) {
           sessionStorage.setItem('motoboys_unlocked', 'true');
           sessionStorage.setItem('admin_motoboy_pass', senha);
+          if (data.gestao_token) sessionStorage.setItem('admin_gestao_token', data.gestao_token);
           showToast('Acesso liberado à gestão de entregadores!', 'success');
           if (inp) inp.value = '';
           verificarAbaMotoboysDesbloqueada();
@@ -4262,12 +4322,13 @@
     function bloquearAbaMotoboys() {
       sessionStorage.removeItem('motoboys_unlocked');
       sessionStorage.removeItem('admin_motoboy_pass');
+      sessionStorage.removeItem('admin_gestao_token');
       showToast('Aba de entregadores bloqueada com sucesso.', 'info');
       verificarAbaMotoboysDesbloqueada();
     }
 
     async function alterarGrupoMotoboyDirect(motoboyId, novoGrupo) {
-      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
+      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || '';
       try {
         const res = await fetch('/api/admin/motoboys/atualizar', {
           method: 'POST',
@@ -4316,7 +4377,7 @@
       e.preventDefault();
       const btn = document.getElementById('btnSalvarEditMotoboy');
       const msgErro = document.getElementById('msgErroEditMotoboy');
-      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
+      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || '';
 
       const payload = {
         id: Number(document.getElementById('inpEditMotoboyId').value),
@@ -4377,7 +4438,7 @@
       e.preventDefault();
       const btn = document.getElementById('btnSalvarCadMotoboy');
       const msgErro = document.getElementById('msgErroCadMotoboy');
-      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
+      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || '';
 
       const payload = {
         nome: document.getElementById('inpCadMotoboyNome').value.trim(),
@@ -4463,7 +4524,7 @@
     // Exclusão definitiva de entregador ativo com confirmação
     async function excluirMotoboyAtivoPrompt(motoboyId, nome) {
       if (!confirm(`ATENÇÃO: Deseja realmente EXCLUIR definitivamente o cadastro de "${nome}" do sistema?`)) return;
-      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
+      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || '';
 
       try {
         const res = await fetch('/api/admin/motoboys/excluir', {
@@ -4657,7 +4718,7 @@
       const item = lista.find(t => t.id === id);
       const bairroNome = item ? item.bairro : '';
 
-      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
+      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || '';
 
       try {
         const res = await fetch('/api/admin/taxas/atualizar', {
@@ -4703,7 +4764,7 @@
         return;
       }
 
-      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || 'boijoaocarnes01';
+      const senhaAdmin = sessionStorage.getItem('admin_motoboy_pass') || '';
 
       try {
         const grupos = grupoDestino === 'AMBOS' ? ['SPEED', 'VELOZ'] : [grupoDestino];

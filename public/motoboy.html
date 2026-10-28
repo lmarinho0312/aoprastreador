@@ -840,6 +840,63 @@
       if (window.lucide) lucide.createIcons();
     });
 
+    // Interceptor transparente de autenticação: injeta Bearer token e renova sessões legadas sem deslogar o motoboy
+    (function configurarInterceptorAuthMotoboy() {
+      const originalFetch = window.fetch.bind(window);
+      let promessaRenovacao = null;
+
+      async function garantirTokenMotoboy() {
+        if (!state.motoboy || !state.motoboy.id) return null;
+        if (state.motoboy.token) return state.motoboy.token;
+
+        if (!promessaRenovacao) {
+          promessaRenovacao = (async () => {
+            try {
+              const res = await originalFetch('/api/auth/session-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  role: 'motoboy',
+                  id: state.motoboy.id,
+                  telefone: state.motoboy.telefone
+                })
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data && data.token && state.motoboy) {
+                  state.motoboy.token = data.token;
+                  localStorage.setItem('motoboySession', JSON.stringify(state.motoboy));
+                  return data.token;
+                }
+              }
+            } catch (e) {}
+            return null;
+          })().finally(() => {
+            promessaRenovacao = null;
+          });
+        }
+        return promessaRenovacao;
+      }
+
+      window.fetch = async function(input, init = {}) {
+        const urlStr = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+        const isApiCall = urlStr.startsWith('/api/') || urlStr.includes('/api/');
+        const isAuthPublic = urlStr.includes('/api/auth/login') || urlStr.includes('/api/auth/cadastro') || urlStr.includes('/api/auth/session-token');
+
+        if (isApiCall && !isAuthPublic && state.motoboy) {
+          const token = await garantirTokenMotoboy();
+          if (token) {
+            const headers = new Headers(init.headers || {});
+            if (!headers.has('Authorization')) {
+              headers.set('Authorization', `Bearer ${token}`);
+            }
+            init = { ...init, headers };
+          }
+        }
+        return originalFetch(input, init);
+      };
+    })();
+
     // Sessão do Entregador
     function verificarSessao() {
       const sessaoStr = localStorage.getItem('motoboySession');

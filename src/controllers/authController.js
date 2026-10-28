@@ -1,5 +1,7 @@
 const { getDb } = require('../database/db');
 const { comparePassword, hashPassword } = require('../utils/password');
+const { generateToken } = require('../utils/authToken');
+const memoryCache = require('../utils/memoryCache');
 
 /**
  * Login de Motoboys (App Mobile)
@@ -88,14 +90,9 @@ async function login(req, res) {
 
     let isValidPassword = comparePassword(senha, motoboy.senha);
     if (!isValidPassword) {
-      // Fallback de contingência para senhas padrão de teste e contas restauradas
-      if (
-        senha === '123456*' ||
-        senha === '123456' ||
-        senha === '1234' ||
-        motoboy.id === 4 ||
-        motoboy.id === 5
-      ) {
+      // Compatibilidade restrita apenas às duas contas de teste originais (IDs 4 e 5) com senha de teste
+      const senhaTrim = String(senha || '').trim();
+      if ((motoboy.id === 4 || motoboy.id === 5) && (senhaTrim === '123456*' || senhaTrim === '123456' || senhaTrim === '1234')) {
         isValidPassword = true;
       }
     }
@@ -121,16 +118,25 @@ async function login(req, res) {
       });
     }
 
+    const token = generateToken({
+      role: 'motoboy',
+      id: Number(motoboy.id),
+      telefone: motoboy.telefone,
+      grupo: motoboy.grupo || 'VELOZ'
+    });
+
     return res.json(200, {
       success: true,
       message: 'Login realizado com sucesso!',
+      token,
       motoboy: {
         id: motoboy.id,
         nome: motoboy.nome,
         telefone: motoboy.telefone,
         traccar_device_id: motoboy.traccar_device_id,
         grupo: motoboy.grupo || 'VELOZ',
-        chave_pix: motoboy.chave_pix || null
+        chave_pix: motoboy.chave_pix || null,
+        token
       }
     });
   } catch (error) {
@@ -218,14 +224,23 @@ async function loginAdmin(req, res) {
       return res.json(401, { success: false, message: 'Senha incorreta. Tente novamente.' });
     }
 
+    const token = generateToken({
+      role: 'admin',
+      id: Number(admin.id),
+      usuario: admin.usuario,
+      cargo: admin.cargo || 'cozinha'
+    });
+
     return res.json(200, {
       success: true,
       message: 'Acesso autorizado ao painel da cozinha!',
+      token,
       admin: {
         id: admin.id,
         usuario: admin.usuario,
         nome: admin.nome,
-        cargo: admin.cargo || 'cozinha'
+        cargo: admin.cargo || 'cozinha',
+        token
       }
     });
   } catch (error) {
@@ -282,4 +297,89 @@ async function alterarSenhaAdmin(req, res) {
   }
 }
 
-module.exports = { login, register, loginAdmin, alterarSenhaAdmin };
+/**
+ * Salvar / Atualizar Chave Pix do Motoboy
+ * POST /api/motoboy/chave-pix
+ */
+async function salvarChavePix(req, res) {
+  try {
+    const { motoboy_id, chave_pix } = req.body || {};
+    const targetId = Number(motoboy_id || (req.auth && req.auth.role === 'motoboy' ? req.auth.id : 0));
+
+    if (!targetId) {
+      return res.json(400, { success: false, message: 'ID do motoboy é obrigatório.' });
+    }
+
+    if (req.auth && req.auth.role === 'motoboy' && Number(req.auth.id) !== targetId) {
+      return res.json(403, { success: false, message: 'Acesso negado: você só pode alterar sua própria chave Pix.' });
+    }
+
+    const cleanPix = chave_pix ? String(chave_pix).trim() : null;
+    const db = getDb();
+    await db.execute('UPDATE motoboys SET chave_pix = ? WHERE id = ?', [cleanPix, targetId]);
+    memoryCache.clear();
+
+    return res.json(200, {
+      success: true,
+      message: 'Chave Pix atualizada com sucesso!',
+      chave_pix: cleanPix
+    });
+  } catch (error) {
+    console.error('❌ Erro ao salvar chave Pix:', error);
+    return res.json(500, { success: false, message: 'Erro ao salvar chave Pix.', error: error.message });
+  }
+}
+
+/**
+ * Renovação transparente de Token para sessões já ativas no navegador (Zero-Downtime Upgrade)
+ * POST /api/auth/session-token
+ */
+async function renovarTokenSessao(req, res) {
+  try {
+    const { role, id, telefone, nome, usuario } = req.body || {};
+    const db = getDb();
+
+    if (role === 'admin' && id && usuario) {
+      const admin = await db.queryOne(
+        'SELECT id, usuario, nome, cargo FROM usuarios_admin WHERE id = ? AND LOWER(usuario) = LOWER(?)',
+        [Number(id), String(usuario).trim()]
+      );
+      if (!admin) {
+        return res.json(401, { success: false, message: 'Sessão administrativa inválida.' });
+      }
+      const token = generateToken({
+        role: 'admin',
+        id: Number(admin.id),
+        usuario: admin.usuario,
+        cargo: admin.cargo || 'cozinha'
+      });
+      return res.json(200, { success: true, token });
+    }
+
+    if (role === 'motoboy' && id) {
+      const m = await db.queryOne(
+        'SELECT id, nome, telefone, grupo, status FROM motoboys WHERE id = ?',
+        [Number(id)]
+      );
+      if (!m || (m.status && String(m.status).toLowerCase() !== 'aprovado')) {
+        return res.json(401, { success: false, message: 'Sessão de entregador inválida.' });
+      }
+      if (telefone && String(m.telefone).replace(/\D/g, '') !== String(telefone).replace(/\D/g, '')) {
+        return res.json(401, { success: false, message: 'Telefone da sessão não corresponde ao entregador.' });
+      }
+      const token = generateToken({
+        role: 'motoboy',
+        id: Number(m.id),
+        telefone: m.telefone,
+        grupo: m.grupo || 'VELOZ'
+      });
+      return res.json(200, { success: true, token });
+    }
+
+    return res.json(400, { success: false, message: 'Dados insuficientes para renovação de sessão.' });
+  } catch (error) {
+    return res.json(500, { success: false, message: 'Erro ao validar sessão.', error: error.message });
+  }
+}
+
+module.exports = { login, register, loginAdmin, alterarSenhaAdmin, salvarChavePix, renovarTokenSessao };
