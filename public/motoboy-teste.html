@@ -1131,6 +1131,22 @@
           statusText.innerHTML = `<span style="color: #22c55e;">●</span> GPS ${h} (${acc}m)`;
         }
 
+        atualizarMarcadorMapaProprio(lat, lng);
+
+        // Economia de CPU Vercel e bateria: aplica a mesma regra do servidor (envia se moveu >= 5m ou passaram >= 35s)
+        const agoraGps = Date.now();
+        if (state.ultimoEnvioGpsTs && state.ultimaLatEnviada !== undefined && state.ultimaLngEnviada !== undefined) {
+          const dLat = (lat - state.ultimaLatEnviada) * 111320;
+          const dLng = (lng - state.ultimaLngEnviada) * 111320 * Math.cos(lat * Math.PI / 180);
+          const distMetros = Math.sqrt(dLat * dLat + dLng * dLng);
+          if (distMetros < 5 && (agoraGps - state.ultimoEnvioGpsTs) < 35000) {
+            return;
+          }
+        }
+        state.ultimoEnvioGpsTs = agoraGps;
+        state.ultimaLatEnviada = lat;
+        state.ultimaLngEnviada = lng;
+
         fetch('/api/motoboy/posicao', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
