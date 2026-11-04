@@ -3,6 +3,7 @@ const { getPosicoesMotoboys } = require('../services/traccarService');
 const { expirarPedidosPendentesDiasAnteriores, obterLimitesTurnoOperacional } = require('./pedidosController');
 const { obterTaxaRepasse, obterNomeBairroCanonica } = require('../utils/rateResolver');
 const memoryCache = require('../utils/memoryCache');
+const { extrairItensEPagamentoPedido } = require('../utils/orderParser');
 
 /**
  * Helper compartilhado: lê a lista de motoboys 1 única vez a cada 8s e serve
@@ -326,6 +327,10 @@ async function listarTodosPedidos(req, res) {
         const bairroFormatado = obterNomeBairroCanonica(p.bairro, p.endereco, p.texto_bruto) || p.bairro;
         const taxaSalva = (p.taxa_entrega !== null && p.taxa_entrega !== undefined && !isNaN(Number(p.taxa_entrega))) ? Number(p.taxa_entrega) : null;
         const repasseFinal = (taxaSalva !== null && taxaSalva > 0) ? taxaSalva : repasse;
+        const parsedOrder = extrairItensEPagamentoPedido(p.origem, p.texto_bruto, p.id);
+        const valorPedidoReal = parsedOrder.total_pedido_real !== null
+          ? parsedOrder.total_pedido_real
+          : (parsedOrder.subtotal_real !== null ? parsedOrder.subtotal_real : 0);
         return {
           id: p.id,
           numero_pedido: p.numero_pedido,
@@ -350,6 +355,8 @@ async function listarTodosPedidos(req, res) {
             telefone: p.motoboy_telefone,
             grupo: p.motoboy_grupo || 'VELOZ'
           } : null,
+          pagamento: parsedOrder.pagamento,
+          valor_pedido: Number(Number(valorPedidoReal || 0).toFixed(2)),
           total_pontos_gps: Number(p.total_pontos_gps || 0)
         };
       })
@@ -725,28 +732,8 @@ async function limparPedidosPendentesAntigos(req, res) {
   }
 }
 
-// ── SEGURANÇA & GESTÃO DE MOTOBOYS (PROTEGIDO POR SENHA E TOKEN) ────────────
-const SENHA_GESTAO_MOTOBOYS = process.env.SENHA_GESTAO_MOTOBOYS || 'boijoaocarnes01';
-const { generateToken, verifyToken } = require('../utils/authToken');
-
-function isAcaoGestaoAutorizada(req, senha_admin) {
-  const s = senha_admin ? String(senha_admin).trim() : '';
-  if (s) {
-    if (s === SENHA_GESTAO_MOTOBOYS) return true;
-    const tk = verifyToken(s);
-    if (tk && (tk.role === 'admin_gestao' || tk.role === 'admin')) return true;
-    return false;
-  }
-  const headerGestao = req.headers?.['x-gestao-token'];
-  if (headerGestao) {
-    const tk = verifyToken(String(headerGestao).trim());
-    if (tk && (tk.role === 'admin_gestao' || tk.role === 'admin')) return true;
-  }
-  if (false && req.auth && req.auth.role === 'admin') {
-    return true;
-  }
-  return false;
-}
+// ── SEGURANÇA & GESTÃO DE MOTOBOYS (PROTEGIDO POR SENHA) ─────────────────────
+const SENHA_GESTAO_MOTOBOYS = 'boijoaocarnes01';
 
 /**
  * Validação da senha de acesso à aba de gestão de entregadores
@@ -758,8 +745,7 @@ async function verificarSenhaMotoboys(req, res) {
     if (!senha || String(senha).trim() !== SENHA_GESTAO_MOTOBOYS) {
       return res.json(401, { success: false, message: 'Senha incorreta para gestão de entregadores.' });
     }
-    const gestao_token = generateToken({ role: 'admin_gestao' }, 1);
-    return res.json(200, { success: true, message: 'Acesso autorizado!', gestao_token });
+    return res.json(200, { success: true, message: 'Acesso autorizado!' });
   } catch (error) {
     return res.json(500, { success: false, message: 'Erro ao validar senha.', error: error.message });
   }
@@ -775,7 +761,7 @@ async function atualizarMotoboy(req, res) {
     if (!id) {
       return res.json(400, { success: false, message: 'ID do entregador é obrigatório.' });
     }
-    if (!isAcaoGestaoAutorizada(req, senha_admin)) {
+    if (senha_admin && String(senha_admin).trim() !== SENHA_GESTAO_MOTOBOYS) {
       return res.json(401, { success: false, message: 'Senha de administrador inválida.' });
     }
 
@@ -834,7 +820,7 @@ async function atualizarMotoboy(req, res) {
 async function cadastrarMotoboyAdmin(req, res) {
   try {
     const { nome, telefone, grupo, traccar_device_id, senha, senha_admin } = req.body || {};
-    if (!isAcaoGestaoAutorizada(req, senha_admin)) {
+    if (senha_admin && String(senha_admin).trim() !== SENHA_GESTAO_MOTOBOYS) {
       return res.json(401, { success: false, message: 'Senha de administrador inválida.' });
     }
     if (!nome || !telefone || !senha) {
@@ -983,7 +969,7 @@ async function obterTaxasBairros(req, res) {
 async function atualizarTaxaBairro(req, res) {
   try {
     const { grupo, bairro, taxa, senha_admin } = req.body || {};
-    if (!isAcaoGestaoAutorizada(req, senha_admin)) {
+    if (senha_admin && String(senha_admin).trim() !== SENHA_GESTAO_MOTOBOYS) {
       return res.json(401, { success: false, message: 'Senha de administrador inválida.' });
     }
     if (!bairro || taxa === undefined || isNaN(Number(taxa))) {
@@ -1080,7 +1066,7 @@ async function atribuirPedidoMotoboy(req, res) {
     await db.execute(updateSql, params);
 
     // 4. Se o motoboy tiver GPS conhecido, registrar ponto de início
-    if (false && motoboy.latitude !== null && motoboy.longitude !== null) {
+    if (motoboy.latitude !== null && motoboy.longitude !== null) {
       await db.execute(
         `INSERT INTO pedido_rotas (pedido_id, motoboy_id, latitude, longitude, velocidade, criado_em) 
          VALUES (?, ?, ?, ?, ?, DATETIME('now', '-3 hours'))`,
@@ -1274,7 +1260,7 @@ async function alterarTaxaPedido(req, res) {
 async function excluirMotoboyAdmin(req, res) {
   try {
     const { motoboy_id, senha_admin } = req.body || {};
-    if (!isAcaoGestaoAutorizada(req, senha_admin)) {
+    if (senha_admin && String(senha_admin).trim() !== SENHA_GESTAO_MOTOBOYS) {
       return res.json(401, { success: false, message: 'Senha de administrador inválida.' });
     }
     if (!motoboy_id) {
