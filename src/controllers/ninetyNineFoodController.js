@@ -30,67 +30,71 @@ async function injectOrderToDb(payload) {
   try {
     const db = getDb();
     const orderInfo = payload.data?.order_info || payload.data || {};
-    const orderId = String(orderInfo.order_id || payload.data?.order_id || payload.order_id || payload.orderId || '');
-    if (!orderId) {
-      console.warn('⚠️ [99Food] orderId ausente no payload.');
-      return;
-    }
+    const orderId = String(orderInfo.order_id || payload.order_id || '');
+    if (!orderId) return;
 
     const rawOrderIndex = orderInfo.order_index ? String(orderInfo.order_index).replace(/^#+/, '').trim() : '';
     const numeroPedido = rawOrderIndex || orderId.slice(-6);
 
     // 1. Busca pedido ÚNICA E EXCLUSIVAMENTE pelo ID global único da 99Food (19 dígitos)
     let existe = await db.queryOne(
-      `SELECT id, numero_pedido, status, motoboy_id FROM pedidos 
+      `SELECT id, numero_pedido, status, motoboy_id, grupo, taxa_entrega FROM pedidos 
        WHERE origem = '99FOOD' AND pedido_id_origem = ?
        ORDER BY id DESC LIMIT 1`,
       [orderId]
     );
 
-    // 2. Se não achou pelo ID oficial, só busca por número se for pedido do turno operacional e ainda no balcão
+    // 2. Se não achou pelo ID oficial, só busca por número se for pedido de HOJE e ainda no balcão
     if (!existe && numeroPedido) {
-      const nowSp = new Date(Date.now() - 2 * 60 * 60 * 1000);
-      const hojeStr = nowSp.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-      const turnoInicio = hojeStr + ' 00:00:00';
+      const hojeInicio = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) + ' 00:00:00';
       existe = await db.queryOne(
-        `SELECT id, numero_pedido, status, motoboy_id FROM pedidos 
+        `SELECT id, numero_pedido, status, motoboy_id, grupo, taxa_entrega FROM pedidos 
          WHERE origem = '99FOOD' 
            AND numero_pedido IN (?, ?)
            AND criado_em >= ?
            AND status IN ('disponivel', 'aguardando_retirada', 'pronto', 'em_preparo')
          ORDER BY id DESC LIMIT 1`,
-        [numeroPedido, `#${numeroPedido}`, turnoInicio]
+        [numeroPedido, `#${numeroPedido}`, hojeInicio]
       );
     }
 
-    const addr = orderInfo.receive_address;
-    if (!addr || (!addr.poi_address && !addr.street_name && !addr.name)) {
-      console.warn(`⚠️ [99Food] Pedido #${numeroPedido} (${orderId}) ignorado pois receive_address está vazio/incompleto.`);
-      return;
+    // Proteção crítica: se o evento for orderConfirm (que costuma vir sem receive_address),
+    // NÃO podemos sobrescrever o endereço e cliente já gravados no orderNew.
+    const addr = orderInfo.receive_address || null;
+    const temEnderecoValido = addr && (addr.street_name || addr.poi_address || addr.name || addr.phone || addr.locator);
+
+    if (payload.event_type === 'orderConfirm' || payload.type === 'orderConfirm' || (!temEnderecoValido && existe)) {
+      if (!temEnderecoValido) {
+        console.log(`ℹ️ [99Food] Evento ${payload.type || payload.event_type || 'webhook'} sem dados de endereço. Ignorado para preservar integridade da comanda.`);
+        return;
+      }
     }
-    const cliente = addr.name || [addr.first_name, addr.last_name].filter(Boolean).join(' ') || 'Cliente 99Food';
-    const tel = addr.phone || addr.virtual_phone_number || '';
-    const loc = addr.locator ? String(addr.locator).trim() : null;
+
+    const safeAddr = addr || {};
+    const cliente = safeAddr.name || [safeAddr.first_name, safeAddr.last_name].filter(Boolean).join(' ') || 'Cliente 99Food';
+    const tel = safeAddr.phone || safeAddr.virtual_phone_number || '';
+    const loc = safeAddr.locator ? String(safeAddr.locator).trim() : null;
     
     // Concatena endereço completo incluindo número, complemento e ponto de referência
-    const refComp = [addr.complement, addr.reference || addr.house_number].filter(Boolean).join(' - ');
-    const ruaCompleta = [addr.street_name, addr.street_number, refComp].filter(Boolean).join(', ')
-      || addr.poi_address
-      || addr.poi_display_name
+    const refComp = [safeAddr.complement, safeAddr.reference || safeAddr.house_number].filter(Boolean).join(' - ');
+    const ruaCompleta = [safeAddr.street_name, safeAddr.street_number, refComp].filter(Boolean).join(', ')
+      || safeAddr.poi_address
+      || safeAddr.poi_display_name
       || 'Consulte o app';
     
-    const bairro = addr.district || '';
+    const bairro = safeAddr.district || '';
     const rawText = JSON.stringify(payload, null, 2);
 
-    const { obterTaxaRepasse, obterNomeBairroCanonica } = require('../utils/rateResolver');
+    const { obterTaxaRepasse, obterNomeBairroCanonica, sincronizarTaxasDb } = require('../utils/rateResolver');
+    await sincronizarTaxasDb(db);
     const bairroFormatado = obterNomeBairroCanonica(bairro, ruaCompleta, rawText) || bairro;
 
-    // Taxa de entrega da loja ou taxa cobrada
-    const taxaCents = orderInfo.price?.store_charged_delivery_price || orderInfo.price?.delivery_price || orderInfo.price?.delivery_fee || 0;
-    let taxa = taxaCents ? (taxaCents / 100) : 0;
-    if (taxa === 0) {
-      taxa = obterTaxaRepasse(bairroFormatado, ruaCompleta, rawText, 'VELOZ');
-    }
+    // Taxa de repasse SEMPRE calculada pela tabela oficial de bairros da Ao Ponto (NUNCA usar taxa promocional de cliente da 99Food)
+    const grupoRef = (existe && existe.grupo === 'SPEED') ? 'SPEED' : 'VELOZ';
+    const taxaOficial = obterTaxaRepasse(bairroFormatado, ruaCompleta, rawText, grupoRef) || (grupoRef === 'SPEED' ? 11.0 : 10.0);
+    const taxa = (existe && existe.taxa_entrega && Number(existe.taxa_entrega) >= 7)
+      ? Number(existe.taxa_entrega)
+      : taxaOficial;
 
     if (existe) {
       // Se o pedido já existia para este mesmo orderId ou hoje, atualiza com os dados oficiais sem perder rota
@@ -111,7 +115,7 @@ async function injectOrderToDb(payload) {
          WHERE id = ?`,
         [numeroPedido, orderId, cliente, ruaCompleta, bairroFormatado, taxa, tel, loc, novoStatus, rawText, existe.id]
       );
-      console.log(`🔄 [99Food] Pedido existente (ID ${existe.id}) atualizado com dados da API: #${numeroPedido} (${orderId}) [Status: ${novoStatus}]`);
+      console.log(`🔄 [99Food] Pedido existente (ID ${existe.id}) atualizado com dados da API: #${numeroPedido} (${orderId}) [Status: ${novoStatus} | Taxa: R$ ${taxa}]`);
       memoryCache.clear();
       return;
     }
@@ -200,15 +204,7 @@ async function handleWebhook(req, res) {
     await saveEventToDb(eventRecord);
 
     if (eventType === 'orderNew' || eventType === 'orderConfirm') {
-      // 99Food envia o endereço e itens completos no evento 'orderNew'.
-      // O evento 'orderConfirm' envia receive_address: null.
-      // Portanto, APENAS processamos se receive_address estiver presente, para nunca corromper ou criar pedidos sem dados.
-      const hasAddress = payload.data?.order_info?.receive_address || payload.data?.receive_address;
-      if (hasAddress) {
-        await injectOrderToDb(payload);
-      } else {
-        console.log(`ℹ️ [99Food] Evento ${eventType} sem dados de endereço. Ignorado para preservar integridade da comanda.`);
-      }
+      await injectOrderToDb(payload);
     } else if (eventType === 'orderCancel') {
       await cancelOrderInDb(orderId);
     } else if (eventType === 'orderFinish') {
@@ -272,7 +268,7 @@ async function checkStatus(req, res) {
     appId: env.FOOD99_APP_ID,
     shopId: env.FOOD99_SHOP_ID,
     appShopId: env.FOOD99_APP_SHOP_ID,
-    webhookUrl: 'https://sist-homolog.vercel.app/api/99food/webhook',
+    webhookUrl: process.env.FOOD99_WEBHOOK_URL || 'https://sist-homolog-iota.vercel.app/api/99food/webhook',
     authorizedShops: shopsData,
     timestamp: new Date().toISOString()
   });
